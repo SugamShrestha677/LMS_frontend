@@ -2,6 +2,6 @@
 
 import { UserManagement } from '@/components/admin/UserManagement';
 
-export default function AdminUsersPage() {
+export default function SuperAdminUsersPage() {
   return <UserManagement />;
 }

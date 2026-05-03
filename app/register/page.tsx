@@ -3,8 +3,8 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion, AnimatePresence } from 'framer-motion';
-import { registerSchema, RegisterInput } from '@/lib/validations/auth';
-import { useRegister } from '@/lib/hooks/useAuth';
+// import { registerSchema, RegisterInput } from '@/lib/validations/auth';
+// import { useRegister } from '@/lib/hooks/useAuth';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -14,26 +14,26 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
 export default function RegisterPage() {
-  const { mutate: registerUser, isPending } = useRegister();
+  // const { mutate: registerUser, isPending } = useRegister();
   
-  const {
-    register,
-    handleSubmit,
-    watch,
-    setValue,
-    formState: { errors },
-  } = useForm<RegisterInput>({
-    resolver: zodResolver(registerSchema),
-    defaultValues: {
-      role: 'student',
-    },
-  });
+  // const {
+  //   register,
+  //   handleSubmit,
+  //   watch,
+  //   setValue,
+  //   formState: { errors },
+  // } = useForm<RegisterInput>({
+  //   resolver: zodResolver(registerSchema),
+  //   defaultValues: {
+  //     role: 'student',
+  //   },
+  // });
 
-  const currentRole = watch('role');
+  // const currentRole = watch('role');
 
-  const onSubmit = (data: RegisterInput) => {
-    registerUser(data);
-  };
+  // const onSubmit = (data: RegisterInput) => {
+  //   registerUser(data);
+  // };
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FAFAFA]">

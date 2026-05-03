@@ -3,13 +3,14 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Menu, Bell, ChevronDown, GraduationCap, LogOut, User, Settings, Search } from 'lucide-react';
-import { useAuthStore } from '@/lib/store/authStore';
+import { useAuthStore } from '@/lib/store/auth-store';
 import { useUIStore } from '@/lib/store/uiStore';
 import { useLogout } from '@/lib/hooks/useAuth';
 import { getInitials, getDashboardPath } from '@/lib/utils';
 import { ThemeToggle } from '../shared/ThemeToggle';
+import { getDashboardRoute } from '@/lib/utils/role-routes';
 
 const publicLinks = [
   { href: '/', label: 'Home' },
@@ -17,13 +18,52 @@ const publicLinks = [
   { href: '/#how-it-works', label: 'How It Works' },
 ];
 
+/** Returns the profile path for each role */
+function getProfilePath(role?: string): string {
+  switch (role) {
+    case 'student': return '/student/profile';
+    case 'company': return '/company/profile';
+    case 'admin': return '/admin/profile';
+    case 'super_admin': return '/super-admin/profile';
+    case 'tutor': return '/tutor/profile';
+    case 'staff': return '/staff/profile';
+    default: return '/profile';
+  }
+}
+
+/** Display name: use first_name if present, else email prefix */
+function getDisplayName(user: { first_name?: string; last_name?: string; email: string }): string {
+  if (user.first_name) return user.first_name;
+  return user.email.split('@')[0];
+}
+
+/** Initials for the avatar circle */
+function getUserInitials(user: { first_name?: string; last_name?: string; email: string }): string {
+  if (user.first_name) {
+    return getInitials(`${user.first_name} ${user.last_name ?? ''}`);
+  }
+  return user.email.slice(0, 2).toUpperCase();
+}
+
 export function Navbar() {
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, isLoading, _hasHydrated } = useAuthStore();
   const { toggleMobileDrawer } = useUIStore();
   const { mutate: logout } = useLogout();
   const [profileOpen, setProfileOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
-  const isDashboard = pathname.startsWith('/student') || pathname.startsWith('/company') || pathname.startsWith('/admin');
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Treat any authenticated dashboard route as "inside the app"
+  const dashboardPrefixes = ['/student', '/company', '/admin', '/super-admin', '/tutor', '/staff'];
+  const isDashboard = dashboardPrefixes.some((prefix) => pathname.startsWith(prefix));
+
+  // Helper to check if we should show auth UI
+  const isActuallyHydrated = _hasHydrated || (typeof window !== 'undefined' && useAuthStore.persist.hasHydrated());
+  const showAuthUI = mounted && isActuallyHydrated && isAuthenticated && user && !isLoading;
 
   return (
     <motion.header
@@ -35,7 +75,7 @@ export function Navbar() {
       <div className="max-w-7xl mx-auto px-6 lg:px-8 h-20 flex items-center justify-between gap-8">
         {/* Left — Logo + mobile menu */}
         <div className="flex items-center gap-6">
-          {isDashboard && isAuthenticated && (
+          {isDashboard && showAuthUI && (
             <button
               onClick={toggleMobileDrawer}
               className="lg:hidden w-10 h-10 rounded-xl flex items-center justify-center text-[var(--color-text-secondary)] hover:bg-[var(--color-muted)] transition-colors border border-[var(--color-border)]"
@@ -43,7 +83,10 @@ export function Navbar() {
               <Menu size={22} />
             </button>
           )}
-          <Link href={isAuthenticated ? getDashboardPath(user?.role ?? '') : '/'} className="flex items-center gap-3 group">
+          <Link
+            href={showAuthUI ? getDashboardRoute(user.role) : '/'}
+            className="flex items-center gap-3 group"
+          >
             <div className="w-10 h-10 rounded-2xl bg-[var(--color-primary)] flex items-center justify-center shadow-lg shadow-[var(--color-primary)]/20 group-hover:scale-110 transition-transform">
               <GraduationCap size={20} className="text-white" />
             </div>
@@ -57,9 +100,9 @@ export function Navbar() {
         {isDashboard && (
           <div className="hidden md:flex flex-1 max-w-md relative group">
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)] group-focus-within:text-[var(--color-primary)] transition-colors" />
-            <input 
-              type="text" 
-              placeholder="Search anything..." 
+            <input
+              type="text"
+              placeholder="Search anything..."
               className="w-full h-11 bg-[var(--color-muted)] border border-[var(--color-border)] rounded-2xl pl-12 pr-4 text-sm font-medium outline-none focus:border-[var(--color-primary)] focus:ring-4 focus:ring-[var(--color-primary)]/5 transition-all"
             />
           </div>
@@ -83,8 +126,10 @@ export function Navbar() {
         {/* Right */}
         <div className="flex items-center gap-4">
           <ThemeToggle />
-          
-          {isAuthenticated && user ? (
+
+          {!mounted || !isActuallyHydrated || isLoading ? (
+            <div className="w-10 h-10 rounded-xl bg-[var(--color-muted)] animate-pulse" />
+          ) : isAuthenticated && user ? (
             <>
               {/* Notification Bell */}
               <button className="relative w-10 h-10 rounded-xl flex items-center justify-center text-[var(--color-text-secondary)] hover:bg-[var(--color-muted)] transition-colors border border-[var(--color-border)]">
@@ -99,9 +144,11 @@ export function Navbar() {
                   className="flex items-center gap-3 pl-1.5 pr-3 py-1.5 rounded-2xl hover:bg-[var(--color-muted)] transition-all border border-transparent hover:border-[var(--color-border)]"
                 >
                   <div className="w-8 h-8 rounded-xl bg-[var(--color-primary)] flex items-center justify-center text-white text-[10px] font-black shadow-md">
-                    {getInitials(`${user.first_name} ${user.last_name}`)}
+                    {getUserInitials(user)}
                   </div>
-                  <span className="hidden sm:block text-sm font-black text-[var(--color-text-primary)] tracking-tight">{user.first_name}</span>
+                  <span className="hidden sm:block text-sm font-black text-[var(--color-text-primary)] tracking-tight">
+                    {getDisplayName(user)}
+                  </span>
                   <motion.span animate={{ rotate: profileOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
                     <ChevronDown size={16} className="text-[var(--color-text-secondary)]" />
                   </motion.span>
@@ -119,12 +166,16 @@ export function Navbar() {
                         className="absolute right-0 top-full mt-3 w-64 bg-[var(--color-bg-card)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] border border-[var(--color-border)] py-3 z-20 overflow-hidden"
                       >
                         <div className="px-5 py-3 border-b border-[var(--color-border)] mb-2 bg-[var(--color-muted)]/50">
-                          <p className="text-sm font-black text-[var(--color-text-primary)] tracking-tight">{user.first_name} {user.last_name}</p>
-                          <p className="text-[10px] font-black text-[var(--color-text-secondary)] uppercase tracking-widest mt-0.5">{user.role?.replace('_', ' ')} Account</p>
+                          <p className="text-sm font-black text-[var(--color-text-primary)] tracking-tight">
+                            {user.first_name ? `${user.first_name} ${user.last_name ?? ''}`.trim() : user.email}
+                          </p>
+                          <p className="text-[10px] font-black text-[var(--color-text-secondary)] uppercase tracking-widest mt-0.5">
+                            {user.role?.replace('_', ' ')} Account
+                          </p>
                         </div>
                         <div className="px-2">
                           <Link
-                            href={`/${user.role === 'student' ? 'student' : user.role === 'company' ? 'company' : 'admin'}/profile`}
+                            href={getProfilePath(user.role)}
                             onClick={() => setProfileOpen(false)}
                             className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-[var(--color-text-secondary)] hover:bg-[var(--color-muted)] hover:text-[var(--color-text-primary)] rounded-xl transition-all"
                           >

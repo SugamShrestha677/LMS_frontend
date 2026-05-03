@@ -1,20 +1,23 @@
-import type { Metadata } from "next";
-import "./globals.css";
-import { Providers } from "@/lib/providers/Providers";
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import { Providers } from './providers';
+import './globals.css';
+
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: "Leapfrog Connect | Bridging Education & Employment",
-  description: "Bridges education and employment in Nepal. Students take courses, earn verified badges, and get hired by companies.",
+  title: 'Leapfrog Connect - LMS',
+  description: 'Skills to Jobs Pipeline',
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="en" className="h-full" suppressHydrationWarning>
-      <body className="h-full antialiased font-main">
+    <html lang="en">
+      <body className={inter.className}>
         <Providers>
           {children}
         </Providers>

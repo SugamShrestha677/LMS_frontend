@@ -9,7 +9,8 @@ import { motion } from 'framer-motion';
 import { 
   Users, Building2, GraduationCap, ShieldAlert,
   BarChart2, TrendingUp, AlertTriangle, CheckCircle2,
-  Bell, ArrowUpRight, Search, MoreHorizontal
+  Bell, ArrowUpRight, Search, MoreHorizontal,
+  XCircle
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, 
@@ -42,19 +43,23 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="space-y-8 pb-12">
+    <div className="space-y-10 pb-12">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white/40 p-8 rounded-[2rem] border border-white/60 backdrop-blur-md">
         <div>
-          <h1 className="text-3xl font-black text-[#1E1E2A]">System <span className="text-gradient">Overview</span></h1>
-          <p className="text-[#5A5A6E] mt-1">Platform analytics and administrative controls.</p>
+          <h1 className="text-4xl font-black text-[var(--color-text-primary)] tracking-tight">
+            System <span className="text-[var(--color-primary)]">Intelligence</span>
+          </h1>
+          <p className="text-[var(--color-text-secondary)] mt-2 font-medium">
+            Real-time analytics and administrative oversight for Leapfrog Connect.
+          </p>
         </div>
         
         <div className="flex items-center gap-3">
-          <Button variant="outline" className="h-11 bg-white">
+          <Button variant="outline" className="h-14 px-6 rounded-2xl bg-white/50 border-white font-black text-xs uppercase tracking-widest">
             <BarChart2 size={18} className="mr-2" /> Export Report
           </Button>
-          <Button className="h-11">
+          <Button className="h-14 px-6 rounded-2xl shadow-xl shadow-[var(--color-primary)]/20 font-black text-xs uppercase tracking-widest">
             <ShieldAlert size={18} className="mr-2" /> Security Audit
           </Button>
         </div>
@@ -63,34 +68,34 @@ export default function AdminDashboard() {
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
-          title="Total Students"
+          title="Talent Pool"
           value={dashboard?.stats?.total_students ?? '12,450'}
-          icon={<Users size={20} />}
-          change="8% growth"
+          icon={<Users size={22} />}
+          change="8.4% monthly growth"
           changePositive={true}
           color="#0A5C4A"
         />
         <StatCard
-          title="Partner Companies"
-          value={dashboard?.stats?.total_companies ?? '580'}
-          icon={<Building2 size={20} />}
+          title="Enterprise Partners"
+          value={dashboard?.stats?.total_companies ?? '582'}
+          icon={<Building2 size={22} />}
           change="12 added this week"
           changePositive={true}
           color="#1E88E5"
         />
         <StatCard
-          title="Courses Active"
+          title="Active Curriculums"
           value={dashboard?.stats?.total_courses ?? '142'}
-          icon={<GraduationCap size={20} />}
+          icon={<GraduationCap size={22} />}
           change="95% completion rate"
           changePositive={true}
           color="#F5A623"
         />
         <StatCard
-          title="Monthly Revenue"
+          title="System Revenue"
           value={dashboard?.stats?.revenue ?? 'रू 8.2M'}
-          icon={<TrendingUp size={20} />}
-          change="15% increase"
+          icon={<TrendingUp size={22} />}
+          change="15.2% increase"
           changePositive={true}
           color="#7C3AED"
         />
@@ -100,82 +105,101 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* Main Growth Chart */}
-        <Card className="lg:col-span-2 p-6">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="font-bold text-lg text-[#1E1E2A]">Platform Growth</h3>
-            <div className="flex gap-4">
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-[#0A5C4A]" />
-                <span className="text-xs font-bold text-[#5A5A6E]">Students</span>
+        <Card className="lg:col-span-2 p-8 bg-white/60 backdrop-blur-xl border-none shadow-2xl rounded-[2.5rem]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-10 gap-4">
+            <div>
+              <h3 className="font-black text-xl text-[var(--color-text-primary)] tracking-tight">Growth Trajectory</h3>
+              <p className="text-xs font-bold text-[var(--color-text-secondary)] uppercase tracking-widest mt-1">Acquisition Trends</p>
+            </div>
+            <div className="flex gap-6">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-[var(--color-primary)] shadow-[0_0_8px_rgba(10,92,74,0.4)]" />
+                <span className="text-xs font-black text-[var(--color-text-secondary)] uppercase tracking-tighter">Students</span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-[#1E88E5]" />
-                <span className="text-xs font-bold text-[#5A5A6E]">Companies</span>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-[#1E88E5] shadow-[0_0_8px_rgba(30,136,229,0.4)]" />
+                <span className="text-xs font-black text-[var(--color-text-secondary)] uppercase tracking-tighter">Companies</span>
               </div>
             </div>
           </div>
-          <div className="h-[350px] w-full">
+          <div className="h-[380px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={growthData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+              <BarChart data={growthData} barGap={12}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.03)" />
                 <XAxis 
                   dataKey="name" 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fill: '#5A5A6E', fontSize: 12 }}
-                  dy={10}
+                  tick={{ fill: 'var(--color-text-secondary)', fontSize: 11, fontWeight: 700 }}
+                  dy={15}
                 />
                 <YAxis 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{ fill: '#5A5A6E', fontSize: 12 }}
+                  tick={{ fill: 'var(--color-text-secondary)', fontSize: 11, fontWeight: 700 }}
                 />
                 <Tooltip 
-                  cursor={{ fill: '#f8fafc' }}
+                  cursor={{ fill: 'rgba(0,0,0,0.02)' }}
                   contentStyle={{ 
-                    borderRadius: '12px', 
-                    border: 'none', 
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)' 
+                    borderRadius: '20px', 
+                    border: '1px solid rgba(255,255,255,0.6)', 
+                    boxShadow: '0 20px 40px rgba(0,0,0,0.08)',
+                    backdropFilter: 'blur(10px)',
+                    background: 'rgba(255,255,255,0.8)'
                   }} 
                 />
-                <Bar dataKey="students" fill="#0A5C4A" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="companies" fill="#1E88E5" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="students" fill="var(--color-primary)" radius={[6, 6, 0, 0]} barSize={32} />
+                <Bar dataKey="companies" fill="#1E88E5" radius={[6, 6, 0, 0]} barSize={32} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </Card>
 
         {/* Sector Distribution */}
-        <Card className="p-6">
-          <h3 className="font-bold text-lg text-[#1E1E2A] mb-8">Course Sectors</h3>
-          <div className="h-[250px] w-full">
+        <Card className="p-8 bg-white/60 backdrop-blur-xl border-none shadow-2xl rounded-[2.5rem]">
+          <h3 className="font-black text-xl text-[var(--color-text-primary)] tracking-tight mb-2">Curriculum Focus</h3>
+          <p className="text-xs font-bold text-[var(--color-text-secondary)] uppercase tracking-widest mb-8">Sector Distribution</p>
+          
+          <div className="h-[240px] w-full relative">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="text-center">
+                <p className="text-3xl font-black text-[var(--color-text-primary)]">142</p>
+                <p className="text-[10px] font-black text-[var(--color-text-secondary)] uppercase tracking-widest">Total</p>
+              </div>
+            </div>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={distributionData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
+                  innerRadius={70}
+                  outerRadius={95}
+                  paddingAngle={8}
                   dataKey="value"
+                  stroke="none"
                 >
                   {distributionData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={entry.color} 
+                      className="outline-none"
+                    />
                   ))}
                 </Pie>
                 <Tooltip />
               </PieChart>
             </ResponsiveContainer>
           </div>
-          <div className="mt-6 space-y-3">
+          
+          <div className="mt-8 space-y-4">
             {distributionData.map((item) => (
-              <div key={item.name} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                  <span className="text-sm font-medium text-[#5A5A6E]">{item.name}</span>
+              <div key={item.name} className="flex items-center justify-between group cursor-default">
+                <div className="flex items-center gap-3">
+                  <div className="w-3 h-3 rounded-full transition-transform group-hover:scale-125" style={{ backgroundColor: item.color }} />
+                  <span className="text-sm font-bold text-[var(--color-text-secondary)] group-hover:text-[var(--color-text-primary)] transition-colors">{item.name}</span>
                 </div>
-                <span className="text-sm font-bold text-[#1E1E2A]">{item.value}%</span>
+                <span className="text-sm font-black text-[var(--color-text-primary)]">{item.value}%</span>
               </div>
             ))}
           </div>
@@ -186,69 +210,81 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
         {/* Alerts Panel */}
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2 text-[#1E1E2A]">
-              <Bell size={20} className="text-red-500" />
-              <h3 className="font-bold text-lg">System Alerts</h3>
+        <Card className="p-8 bg-white/60 backdrop-blur-xl border-none shadow-2xl rounded-[2.5rem]">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-3 text-[var(--color-text-primary)]">
+              <div className="w-10 h-10 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-500">
+                <Bell size={20} />
+              </div>
+              <div>
+                <h3 className="font-black text-xl tracking-tight">System Alerts</h3>
+                <p className="text-[10px] font-black text-red-600 uppercase tracking-widest">4 Critical Actions</p>
+              </div>
             </div>
-            <Badge variant="danger" size="sm" pulse>4 Action Required</Badge>
+            <button className="w-10 h-10 rounded-xl bg-[var(--color-muted)] flex items-center justify-center text-[var(--color-text-secondary)] hover:bg-white transition-colors">
+              <MoreHorizontal size={20} />
+            </button>
           </div>
           
           <div className="space-y-4">
-            <div className="flex gap-4 p-4 rounded-xl bg-red-50 border border-red-100 highlight-animation">
-              <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center text-red-600 flex-shrink-0">
-                <ShieldAlert size={20} />
+            <div className="flex gap-4 p-5 rounded-3xl bg-red-500/[0.03] border border-red-500/10 group hover:bg-red-500/[0.05] transition-colors">
+              <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-600 flex-shrink-0 group-hover:scale-110 transition-transform">
+                <ShieldAlert size={24} />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-bold text-red-900">Failed Verification Attempt</p>
-                <p className="text-xs text-red-700 mt-1">Multiple OTP failures detected for user ram@mail.com (IP: 192.168.1.1)</p>
-                <div className="mt-3 flex gap-2">
-                  <button className="text-[10px] font-black uppercase text-red-700 hover:underline">Block IP</button>
-                  <button className="text-[10px] font-black uppercase text-red-700 hover:underline">Review User</button>
+                <p className="text-sm font-black text-red-900 uppercase tracking-tight">Security Breach Attempt</p>
+                <p className="text-xs text-red-700/70 mt-1 font-medium leading-relaxed">Multiple OTP failures detected for account <span className="font-bold underline">ram@mail.com</span> from restricted IP range.</p>
+                <div className="mt-4 flex gap-3">
+                  <button className="px-4 py-2 rounded-xl bg-red-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-red-700 transition-colors shadow-lg shadow-red-600/20">Block IP</button>
+                  <button className="px-4 py-2 rounded-xl bg-white border border-red-200 text-red-700 text-[10px] font-black uppercase tracking-widest hover:bg-red-50 transition-colors">Review Logs</button>
                 </div>
               </div>
             </div>
 
-            <div className="flex gap-4 p-4 rounded-xl bg-amber-50 border border-amber-100">
-              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center text-amber-600 flex-shrink-0">
-                <AlertTriangle size={20} />
+            <div className="flex gap-4 p-5 rounded-3xl bg-amber-500/[0.03] border border-amber-500/10">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-600 flex-shrink-0">
+                <AlertTriangle size={24} />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-bold text-amber-900">High Server Load</p>
-                <p className="text-xs text-amber-700 mt-1">CPU usage exceeded 90% for more than 5 minutes on Primary Node.</p>
+                <p className="text-sm font-black text-amber-900 uppercase tracking-tight">Server Threshold Reached</p>
+                <p className="text-xs text-amber-700/70 mt-1 font-medium leading-relaxed">Primary production node is currently at 92% CPU capacity. Scale-out recommended.</p>
               </div>
             </div>
           </div>
         </Card>
 
         {/* Pending Approvals */}
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2 text-[#1E1E2A]">
-              <CheckCircle2 size={20} className="text-[#0A5C4A]" />
-              <h3 className="font-bold text-lg">Pending Approvals</h3>
+        <Card className="p-8 bg-white/60 backdrop-blur-xl border-none shadow-2xl rounded-[2.5rem]">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-3 text-[var(--color-text-primary)]">
+              <div className="w-10 h-10 rounded-2xl bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)]">
+                <CheckCircle2 size={20} />
+              </div>
+              <div>
+                <h3 className="font-black text-xl tracking-tight">Pending Approvals</h3>
+                <p className="text-[10px] font-black text-[var(--color-primary)] uppercase tracking-widest">Verification Queue</p>
+              </div>
             </div>
-            <button className="text-xs font-bold text-[#0A5C4A] hover:underline">View Queue</button>
+            <button className="text-xs font-black text-[var(--color-primary)] uppercase tracking-widest hover:underline">View All</button>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-4">
             {pendingApprovals.map((item) => (
-              <div key={item.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 border border-transparent hover:border-[#e5e7eb] transition-all">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-[#5A5A6E]">
-                    {item.type === 'Company' ? <Building2 size={18} /> : <Users size={18} />}
+              <div key={item.id} className="flex items-center justify-between p-4 rounded-[1.5rem] bg-white/50 border border-white hover:border-[var(--color-primary)]/20 transition-all hover:shadow-lg hover:shadow-[var(--color-primary)]/5 group">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-[var(--color-muted)] flex items-center justify-center text-[var(--color-text-secondary)] group-hover:bg-[var(--color-primary)]/10 group-hover:text-[var(--color-primary)] transition-colors">
+                    {item.type === 'Company' ? <Building2 size={22} /> : <Users size={22} />}
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-[#1E1E2A]">{item.name}</p>
-                    <p className="text-[10px] text-[#5A5A6E] font-medium">{item.type} • Requested 2h ago</p>
+                    <p className="text-sm font-black text-[var(--color-text-primary)]">{item.name}</p>
+                    <p className="text-[10px] text-[var(--color-text-secondary)] font-bold uppercase tracking-widest mt-0.5">{item.type} • New Application</p>
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                    <MoreHorizontal size={14} />
+                  <Button variant="ghost" size="sm" className="h-10 w-10 p-0 rounded-xl hover:bg-red-50 hover:text-red-500">
+                    <XCircle size={18} />
                   </Button>
-                  <Button variant="primary" size="sm" className="h-8 px-3 text-[10px] uppercase font-black tracking-tight">
+                  <Button className="h-10 px-5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-[var(--color-primary)]/10">
                     Approve
                   </Button>
                 </div>
