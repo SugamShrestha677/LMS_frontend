@@ -5,9 +5,8 @@ import { UserManagement } from '@/components/admin/UserManagement';
 export default function SuperAdminUsersPage() {
   return (
     <UserManagement 
-      roleFilter="student" 
-      title="Platform Students" 
-      subtitle="Manage and monitor student accounts and progress." 
+      title="Platform Users" 
+      subtitle="Manage and monitor all system accounts and activity." 
     />
   );
 }

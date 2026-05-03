@@ -93,7 +93,9 @@ export function UserManagement({ roleFilter, title, subtitle }: UserManagementPr
     ];
   };
 
-  const filteredUsers = users?.data?.filter((u: any) => {
+  const userList = Array.isArray(users) ? users : users?.data || [];
+
+  const filteredUsers = userList.filter((u: any) => {
     const matchesSearch = u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          u.role.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = roleFilter ? u.role === roleFilter : true;
@@ -129,8 +131,14 @@ export function UserManagement({ roleFilter, title, subtitle }: UserManagementPr
             <Users size={24} />
           </div>
           <div>
-            <p className="text-xs font-bold text-[var(--color-text-secondary)] uppercase tracking-widest">Total Users</p>
-            <p className="text-2xl font-black text-[var(--color-text-primary)]">{users?.length || 0}</p>
+            <p className="text-xs font-bold text-[var(--color-text-secondary)] uppercase tracking-widest">
+              {roleFilter 
+                ? `Total ${roleFilter === 'company' ? 'Companies' : roleFilter.replace('_', ' ') + 's'}` 
+                : 'Total Users'}
+            </p>
+            <p className="text-2xl font-black text-[var(--color-text-primary)]">
+              {roleFilter ? filteredUsers.length : userList.length}
+            </p>
           </div>
         </Card>
 
