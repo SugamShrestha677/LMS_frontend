@@ -115,7 +115,7 @@ export function Sidebar() {
   const links = (mounted && isActuallyHydrated) ? getLinks(user?.role) : [];
 
   const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => (
-    <div className="flex flex-col h-full bg-[#0F0F12]">
+    <div className="flex flex-col h-full bg-[var(--color-bg-sidebar)]">
       {/* Logo */}
       <div className={cn('flex items-center gap-4 px-7 py-10', sidebarCollapsed && !mobile && 'justify-center px-2')}>
         <div className="w-12 h-12 rounded-2xl bg-[var(--color-primary)] flex items-center justify-center flex-shrink-0 shadow-2xl shadow-[var(--color-primary)]/40">
@@ -125,7 +125,7 @@ export function Sidebar() {
           <motion.span
             initial={{ opacity: 0, x: -12 }}
             animate={{ opacity: 1, x: 0 }}
-            className="text-white font-black text-xl tracking-tighter leading-none"
+            className="text-[var(--color-text-primary)] font-black text-xl tracking-tighter leading-none"
           >
             Leapfrog<br /><span className="text-[var(--color-primary)]">Connect</span>
           </motion.span>
@@ -137,7 +137,7 @@ export function Sidebar() {
         {!mounted || !isActuallyHydrated || isLoading ? (
           <div className="space-y-4 px-4">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-10 bg-white/5 rounded-lg animate-pulse" />
+              <div key={i} className="h-10 bg-[var(--color-muted)] rounded-lg animate-pulse" />
             ))}
           </div>
         ) : (
@@ -151,13 +151,13 @@ export function Sidebar() {
                   className={cn(
                     'flex items-center gap-4 px-5 py-3.5 rounded-[var(--radius-md)] transition-all duration-200 group relative',
                     sidebarCollapsed && !mobile ? 'justify-center px-2' : '',
-                    active ? 'text-white' : 'text-[#5A5A6E] hover:text-white',
+                    active ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
                   )}
                 >
                   {active && (
                     <motion.div
                       layoutId="sidebarActive"
-                      className="absolute inset-0 bg-gradient-to-r from-white/[0.08] to-transparent rounded-[var(--radius-md)] border-l-4 border-[var(--color-primary)] shadow-lg shadow-[var(--color-primary)]/5"
+                      className="absolute inset-0 bg-gradient-to-r from-[var(--color-primary)]/[0.08] to-transparent rounded-[var(--radius-md)] border-l-4 border-[var(--color-primary)] shadow-lg shadow-[var(--color-primary)]/5"
                       initial={false}
                       transition={{ type: 'spring', stiffness: 350, damping: 35 }}
                     />
@@ -166,7 +166,7 @@ export function Sidebar() {
                     size={20}
                     className={cn(
                       'flex-shrink-0 relative z-10 transition-colors duration-200',
-                      active ? 'text-[var(--color-primary)]' : 'group-hover:text-white',
+                      active ? 'text-[var(--color-primary)]' : 'group-hover:text-[var(--color-text-primary)]',
                     )}
                   />
                   {(!sidebarCollapsed || mobile) && (
@@ -191,14 +191,14 @@ export function Sidebar() {
       </nav>
 
       {/* User footer */}
-      <div className={cn('p-6 mt-auto border-t border-white/[0.05]', sidebarCollapsed && !mobile && 'p-2')}>
+      <div className={cn('p-6 mt-auto border-t border-[var(--color-border)]', sidebarCollapsed && !mobile && 'p-2')}>
         {mounted && user && (!sidebarCollapsed || mobile) && (
-          <div className="flex items-center gap-4 px-4 py-4 rounded-2xl bg-white/[0.03] mb-4 border border-white/[0.05] shadow-inner">
+          <div className="flex items-center gap-4 px-4 py-4 rounded-2xl bg-[var(--color-muted)]/50 mb-4 border border-[var(--color-border)] shadow-inner">
             <div className="w-10 h-10 rounded-xl bg-[var(--color-primary)] flex items-center justify-center text-white text-xs font-black flex-shrink-0 shadow-lg shadow-[var(--color-primary)]/20">
               {userInitials(user)}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-white text-sm font-black truncate tracking-tight">{displayName(user)}</p>
+              <p className="text-[var(--color-text-primary)] text-sm font-black truncate tracking-tight">{displayName(user)}</p>
               <p className="text-[var(--color-primary)] text-[9px] font-black uppercase tracking-[0.15em] truncate mt-0.5">
                 {user.role?.replace('_', ' ')} Account
               </p>
@@ -209,7 +209,7 @@ export function Sidebar() {
           onClick={() => logout()}
           disabled={isLoggingOut || !mounted}
           className={cn(
-            'flex items-center gap-4 px-5 py-3.5 w-full rounded-[var(--radius-md)] text-[#5A5A6E] hover:bg-red-500/10 hover:text-red-500 transition-all duration-200 text-sm font-black uppercase tracking-widest disabled:opacity-50',
+            'flex items-center gap-4 px-5 py-3.5 w-full rounded-[var(--radius-md)] text-[var(--color-text-secondary)] hover:bg-red-500/10 hover:text-red-500 transition-all duration-200 text-sm font-black uppercase tracking-widest disabled:opacity-50',
             sidebarCollapsed && !mobile && 'justify-center px-2',
           )}
         >
@@ -232,12 +232,13 @@ export function Sidebar() {
       <motion.aside
         animate={{ width: sidebarCollapsed ? 80 : 260 }}
         transition={{ type: 'spring', stiffness: 250, damping: 30 }}
-        className="hidden lg:flex flex-col h-screen sticky top-0 bg-[#0F0F12] border-r border-white/5 flex-shrink-0 z-30 overflow-hidden"
+        className="hidden lg:flex flex-col h-screen sticky top-0 bg-[var(--color-bg-sidebar)] border-r border-[var(--color-border)] flex-shrink-0 z-30 overflow-hidden"
       >
         <SidebarContent />
         <button
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="absolute top-10 -right-3.5 w-7 h-7 rounded-xl bg-[var(--color-primary)] text-white shadow-xl shadow-[var(--color-primary)]/40 flex items-center justify-center hover:scale-110 transition-transform z-10 border-2 border-[#0F0F12]"
+          className="absolute top-10 -right-3.5 w-7 h-7 rounded-xl bg-[var(--color-primary)] text-white shadow-xl shadow-[var(--color-primary)]/40 flex items-center justify-center hover:scale-110 transition-transform z-40 border-2 border-[var(--color-bg-sidebar)]"
+          aria-label={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
         >
           {sidebarCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
         </button>
@@ -251,7 +252,7 @@ export function Sidebar() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 lg:hidden"
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
               onClick={() => setMobileDrawerOpen(false)}
             />
             <motion.div
@@ -259,7 +260,7 @@ export function Sidebar() {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', stiffness: 250, damping: 30 }}
-              className="fixed left-0 top-0 h-full w-72 bg-[#0F0F12] z-50 lg:hidden shadow-2xl border-r border-white/5"
+              className="fixed left-0 top-0 h-full w-72 bg-[var(--color-bg-sidebar)] z-50 lg:hidden shadow-2xl border-r border-[var(--color-border)]"
             >
               <SidebarContent mobile />
             </motion.div>
