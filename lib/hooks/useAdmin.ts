@@ -1,0 +1,85 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { userService } from '@/lib/services/user.service';
+import { adminService } from '@/lib/services/admin.service';
+import { toast } from 'react-hot-toast';
+
+export const useUsers = () => {
+  return useQuery({
+    queryKey: ['users'],
+    queryFn: () => userService.getUsers(),
+  });
+};
+
+export const useAuditLogs = () => {
+  return useQuery({
+    queryKey: ['audit-logs'],
+    queryFn: () => userService.getAuditLogs(),
+  });
+};
+
+export const useAdminStats = () => {
+  return useQuery({
+    queryKey: ['admin-stats'],
+    queryFn: () => adminService.getStats(),
+  });
+};
+
+export const useDeactivateUser = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => userService.deactivateUser(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast.success('User deactivated successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to deactivate user');
+    },
+  });
+};
+
+export const useActivateUser = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => userService.activateUser(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast.success('User activated successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to activate user');
+    },
+  });
+};
+
+export const useCreateUser = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { email: string; personal_email: string; role: string }) => 
+      userService.createUser(data),
+    onSuccess: (response) => {
+      toast.success(response.message || 'User created successfully!');
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.error || 'Failed to create user.';
+      toast.error(message);
+    },
+  });
+};
+
+export const useUpdateUser = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string | number; data: any }) => 
+      userService.updateUser(id as number, data),
+    onSuccess: () => {
+      toast.success('User updated successfully');
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.error || 'Failed to update user.';
+      toast.error(message);
+    },
+  });
+};
