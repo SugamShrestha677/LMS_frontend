@@ -56,4 +56,14 @@ export const authService = {
     const response = await api.post('/accounts/auth/users/create-user', data);
     return response.data;
   },
+
+  async register(data: any) {
+    const response = await api.post('/accounts/auth/register', data);
+    return response.data;
+  },
+
+  async updateUser(id: string | number, data: any) {
+    const response = await api.patch(`/accounts/users/${id}`, data);
+    return response.data;
+  },
 };

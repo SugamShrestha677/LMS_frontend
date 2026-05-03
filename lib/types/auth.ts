@@ -43,3 +43,13 @@ export interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
 }
+
+export interface RegisterInput {
+  first_name: string;
+  last_name: string;
+  email: string;
+  password: string;
+  confirm_password: string;
+  role: 'student' | 'company';
+  company_name?: string;
+}

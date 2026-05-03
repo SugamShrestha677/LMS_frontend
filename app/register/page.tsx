@@ -3,8 +3,8 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { motion, AnimatePresence } from 'framer-motion';
-// import { registerSchema, RegisterInput } from '@/lib/validations/auth';
-// import { useRegister } from '@/lib/hooks/useAuth';
+import { registerSchema, RegisterInput } from '@/lib/validations/auth';
+import { useRegister } from '@/lib/hooks/useAuth';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -14,35 +14,35 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
 export default function RegisterPage() {
-  // const { mutate: registerUser, isPending } = useRegister();
+  const { mutate: registerUser, isPending } = useRegister();
   
-  // const {
-  //   register,
-  //   handleSubmit,
-  //   watch,
-  //   setValue,
-  //   formState: { errors },
-  // } = useForm<RegisterInput>({
-  //   resolver: zodResolver(registerSchema),
-  //   defaultValues: {
-  //     role: 'student',
-  //   },
-  // });
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors },
+  } = useForm<RegisterInput>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      role: 'student',
+    },
+  });
 
-  // const currentRole = watch('role');
+  const currentRole = watch('role');
 
-  // const onSubmit = (data: RegisterInput) => {
-  //   registerUser(data);
-  // };
+  const onSubmit = (data: RegisterInput) => {
+    registerUser(data);
+  };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#FAFAFA]">
+    <div className="min-h-screen flex flex-col bg-[var(--color-bg-primary)]">
       <Navbar />
       
       <main className="flex-grow flex items-center justify-center p-4 py-12 relative overflow-hidden">
         {/* Background blobs */}
-        <div className="absolute top-[10%] right-[5%] w-[400px] h-[400px] bg-[#0A5C4A]/5 rounded-full blur-[120px] -z-10" />
-        <div className="absolute bottom-[10%] left-[5%] w-[400px] h-[400px] bg-[#1E88E5]/5 rounded-full blur-[120px] -z-10" />
+        <div className="absolute top-[10%] right-[5%] w-[400px] h-[400px] bg-[var(--color-primary)]/5 rounded-full blur-[120px] -z-10" />
+        <div className="absolute bottom-[10%] left-[5%] w-[400px] h-[400px] bg-blue-500/5 rounded-full blur-[120px] -z-10" />
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -51,19 +51,19 @@ export default function RegisterPage() {
           className="w-full max-w-lg"
         >
           <div className="text-center mb-8">
-            <Link href="/" className="inline-flex items-center text-sm font-medium text-[#5A5A6E] hover:text-[#0A5C4A] transition-colors mb-4 group">
+            <Link href="/" className="inline-flex items-center text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors mb-4 group">
               <ArrowLeft size={16} className="mr-1.5 transition-transform group-hover:-translate-x-1" />
               Back to home
             </Link>
-            <h1 className="text-3xl font-black text-[#1E1E2A] mb-2">Create Your Account</h1>
-            <p className="text-[#5A5A6E]">Join Leapfrog Connect and start your journey today</p>
+            <h1 className="text-3xl font-black text-[var(--color-text-primary)] mb-2 tracking-tight">Create Your Account</h1>
+            <p className="text-[var(--color-text-secondary)]">Join Leapfrog Connect and start your journey today</p>
           </div>
 
-          <Card className="p-8 shadow-xl border-white/50 backdrop-blur-sm bg-white/80">
+          <Card className="p-8 shadow-2xl border-[var(--color-border)] backdrop-blur-sm bg-[var(--color-bg-card)]/80">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               {/* Role Selector */}
               <div className="space-y-3">
-                <label className="text-sm font-bold text-[#1E1E2A]">I am a...</label>
+                <label className="text-sm font-bold text-[var(--color-text-primary)]">I am a...</label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
@@ -71,8 +71,8 @@ export default function RegisterPage() {
                     className={cn(
                       "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200",
                       currentRole === 'student'
-                        ? "border-[#0A5C4A] bg-[#0A5C4A]/5 text-[#0A5C4A]"
-                        : "border-[#e5e7eb] bg-white text-[#5A5A6E] hover:border-gray-300"
+                        ? "border-[var(--color-primary)] bg-[var(--color-primary)]/5 text-[var(--color-primary)]"
+                        : "border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] hover:border-gray-300 dark:hover:border-gray-600"
                     )}
                   >
                     <GraduationCap size={24} />
@@ -84,8 +84,8 @@ export default function RegisterPage() {
                     className={cn(
                       "flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200",
                       currentRole === 'company'
-                        ? "border-[#0A5C4A] bg-[#0A5C4A]/5 text-[#0A5C4A]"
-                        : "border-[#e5e7eb] bg-white text-[#5A5A6E] hover:border-gray-300"
+                        ? "border-[var(--color-primary)] bg-[var(--color-primary)]/5 text-[var(--color-primary)]"
+                        : "border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-secondary)] hover:border-gray-300 dark:hover:border-gray-600"
                     )}
                   >
                     <Building2 size={24} />
@@ -163,16 +163,16 @@ export default function RegisterPage() {
                 fullWidth
                 size="lg"
                 loading={isPending}
-                className="h-12"
+                className="h-12 rounded-xl shadow-xl shadow-[var(--color-primary)]/20"
               >
                 Create Account <UserPlus size={18} className="ml-2" />
               </Button>
             </form>
 
-            <div className="mt-8 pt-6 border-t border-[#e5e7eb] text-center">
-              <p className="text-sm text-[#5A5A6E]">
+            <div className="mt-8 pt-6 border-t border-[var(--color-border)] text-center">
+              <p className="text-sm text-[var(--color-text-secondary)]">
                 Already have an account?{' '}
-                <Link href="/login" className="font-bold text-[#0A5C4A] hover:underline">
+                <Link href="/login" className="font-bold text-[var(--color-primary)] hover:underline">
                   Sign In
                 </Link>
               </p>

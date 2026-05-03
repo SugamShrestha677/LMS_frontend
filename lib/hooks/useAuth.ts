@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { authService } from '@/lib/services/auth.service';
 import { useAuthStore } from '@/lib/store/auth-store';
-import { LoginInput, FirstLoginInput } from '@/lib/types/auth';
+import { LoginInput, FirstLoginInput, RegisterInput } from '@/lib/types/auth';
 import { getDashboardRoute } from '@/lib/utils/role-routes';
 
 export function useLogin() {
@@ -122,6 +122,42 @@ export function useCreateUser() {
     },
     onError: (error: any) => {
       const message = error.response?.data?.error || 'Failed to create user.';
+      toast.error(message);
+    },
+  });
+}
+
+export function useRegister() {
+  const router = useRouter();
+
+  return useMutation({
+    mutationFn: (data: RegisterInput) => authService.register(data),
+    onSuccess: (response) => {
+      toast.success(response.message || 'Registration successful! Please login.');
+      router.push('/login');
+    },
+    onError: (error: any) => {
+      const data = error.response?.data;
+      const message = data?.message || data?.error || data?.detail || 
+                     (data && Object.values(data)[0]) || 
+                     'Registration failed.';
+      toast.error(typeof message === 'string' ? message : 'Validation error occurred');
+    },
+  });
+}
+
+export function useUpdateUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string | number; data: any }) => 
+      authService.updateUser(id, data),
+    onSuccess: () => {
+      toast.success('User updated successfully');
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.error || 'Failed to update user.';
       toast.error(message);
     },
   });
