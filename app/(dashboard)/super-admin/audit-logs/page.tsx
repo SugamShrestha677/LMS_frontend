@@ -5,6 +5,8 @@ import { Card } from '@/components/ui/Card';
 import { FileText, Search, Filter, ArrowUpRight, Clock, Shield, User } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { useAuditLogs } from '@/lib/hooks/useAdmin';
+import { format } from 'date-fns';
 
 const mockLogs = [
   { id: 1, action: 'ADMIN_LOGIN', user: 'admin@leapfrog.com', target: 'System', timestamp: '2024-05-03 14:20:01', status: 'success' },
@@ -16,6 +18,15 @@ const mockLogs = [
 
 export default function AuditLogsPage() {
   const [searchQuery, setSearchQuery] = useState('');
+  const { data: logsData, isLoading } = useAuditLogs();
+  
+  const logs = logsData?.data || [];
+
+  const filteredLogs = logs.filter((log: any) => 
+    log.action_display.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    log.user_email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    log.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="space-y-8 pb-12">
@@ -33,43 +44,6 @@ export default function AuditLogsPage() {
             Export CSV
           </button>
         </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="bg-gradient-to-br from-purple-500/10 to-transparent border-purple-500/20">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-purple-500/20 flex items-center justify-center text-purple-600">
-              <Shield size={24} />
-            </div>
-            <div>
-              <p className="text-xs font-black text-[var(--color-text-secondary)] uppercase tracking-widest">Total Events</p>
-              <p className="text-2xl font-black text-[var(--color-text-primary)]">14,282</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="bg-gradient-to-br from-emerald-500/10 to-transparent border-emerald-500/20">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 flex items-center justify-center text-emerald-600">
-              <Clock size={24} />
-            </div>
-            <div>
-              <p className="text-xs font-black text-[var(--color-text-secondary)] uppercase tracking-widest">Active Sessions</p>
-              <p className="text-2xl font-black text-[var(--color-text-primary)]">86</p>
-            </div>
-          </div>
-        </Card>
-        <Card className="bg-gradient-to-br from-red-500/10 to-transparent border-red-500/20">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-red-500/20 flex items-center justify-center text-red-600">
-              <ArrowUpRight size={24} />
-            </div>
-            <div>
-              <p className="text-xs font-black text-[var(--color-text-secondary)] uppercase tracking-widest">Security Alerts</p>
-              <p className="text-2xl font-black text-[var(--color-text-primary)]">12</p>
-            </div>
-          </div>
-        </Card>
       </div>
 
       {/* Search & List */}
@@ -93,41 +67,57 @@ export default function AuditLogsPage() {
               <tr className="bg-[var(--color-muted)]/30">
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-[var(--color-text-secondary)]">Action</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-[var(--color-text-secondary)]">User</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-[var(--color-text-secondary)]">Target</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-[var(--color-text-secondary)]">Performed By</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-[var(--color-text-secondary)]">Timestamp</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-[var(--color-text-secondary)]">Status</th>
+                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-[var(--color-text-secondary)]">IP Address</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--color-border)]">
-              {mockLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-[var(--color-muted)]/10 transition-colors group">
-                  <td className="px-6 py-5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)]">
-                        <FileText size={14} />
-                      </div>
-                      <span className="text-sm font-black text-[var(--color-text-primary)]">{log.action}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-5">
-                    <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] font-medium">
-                      <User size={14} /> {log.user}
-                    </div>
-                  </td>
-                  <td className="px-6 py-5 text-sm text-[var(--color-text-primary)] font-bold">{log.target}</td>
-                  <td className="px-6 py-5 text-xs text-[var(--color-text-secondary)] font-mono">{log.timestamp}</td>
-                  <td className="px-6 py-5">
-                    <span className={cn(
-                      "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest",
-                      log.status === 'success' ? "bg-emerald-500/10 text-emerald-600" :
-                      log.status === 'warning' ? "bg-amber-500/10 text-amber-600" :
-                      "bg-red-500/10 text-red-600"
-                    )}>
-                      {log.status}
-                    </span>
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td colSpan={5} className="px-6 py-5">
+                      <div className="h-6 bg-[var(--color-muted)] rounded w-full" />
+                    </td>
+                  </tr>
+                ))
+              ) : filteredLogs.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-10 text-center text-[var(--color-text-secondary)] font-medium">
+                    No audit logs found matching your search.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredLogs.map((log: any) => (
+                  <tr key={log.id} className="hover:bg-[var(--color-muted)]/10 transition-colors group">
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)]">
+                          <FileText size={14} />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-black text-[var(--color-text-primary)]">{log.action_display}</span>
+                          <span className="text-[10px] text-[var(--color-text-secondary)] font-medium">{log.description}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)] font-medium">
+                        <User size={14} /> {log.user_email || 'System'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-5 text-sm text-[var(--color-text-primary)] font-bold">{log.performed_by_email || 'System'}</td>
+                    <td className="px-6 py-5 text-xs text-[var(--color-text-secondary)] font-mono">
+                      {format(new Date(log.created_at), 'MMM dd, yyyy HH:mm:ss')}
+                    </td>
+                    <td className="px-6 py-5">
+                      <span className="px-3 py-1 rounded-full bg-[var(--color-muted)] text-[var(--color-text-secondary)] text-[9px] font-black uppercase tracking-widest">
+                        {log.ip_address || '0.0.0.0'}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

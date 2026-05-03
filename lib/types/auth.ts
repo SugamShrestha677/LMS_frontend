@@ -53,3 +53,17 @@ export interface RegisterInput {
   role: 'student' | 'company';
   company_name?: string;
 }
+
+export interface AuditLog {
+  id: number;
+  user: number;
+  user_email: string;
+  performed_by: number;
+  performed_by_email: string;
+  action: string;
+  action_display: string;
+  description: string;
+  metadata: Record<string, any>;
+  ip_address: string;
+  created_at: string;
+}
