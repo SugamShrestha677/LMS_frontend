@@ -3,12 +3,14 @@
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { ButtonHTMLAttributes, forwardRef } from 'react';
+import { Slot } from '@radix-ui/react-slot';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
   fullWidth?: boolean;
+  asChild?: boolean;
 }
 
 const variants = {
@@ -35,12 +37,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       className,
       children,
       disabled,
+      asChild = false,
       ...props
     },
     ref,
   ) => {
+    const Comp = asChild ? Slot : motion.button;
     return (
-      <motion.button
+      <Comp
         ref={ref}
         whileTap={{ scale: 0.98, y: 1 }}
         whileHover={{ y: -1 }}
@@ -63,7 +67,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         <span className={cn('flex items-center gap-inherit', loading && 'opacity-0')}>
           {children}
         </span>
-      </motion.button>
+      </Comp>
     );
   },
 );
