@@ -6,6 +6,7 @@
     /* Premium Light Palette */
     --color-bg: #FBFBFD;
     --color-bg-card: #FFFFFF;
+    --color-bg-sidebar: #FFFFFF;
     --color-text-primary: #121217;
     --color-text-secondary: #64647D;
     --color-border: rgba(18, 18, 23, 0.08);
@@ -34,6 +35,7 @@
     /* Premium Dark Palette */
     --color-bg: #0B0B0F;
     --color-bg-card: #14141A;
+    --color-bg-sidebar: #0F0F12;
     --color-text-primary: #F5F5F7;
     --color-text-secondary: #9898B0;
     --color-border: rgba(245, 245, 247, 0.12);

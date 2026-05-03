@@ -1,10 +1,12 @@
 'use client';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Toaster } from 'sonner';
+import { useUIStore } from '@/lib/store/uiStore';
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  const { theme } = useUIStore();
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -16,6 +18,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
       })
   );
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+  }, [theme]);
 
   return (
     <QueryClientProvider client={queryClient}>

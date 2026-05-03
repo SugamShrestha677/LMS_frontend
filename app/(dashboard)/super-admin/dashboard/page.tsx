@@ -88,7 +88,7 @@ export default function SuperAdminDashboard() {
       className="space-y-10 pb-12"
     >
       {/* Header */}
-      <motion.div variants={item} className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white/40 p-8 rounded-[2rem] border border-white/60 backdrop-blur-md">
+      <motion.div variants={item} className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-[var(--color-bg-card)] p-8 rounded-[2rem] border border-[var(--color-border)] shadow-xl">
         <div className="flex items-center gap-6">
           <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-3xl flex items-center justify-center shadow-2xl shadow-purple-500/20">
             <Shield size={32} className="text-white" />
@@ -117,7 +117,7 @@ export default function SuperAdminDashboard() {
       <motion.div variants={item} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {statCards.map(({ label, value, icon: Icon, color, href, trend, trendUp }) => (
           <Link key={label} href={href}>
-            <Card className="p-8 hover:-translate-y-2 transition-all duration-500 cursor-pointer group bg-white/60 backdrop-blur-xl border-none shadow-xl rounded-[2rem]">
+            <Card className="p-8 hover:-translate-y-2 transition-all duration-500 cursor-pointer group bg-[var(--color-bg-card)] border-none shadow-xl rounded-[2rem]">
               <div className="flex items-start justify-between mb-6">
                 <div className={`w-14 h-14 ${color} rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm`}>
                   <Icon size={26} />
@@ -130,7 +130,7 @@ export default function SuperAdminDashboard() {
               <p className="text-3xl font-black text-[var(--color-text-primary)] tracking-tighter">{value}</p>
               <div className={cn(
                 "mt-4 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-tight",
-                trendUp ? "bg-emerald-50 text-emerald-600 border border-emerald-100" : "bg-red-50 text-red-600 border border-red-100"
+                trendUp ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600"
               )}>
                 {trendUp ? '↑' : '↓'} {trend}
               </div>
@@ -142,7 +142,7 @@ export default function SuperAdminDashboard() {
       {/* Secondary Stats */}
       <motion.div variants={item} className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {secondaryStats.map(({ label, value, icon: Icon, color }) => (
-          <Card key={label} className="p-8 bg-white/60 backdrop-blur-xl border-none shadow-xl rounded-[2rem]">
+          <Card key={label} className="p-8 bg-[var(--color-bg-card)] border-none shadow-xl rounded-[2rem]">
             <div className="flex items-center gap-6">
               <div className={`w-14 h-14 ${color} rounded-2xl flex items-center justify-center shadow-sm`}>
                 <Icon size={24} />
@@ -166,10 +166,9 @@ export default function SuperAdminDashboard() {
           {quickActions.map(({ label, href, icon: Icon, color }) => (
             <Link key={label} href={href}>
               <Card className={cn(
-                "p-6 text-center transition-all duration-300 cursor-pointer bg-white/60 backdrop-blur-sm border-white/80 hover:bg-white hover:shadow-2xl hover:-translate-y-1 rounded-[1.5rem]",
-                color.split(' ')[0] // Get the hover color
+                "p-6 text-center transition-all duration-300 cursor-pointer bg-[var(--color-bg-card)] border-[var(--color-border)] hover:bg-[var(--color-muted)]/20 hover:shadow-2xl hover:-translate-y-1 rounded-[1.5rem]"
               )}>
-                <div className={cn("w-12 h-12 mx-auto mb-4 rounded-xl flex items-center justify-center bg-gray-50", color.split(' ')[1])}>
+                <div className={cn("w-12 h-12 mx-auto mb-4 rounded-xl flex items-center justify-center bg-[var(--color-muted)]", color.split(' ')[1])}>
                   <Icon size={24} />
                 </div>
                 <p className="text-[10px] font-black text-[var(--color-text-primary)] uppercase tracking-widest leading-relaxed">{label}</p>
@@ -182,7 +181,7 @@ export default function SuperAdminDashboard() {
       {/* Alerts & Activity */}
       <motion.div variants={item} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* System Alerts */}
-        <Card className="p-8 bg-white/60 backdrop-blur-xl border-none shadow-2xl rounded-[2.5rem]">
+        <Card className="p-8 bg-[var(--color-bg-card)] border-none shadow-2xl rounded-[2.5rem]">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-500 shadow-sm">
@@ -200,11 +199,11 @@ export default function SuperAdminDashboard() {
                 <ShieldAlert size={26} />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-black text-red-900 uppercase tracking-tight">Unauthorized Access Detected</p>
-                <p className="text-xs text-red-700/70 mt-1 font-medium leading-relaxed">Multiple failed authentication attempts across 4 separate nodes from origin <span className="font-bold underline">103.1.2.4</span>.</p>
+                <p className="text-sm font-black text-red-600 uppercase tracking-tight">Unauthorized Access Detected</p>
+                <p className="text-xs text-[var(--color-text-secondary)] mt-1 font-medium leading-relaxed">Multiple failed authentication attempts across 4 separate nodes from origin <span className="font-bold underline">103.1.2.4</span>.</p>
                 <div className="mt-4 flex gap-3">
                   <button className="px-5 py-2 rounded-xl bg-red-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-red-700 shadow-lg shadow-red-600/20 transition-all">Isolate IP</button>
-                  <button className="px-5 py-2 rounded-xl bg-white border border-red-200 text-red-700 text-[10px] font-black uppercase tracking-widest hover:bg-red-50 transition-all">Audit Trail</button>
+                  <button className="px-5 py-2 rounded-xl bg-[var(--color-bg-card)] border border-red-200 text-red-700 text-[10px] font-black uppercase tracking-widest hover:bg-red-50 transition-all">Audit Trail</button>
                 </div>
               </div>
             </div>
@@ -212,7 +211,7 @@ export default function SuperAdminDashboard() {
         </Card>
 
         {/* Pending Approvals */}
-        <Card className="p-8 bg-white/60 backdrop-blur-xl border-none shadow-2xl rounded-[2.5rem]">
+        <Card className="p-8 bg-[var(--color-bg-card)] border-none shadow-2xl rounded-[2.5rem]">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)] shadow-sm">
@@ -231,9 +230,9 @@ export default function SuperAdminDashboard() {
               { name: 'Everest Tech', type: 'Company' },
               { name: 'Dr. Rabin KC', type: 'Tutor' },
             ].map((item) => (
-              <div key={item.name} className="flex items-center justify-between p-4 rounded-[1.5rem] bg-white/50 border border-white hover:border-[var(--color-primary)]/20 transition-all hover:shadow-lg group">
+              <div key={item.name} className="flex items-center justify-between p-4 rounded-[1.5rem] bg-[var(--color-muted)]/50 border border-[var(--color-border)] hover:border-[var(--color-primary)]/20 transition-all hover:shadow-lg group">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-[var(--color-muted)] flex items-center justify-center text-[var(--color-text-secondary)] group-hover:bg-[var(--color-primary)]/10 group-hover:text-[var(--color-primary)] transition-colors shadow-sm">
+                  <div className="w-12 h-12 rounded-2xl bg-[var(--color-bg-card)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-text-secondary)] group-hover:bg-[var(--color-primary)]/10 group-hover:text-[var(--color-primary)] transition-colors shadow-sm">
                     {item.type === 'Company' ? <Building2 size={22} /> : <Users size={22} />}
                   </div>
                   <div>
