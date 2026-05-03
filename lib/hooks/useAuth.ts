@@ -162,3 +162,33 @@ export function useUpdateUser() {
     },
   });
 }
+
+export function useForgotPassword() {
+  return useMutation({
+    mutationFn: (email: string) => authService.forgotPassword(email),
+    onSuccess: (response) => {
+      toast.success(response.message || 'Password reset link sent! Check your personal email.');
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.message || error.response?.data?.error || 'Failed to send reset link.';
+      toast.error(message);
+    },
+  });
+}
+
+export function useResetPassword() {
+  const router = useRouter();
+
+  return useMutation({
+    mutationFn: (data: { token: string; new_password: string; confirm_password: string }) => 
+      authService.resetPassword(data),
+    onSuccess: (response) => {
+      toast.success(response.message || 'Password reset successful!');
+      router.push('/login');
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.message || error.response?.data?.error || 'Failed to reset password.';
+      toast.error(message);
+    },
+  });
+}
