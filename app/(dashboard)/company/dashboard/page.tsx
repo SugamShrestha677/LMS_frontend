@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { DashboardSkeleton } from '@/components/ui/Skeleton';
 import { motion } from 'framer-motion';
 import { 
-  Users, Briefcase, UserCheck, Star, 
+  Users, Briefcase, UserCheck, Star, Award,
   Search, Filter, MapPin, ExternalLink,
   PlusCircle, TrendingUp, Mail
 } from 'lucide-react';

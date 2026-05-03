@@ -5,6 +5,8 @@ import { Card } from '@/components/ui/Card';
 import { BookOpen, Plus, Search, Filter, MoreHorizontal, Users, Star, Clock } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { useCourses } from '@/lib/hooks/useCourses';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 const mockCourses = [
   { id: 1, name: 'Full-Stack Web Development', tutor: 'Dr. Rabin KC', students: 1240, rating: 4.8, status: 'active' },
@@ -14,6 +16,9 @@ const mockCourses = [
 ];
 
 export default function CoursesPage() {
+  const { data: coursesData, isLoading } = useCourses();
+  const courses = coursesData?.data || [];
+
   return (
     <div className="space-y-8 pb-12">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -70,42 +75,65 @@ export default function CoursesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--color-border)]">
-              {mockCourses.map((course) => (
-                <tr key={course.id} className="hover:bg-[var(--color-muted)]/10 transition-colors group">
-                  <td className="px-6 py-5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)]">
-                        <BookOpen size={18} />
-                      </div>
-                      <span className="text-sm font-black text-[var(--color-text-primary)]">{course.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-5 text-sm text-[var(--color-text-secondary)] font-bold">{course.tutor}</td>
-                  <td className="px-6 py-5">
-                    <div className="flex items-center gap-2 text-sm text-[var(--color-text-primary)] font-black">
-                      <Users size={14} className="text-[var(--color-text-secondary)]" /> {course.students.toLocaleString()}
-                    </div>
-                  </td>
-                  <td className="px-6 py-5">
-                    <div className="flex items-center gap-1.5 text-sm text-amber-500 font-black">
-                      <Star size={14} fill="currentColor" /> {course.rating}
-                    </div>
-                  </td>
-                  <td className="px-6 py-5">
-                    <span className={cn(
-                      "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest",
-                      course.status === 'active' ? "bg-emerald-500/10 text-emerald-600" : "bg-[var(--color-muted)] text-[var(--color-text-secondary)]"
-                    )}>
-                      {course.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-5 text-[var(--color-text-secondary)]">
-                    <button className="p-2 hover:bg-[var(--color-muted)] rounded-lg transition-all">
-                      <MoreHorizontal size={18} />
-                    </button>
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td colSpan={6} className="px-6 py-5">
+                      <div className="h-10 bg-[var(--color-muted)] rounded-xl w-full" />
+                    </td>
+                  </tr>
+                ))
+              ) : courses.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-10 text-center text-[var(--color-text-secondary)] font-medium">
+                    No courses found in the system.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                courses.map((course: any) => (
+                  <tr key={course.id} className="hover:bg-[var(--color-muted)]/10 transition-colors group">
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)]">
+                          <BookOpen size={18} />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-black text-[var(--color-text-primary)]">{course.title}</span>
+                          <span className="text-[10px] text-[var(--color-text-secondary)] font-medium line-clamp-1">{course.short_description}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5 text-sm text-[var(--color-text-secondary)] font-bold">
+                      {course.instructor_name || 'Unassigned'}
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-2 text-sm text-[var(--color-text-primary)] font-black">
+                        <Users size={14} className="text-[var(--color-text-secondary)]" /> {course.enrolled_count.toLocaleString()}
+                      </div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-1.5 text-sm text-amber-500 font-black">
+                        <Star size={14} fill="currentColor" /> {course.average_rating || 'N/A'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <span className={cn(
+                        "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest",
+                        course.status === 'published' ? "bg-emerald-500/10 text-emerald-600" : 
+                        course.status === 'draft' ? "bg-amber-500/10 text-amber-600" :
+                        "bg-[var(--color-muted)] text-[var(--color-text-secondary)]"
+                      )}>
+                        {course.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-5 text-[var(--color-text-secondary)]">
+                      <button className="p-2 hover:bg-[var(--color-muted)] rounded-lg transition-all">
+                        <MoreHorizontal size={18} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

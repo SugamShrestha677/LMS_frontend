@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { useAdminStats } from '@/lib/hooks/useAdmin';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 const statCards = [
   {
@@ -79,6 +81,58 @@ const item = {
 
 export default function SuperAdminDashboard() {
   const { user } = useAuthStore();
+  const { data: statsData, isLoading } = useAdminStats();
+  
+  const stats = statsData?.data || {
+    users: { total: 0, admins: 0, students: 0, tutors: 0, companies: 0 },
+    courses: { total: 0 },
+    enrollments: { total: 0 }
+  };
+
+  const statCards = [
+    {
+      label: 'Total Admins',
+      value: stats.users.admins.toString(),
+      icon: Shield,
+      color: 'bg-purple-100 text-purple-600',
+      href: '/super-admin/admins',
+      trend: 'Real-time',
+      trendUp: true,
+    },
+    {
+      label: 'Total Students',
+      value: stats.users.students.toLocaleString(),
+      icon: UserCheck,
+      color: 'bg-blue-100 text-blue-600',
+      href: '/super-admin/students',
+      trend: 'Active system',
+      trendUp: true,
+    },
+    {
+      label: 'Partner Companies',
+      value: stats.users.companies.toString(),
+      icon: Building2,
+      color: 'bg-indigo-100 text-indigo-600',
+      href: '/super-admin/companies',
+      trend: 'Verified',
+      trendUp: true,
+    },
+    {
+      label: 'Total Revenue',
+      value: 'NPR 0.0', // Finance still dummy until app is added
+      icon: DollarSign,
+      color: 'bg-green-100 text-green-600',
+      href: '/super-admin/finance',
+      trend: 'Pending integration',
+      trendUp: true,
+    },
+  ];
+
+  const secondaryStats = [
+    { label: 'Tutors', value: stats.users.tutors.toString(), icon: GraduationCap, color: 'bg-orange-100 text-orange-600' },
+    { label: 'Active Courses', value: stats.courses.total.toString(), icon: BookOpen, color: 'bg-teal-100 text-teal-600' },
+    { label: 'Active Enrollments', value: stats.enrollments.total.toString(), icon: Activity, color: 'bg-cyan-100 text-cyan-600' },
+  ];
 
   return (
     <motion.div 
@@ -127,7 +181,11 @@ export default function SuperAdminDashboard() {
                 </div>
               </div>
               <p className="text-xs font-black text-[var(--color-text-secondary)] uppercase tracking-widest mb-1">{label}</p>
-              <p className="text-3xl font-black text-[var(--color-text-primary)] tracking-tighter">{value}</p>
+              {isLoading ? (
+                <div className="h-9 w-24 bg-[var(--color-muted)] animate-pulse rounded-lg" />
+              ) : (
+                <p className="text-3xl font-black text-[var(--color-text-primary)] tracking-tighter">{value}</p>
+              )}
               <div className={cn(
                 "mt-4 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-tight",
                 trendUp ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600"

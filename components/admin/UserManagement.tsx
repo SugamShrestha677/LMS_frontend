@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useUsers, useCreateUser, useUpdateUser } from '@/lib/hooks/useAuth';
+import { useUsers, useCreateUser, useUpdateUser } from '@/lib/hooks/useAdmin';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -23,7 +23,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { createUserSchema, CreateUserInput } from '@/lib/validations/auth';
 import { toast } from 'sonner';
 
-export function UserManagement() {
+interface UserManagementProps {
+  roleFilter?: string;
+  title?: string;
+  subtitle?: string;
+}
+
+export function UserManagement({ roleFilter, title, subtitle }: UserManagementProps) {
   const { user: currentUser } = useAuthStore();
   const { data: users, isLoading } = useUsers();
   const { mutate: createUser, isPending: isCreating } = useCreateUser();
@@ -87,10 +93,14 @@ export function UserManagement() {
     ];
   };
 
-  const filteredUsers = users?.filter((u: any) => 
-    u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.role.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const userList = Array.isArray(users) ? users : users?.data || [];
+
+  const filteredUsers = userList.filter((u: any) => {
+    const matchesSearch = u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         u.role.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesRole = roleFilter ? u.role === roleFilter : true;
+    return matchesSearch && matchesRole;
+  });
 
   return (
     <div className="space-y-8">
@@ -98,10 +108,10 @@ export function UserManagement() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-[var(--color-bg-card)] p-8 rounded-[2rem] border border-[var(--color-border)] shadow-xl backdrop-blur-md">
         <div>
           <h1 className="text-4xl font-black text-[var(--color-text-primary)] tracking-tight">
-            User <span className="text-[var(--color-primary)]">Management</span>
+            {title || (roleFilter ? `${roleFilter.replace('_', ' ')} Management` : 'User Management')}
           </h1>
           <p className="text-[var(--color-text-secondary)] mt-2 font-medium">
-            Manage your pipeline's talent and administrative team.
+            {subtitle || 'Manage your pipeline\'s talent and administrative team.'}
           </p>
         </div>
         <Button 
@@ -121,8 +131,14 @@ export function UserManagement() {
             <Users size={24} />
           </div>
           <div>
-            <p className="text-xs font-bold text-[var(--color-text-secondary)] uppercase tracking-widest">Total Users</p>
-            <p className="text-2xl font-black text-[var(--color-text-primary)]">{users?.length || 0}</p>
+            <p className="text-xs font-bold text-[var(--color-text-secondary)] uppercase tracking-widest">
+              {roleFilter 
+                ? `Total ${roleFilter === 'company' ? 'Companies' : roleFilter.replace('_', ' ') + 's'}` 
+                : 'Total Users'}
+            </p>
+            <p className="text-2xl font-black text-[var(--color-text-primary)]">
+              {roleFilter ? filteredUsers.length : userList.length}
+            </p>
           </div>
         </Card>
 
