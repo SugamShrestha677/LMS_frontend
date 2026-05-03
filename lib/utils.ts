@@ -44,11 +44,12 @@ export function getRoleBadgeColor(role: string): string {
 
 export function getDashboardPath(role: string): string {
   switch (role) {
-    case 'student': return '/student/dashboard';
-    case 'company': return '/company/dashboard';
-    case 'admin':
-    case 'super_admin':
-    case 'staff': return '/admin/dashboard';
+    case 'student': return '/student';
+    case 'company': return '/company';
+    case 'admin': return '/admin';
+    case 'super_admin': return '/super-admin';
+    case 'tutor': return '/tutor';
+    case 'staff': return '/staff';
     default: return '/';
   }
 }

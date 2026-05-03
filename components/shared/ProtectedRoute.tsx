@@ -1,35 +1,49 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuthStore, UserRole } from '@/lib/store/authStore';
+import { useAuthStore } from '@/lib/store/auth-store';
+import { UserRole } from '@/lib/types/auth';
+import { getDashboardRoute } from '@/lib/utils/role-routes';
 import { DashboardSkeleton } from '@/components/ui/Skeleton';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  /** If provided, only these roles can access this route */
   roles?: UserRole[];
 }
 
 export function ProtectedRoute({ children, roles }: ProtectedRouteProps) {
-  const { isAuthenticated, user, isLoading } = useAuthStore();
+  const { isAuthenticated, user, isLoading, _hasHydrated } = useAuthStore();
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
 
+  // Fallback: check if the store is already hydrated even if the state hasn't updated
+  const isActuallyHydrated = _hasHydrated || (typeof window !== 'undefined' && useAuthStore.persist.hasHydrated());
+
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted || !isActuallyHydrated || isLoading) return;
+
+    // Not logged in → go to login
+    if (!isAuthenticated || !user) {
       router.replace('/login');
       return;
     }
-    if (!isLoading && isAuthenticated && user && roles && !roles.includes(user.role)) {
-      // Redirect to their proper dashboard if wrong role
-      if (user.role === 'student') router.replace('/student/dashboard');
-      else if (user.role === 'company') router.replace('/company/dashboard');
-      else router.replace('/admin/dashboard');
-    }
-  }, [isAuthenticated, user, isLoading, router, roles]);
 
-  if (isLoading) return <DashboardSkeleton />;
-  if (!isAuthenticated) return <DashboardSkeleton />;
-  if (roles && user && !roles.includes(user.role)) return <DashboardSkeleton />;
+    // Wrong role → redirect to that role's own dashboard
+    if (roles && !roles.includes(user.role)) {
+      router.replace(getDashboardRoute(user.role));
+    }
+  }, [isAuthenticated, user, isLoading, isActuallyHydrated, router, roles, mounted]);
+
+  // Show skeleton while hydrating or before redirect fires
+  if (!mounted || !isActuallyHydrated || isLoading) return <DashboardSkeleton />;
+  if (!isAuthenticated || !user) return null;
+  if (roles && !roles.includes(user.role)) return null;
 
   return <>{children}</>;
 }

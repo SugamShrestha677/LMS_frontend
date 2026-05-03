@@ -1,0 +1,45 @@
+export type UserRole = 'super_admin' | 'admin' | 'staff' | 'tutor' | 'company' | 'student';
+
+export interface User {
+  id: number;
+  email: string;
+  personal_email?: string;
+  first_name?: string;
+  last_name?: string;
+  avatar?: string;
+  role: UserRole;
+  must_change_password: boolean;
+  profile_completed: boolean;
+  is_super_admin?: boolean;
+  created_by_email?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface LoginResponse {
+  message: string;
+  user: User;
+  tokens: {
+    access: string;
+    refresh: string;
+  };
+  redirect_to: string;
+}
+
+export interface LoginInput {
+  email: string;
+  password: string;
+}
+
+export interface FirstLoginInput {
+  new_password: string;
+  confirm_password: string;
+}
+
+export interface AuthState {
+  user: User | null;
+  accessToken: string | null;
+  refreshToken: string | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+}

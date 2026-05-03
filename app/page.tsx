@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Navbar } from '@/components/layout/Navbar';
 import { Button } from '@/components/ui/Button';
@@ -56,6 +57,12 @@ const itemVariants = {
 };
 
 export default function LandingPage() {
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
@@ -227,7 +234,7 @@ export default function LandingPage() {
             </div>
             
             <p className="text-xs text-[#9ca3af]">
-              &copy; {new Date().getFullYear()} Leapfrog Connect. All rights reserved.
+              &copy; {mounted ? new Date().getFullYear() : '2024'} Leapfrog Connect. All rights reserved.
             </p>
           </div>
         </div>
