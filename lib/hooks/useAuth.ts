@@ -14,9 +14,16 @@ export function useLogin() {
 
   return useMutation({
     mutationFn: (data: LoginInput) => authService.login(data),
-    onSuccess: (response) => {
-      const { user, tokens } = response;
+    onSuccess: (response: any) => {
+      // Handle both { data: { user, tokens } } and { user, tokens }
+      const payload = response.data || response;
+      const { user, tokens } = payload;
       
+      if (!user || !tokens) {
+        toast.error('Invalid response from server');
+        return;
+      }
+
       // Save auth state
       setAuth(user, tokens.access, tokens.refresh);
       
@@ -32,7 +39,7 @@ export function useLogin() {
       }
     },
     onError: (error: any) => {
-      const message = error.response?.data?.error || error.response?.data?.detail || 'Login failed. Please try again.';
+      const message = error.response?.data?.message || error.response?.data?.error || error.response?.data?.detail || 'Login failed. Please try again.';
       toast.error(message);
     },
   });
@@ -44,9 +51,15 @@ export function useFirstLogin() {
 
   return useMutation({
     mutationFn: (data: FirstLoginInput) => authService.firstLogin(data),
-    onSuccess: (response) => {
-      const { user, tokens } = response;
+    onSuccess: (response: any) => {
+      const payload = response.data || response;
+      const { user, tokens } = payload;
       
+      if (!user || !tokens) {
+        toast.error('Invalid response from server');
+        return;
+      }
+
       // Save new auth state (old tokens invalidated)
       setAuth(user, tokens.access, tokens.refresh);
       
@@ -58,7 +71,7 @@ export function useFirstLogin() {
     },
     onError: (error: any) => {
       const data = error.response?.data;
-      const message = data?.error || data?.detail || 
+      const message = data?.message || data?.error || data?.detail || 
                      (data && Object.values(data)[0]) || 
                      'Failed to set password.';
       toast.error(typeof message === 'string' ? message : 'Validation error occurred');
