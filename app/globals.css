@@ -5,6 +5,7 @@
   :root {
     /* Premium Light Palette */
     --color-bg: #FBFBFD;
+    --color-bg-primary: #FBFBFD;
     --color-bg-card: #FFFFFF;
     --color-bg-sidebar: #FFFFFF;
     --color-text-primary: #121217;
@@ -34,6 +35,7 @@
   .dark {
     /* Premium Dark Palette */
     --color-bg: #0B0B0F;
+    --color-bg-primary: #0B0B0F;
     --color-bg-card: #14141A;
     --color-bg-sidebar: #0F0F12;
     --color-text-primary: #F5F5F7;
@@ -89,10 +91,11 @@
 
 @layer utilities {
   .glass {
-    background: rgba(255, 255, 255, 0.7);
+    background: var(--color-bg-card);
+    opacity: 0.8;
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.5);
+    border: 1px solid var(--color-border);
   }
 
   .glass-dark {

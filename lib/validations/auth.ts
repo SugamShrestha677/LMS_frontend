@@ -70,9 +70,34 @@ export const createUserSchema = z.object({
   role: z.string().min(1, 'Role is required'),
 });
 
+export const registerSchema = z.object({
+  first_name: z.string().min(1, 'First name is required'),
+  last_name: z.string().min(1, 'Last name is required'),
+  email: z.string().min(1, 'Email is required').email('Invalid email address'),
+  password: z
+    .string()
+    .min(1, 'Password is required')
+    .min(8, 'Password must be at least 8 characters'),
+  confirm_password: z.string().min(1, 'Please confirm your password'),
+  role: z.enum(['student', 'company']),
+  company_name: z.string().optional(),
+}).refine((data) => data.password === data.confirm_password, {
+  message: "Passwords don't match",
+  path: ['confirm_password'],
+}).refine((data) => {
+  if (data.role === 'company' && !data.company_name) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Company name is required for company accounts",
+  path: ['company_name'],
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type FirstLoginInput = z.infer<typeof firstLoginSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
+export type RegisterInput = z.infer<typeof registerSchema>;

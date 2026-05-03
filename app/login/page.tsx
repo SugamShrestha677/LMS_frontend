@@ -28,13 +28,13 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#FAFAFA]">
+    <div className="min-h-screen flex flex-col bg-[var(--color-bg-primary)]">
       <Navbar />
       
       <main className="flex-grow flex items-center justify-center p-4 py-12 relative overflow-hidden">
         {/* Background blobs */}
-        <div className="absolute top-[20%] left-[10%] w-[300px] h-[300px] bg-[#0A5C4A]/5 rounded-full blur-[100px] -z-10" />
-        <div className="absolute bottom-[20%] right-[10%] w-[300px] h-[300px] bg-[#F5A623]/5 rounded-full blur-[100px] -z-10" />
+        <div className="absolute top-[20%] left-[10%] w-[300px] h-[300px] bg-[var(--color-primary)]/5 rounded-full blur-[100px] -z-10" />
+        <div className="absolute bottom-[20%] right-[10%] w-[300px] h-[300px] bg-amber-500/5 rounded-full blur-[100px] -z-10" />
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -43,15 +43,15 @@ export default function LoginPage() {
           className="w-full max-w-md"
         >
           <div className="text-center mb-8">
-            <Link href="/" className="inline-flex items-center text-sm font-medium text-[#5A5A6E] hover:text-[#0A5C4A] transition-colors mb-4 group">
+            <Link href="/" className="inline-flex items-center text-sm font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors mb-4 group">
               <ArrowLeft size={16} className="mr-1.5 transition-transform group-hover:-translate-x-1" />
               Back to home
             </Link>
-            <h1 className="text-3xl font-black text-[#1E1E2A] mb-2">Welcome Back</h1>
-            <p className="text-[#5A5A6E]">Enter your credentials to access your account</p>
+            <h1 className="text-3xl font-black text-[var(--color-text-primary)] mb-2 tracking-tight">Welcome Back</h1>
+            <p className="text-[var(--color-text-secondary)]">Enter your credentials to access your account</p>
           </div>
 
-          <Card className="p-8 shadow-xl border-white/50 backdrop-blur-sm bg-white/80">
+          <Card className="p-8 shadow-2xl border-[var(--color-border)] backdrop-blur-sm bg-[var(--color-bg-card)]/80">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               <Input
                 label="Email Address"
@@ -74,7 +74,7 @@ export default function LoginPage() {
                   autoComplete="current-password"
                 />
                 <div className="flex justify-end">
-                  <Link href="/forgot-password" className="text-xs font-semibold text-[#0A5C4A] hover:underline">
+                  <Link href="/forgot-password" className="text-xs font-semibold text-[var(--color-primary)] hover:underline">
                     Forgot password?
                   </Link>
                 </div>
@@ -85,16 +85,16 @@ export default function LoginPage() {
                 fullWidth
                 size="lg"
                 loading={isPending}
-                className="h-12"
+                className="h-12 rounded-xl shadow-xl shadow-[var(--color-primary)]/20"
               >
                 Sign In <LogIn size={18} className="ml-2" />
               </Button>
             </form>
 
-            <div className="mt-8 pt-6 border-t border-[#e5e7eb] text-center">
-              <p className="text-sm text-[#5A5A6E]">
+            <div className="mt-8 pt-6 border-t border-[var(--color-border)] text-center">
+              <p className="text-sm text-[var(--color-text-secondary)]">
                 Don't have an account?{' '}
-                <Link href="/register" className="font-bold text-[#0A5C4A] hover:underline">
+                <Link href="/register" className="font-bold text-[var(--color-primary)] hover:underline">
                   Create an account
                 </Link>
               </p>
