@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useCourses, useCreateCourse, useUpdateCourse } from '@/lib/hooks/useCourses';
+import { useCourses, useCreateCourse, useUpdateCourse, useCategories } from '@/lib/hooks/useCourses';
 import { useUsers } from '@/lib/hooks/useAdmin';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 
 export default function AdminCoursesPage() {
   const { data: courses, isLoading: isLoadingCourses } = useCourses();
+  const { data: categoriesData } = useCategories();
   const { data: users, isLoading: isLoadingUsers } = useUsers();
   const { mutate: createCourse, isPending: isCreating } = useCreateCourse();
   const { mutate: updateCourse, isPending: isUpdating } = useUpdateCourse();
@@ -41,6 +42,14 @@ export default function AdminCoursesPage() {
   const courseList = useMemo(() => {
     return Array.isArray(courses) ? courses : (courses as any)?.data || [];
   }, [courses]);
+
+  const categories = useMemo(() => {
+    const list = Array.isArray(categoriesData) ? categoriesData : (categoriesData as any)?.data || [];
+    return list.map((c: any) => ({
+      value: c.id,
+      label: c.name
+    }));
+  }, [categoriesData]);
 
   const filteredCourses = courseList.filter((c: any) => 
     (c.title || c.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -71,17 +80,11 @@ export default function AdminCoursesPage() {
   const onSubmit = (data: any) => {
     const payload = {
       title: data.title,
-      name: data.title,
       description: data.description || data.title,
       short_description: data.description || data.title,
       instructor: data.instructor ? parseInt(data.instructor) : null,
-      instructor_id: data.instructor ? parseInt(data.instructor) : null,
-      tutor: data.instructor ? parseInt(data.instructor) : null,
-      tutor_id: data.instructor ? parseInt(data.instructor) : null,
-      category: data.category,
+      category: data.category ? parseInt(data.category) : null,
       status: data.status,
-      is_active: data.status === 'active' || data.status === 'published',
-      is_published: data.status === 'active' || data.status === 'published',
     };
     
     createCourse(payload, {
@@ -97,17 +100,11 @@ export default function AdminCoursesPage() {
     
     const payload = {
       title: data.title,
-      name: data.title,
       description: data.description || selectedCourse.description || selectedCourse.short_description || '',
       short_description: data.description || selectedCourse.short_description || '',
       instructor: data.instructor ? parseInt(data.instructor) : null,
-      instructor_id: data.instructor ? parseInt(data.instructor) : null,
-      tutor: data.instructor ? parseInt(data.instructor) : null,
-      tutor_id: data.instructor ? parseInt(data.instructor) : null,
-      category: data.category,
+      category: data.category ? parseInt(data.category) : null,
       status: data.status,
-      is_active: data.status === 'active' || data.status === 'published',
-      is_published: data.status === 'active' || data.status === 'published',
     };
 
     updateCourse({ id: selectedCourse.id, data: payload }, {
@@ -261,14 +258,7 @@ export default function AdminCoursesPage() {
           <div className="grid grid-cols-2 gap-4">
             <Select 
               label="Category" 
-              options={[
-                { value: 'Frontend', label: 'Frontend' },
-                { value: 'Backend', label: 'Backend' },
-                { value: 'Design', label: 'Design' },
-                { value: 'Fullstack', label: 'Fullstack' },
-                { value: 'Mobile', label: 'Mobile' },
-                { value: 'Other', label: 'Other' },
-              ]} 
+              options={categories} 
               {...register('category')} 
             />
             <Select 
@@ -301,14 +291,7 @@ export default function AdminCoursesPage() {
           <div className="grid grid-cols-2 gap-4">
             <Select 
               label="Category" 
-              options={[
-                { value: 'Frontend', label: 'Frontend' },
-                { value: 'Backend', label: 'Backend' },
-                { value: 'Design', label: 'Design' },
-                { value: 'Fullstack', label: 'Fullstack' },
-                { value: 'Mobile', label: 'Mobile' },
-                { value: 'Other', label: 'Other' },
-              ]} 
+              options={categories} 
               {...register('category')} 
             />
             <Select 
