@@ -45,7 +45,7 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-10 pb-12">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white/40 p-8 rounded-[2rem] border border-white/60 backdrop-blur-md">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-[var(--color-bg-card)]/40 p-8 rounded-[2rem] border border-[var(--color-border)] backdrop-blur-md">
         <div>
           <h1 className="text-4xl font-black text-[var(--color-text-primary)] tracking-tight">
             System <span className="text-[var(--color-primary)]">Intelligence</span>
@@ -56,7 +56,7 @@ export default function AdminDashboard() {
         </div>
         
         <div className="flex items-center gap-3">
-          <Button variant="outline" className="h-14 px-6 rounded-2xl bg-white/50 border-white font-black text-xs uppercase tracking-widest">
+          <Button variant="outline" className="h-14 px-6 rounded-2xl bg-[var(--color-bg-card)]/50 border-[var(--color-border)] font-black text-xs uppercase tracking-widest">
             <BarChart2 size={18} className="mr-2" /> Export Report
           </Button>
           <Button className="h-14 px-6 rounded-2xl shadow-xl shadow-[var(--color-primary)]/20 font-black text-xs uppercase tracking-widest">
@@ -105,7 +105,7 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* Main Growth Chart */}
-        <Card className="lg:col-span-2 p-8 bg-white/60 backdrop-blur-xl border-none shadow-2xl rounded-[2.5rem]">
+        <Card className="lg:col-span-2 p-8 bg-[var(--color-bg-card)]/60 backdrop-blur-xl border-none shadow-2xl rounded-[2.5rem]">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-10 gap-4">
             <div>
               <h3 className="font-black text-xl text-[var(--color-text-primary)] tracking-tight">Growth Trajectory</h3>
@@ -156,7 +156,7 @@ export default function AdminDashboard() {
         </Card>
 
         {/* Sector Distribution */}
-        <Card className="p-8 bg-white/60 backdrop-blur-xl border-none shadow-2xl rounded-[2.5rem]">
+        <Card className="p-8 bg-[var(--color-bg-card)]/60 backdrop-blur-xl border-none shadow-2xl rounded-[2.5rem]">
           <h3 className="font-black text-xl text-[var(--color-text-primary)] tracking-tight mb-2">Curriculum Focus</h3>
           <p className="text-xs font-bold text-[var(--color-text-secondary)] uppercase tracking-widest mb-8">Sector Distribution</p>
           
@@ -210,7 +210,7 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
         {/* Alerts Panel */}
-        <Card className="p-8 bg-white/60 backdrop-blur-xl border-none shadow-2xl rounded-[2.5rem]">
+        <Card className="p-8 bg-[var(--color-bg-card)]/60 backdrop-blur-xl border-none shadow-2xl rounded-[2.5rem]">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3 text-[var(--color-text-primary)]">
               <div className="w-10 h-10 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-500">
@@ -254,7 +254,7 @@ export default function AdminDashboard() {
         </Card>
 
         {/* Pending Approvals */}
-        <Card className="p-8 bg-white/60 backdrop-blur-xl border-none shadow-2xl rounded-[2.5rem]">
+        <Card className="p-8 bg-[var(--color-bg-card)]/60 backdrop-blur-xl border-none shadow-2xl rounded-[2.5rem]">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3 text-[var(--color-text-primary)]">
               <div className="w-10 h-10 rounded-2xl bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)]">
@@ -270,7 +270,7 @@ export default function AdminDashboard() {
 
           <div className="space-y-4">
             {pendingApprovals.map((item) => (
-              <div key={item.id} className="flex items-center justify-between p-4 rounded-[1.5rem] bg-white/50 border border-white hover:border-[var(--color-primary)]/20 transition-all hover:shadow-lg hover:shadow-[var(--color-primary)]/5 group">
+              <div key={item.id} className="flex items-center justify-between p-4 rounded-[1.5rem] bg-[var(--color-bg-card)]/50 border border-[var(--color-border)] hover:border-[var(--color-primary)]/20 transition-all hover:shadow-lg hover:shadow-[var(--color-primary)]/5 group">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-2xl bg-[var(--color-muted)] flex items-center justify-center text-[var(--color-text-secondary)] group-hover:bg-[var(--color-primary)]/10 group-hover:text-[var(--color-primary)] transition-colors">
                     {item.type === 'Company' ? <Building2 size={22} /> : <Users size={22} />}

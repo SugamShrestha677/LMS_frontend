@@ -45,4 +45,9 @@ export const courseService = {
     const { data } = await api.get('/certificates/');
     return data;
   },
+
+  getCategories: async () => {
+    const { data } = await api.get('/categories/');
+    return data;
+  },
 };

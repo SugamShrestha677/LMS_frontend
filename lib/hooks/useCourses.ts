@@ -9,6 +9,13 @@ export const useCourses = () => {
   });
 };
 
+export const useCategories = () => {
+  return useQuery({
+    queryKey: ['categories'],
+    queryFn: () => courseService.getCategories(),
+  });
+};
+
 export const useCourse = (id: number) => {
   return useQuery({
     queryKey: ['courses', id],
@@ -33,7 +40,14 @@ export const useCreateCourse = () => {
       toast.success('Course created successfully');
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to create course');
+      const fieldErrors = error.response?.data;
+      if (fieldErrors && typeof fieldErrors === 'object') {
+        const firstError = Object.values(fieldErrors)[0];
+        const errorMessage = Array.isArray(firstError) ? firstError[0] : (fieldErrors.message || 'Failed to create course');
+        toast.error(errorMessage);
+      } else {
+        toast.error('Failed to create course');
+      }
     },
   });
 };
@@ -48,7 +62,14 @@ export const useUpdateCourse = () => {
       toast.success('Course updated successfully');
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to update course');
+      const fieldErrors = error.response?.data;
+      if (fieldErrors && typeof fieldErrors === 'object') {
+        const firstError = Object.values(fieldErrors)[0];
+        const errorMessage = Array.isArray(firstError) ? firstError[0] : (fieldErrors.message || 'Failed to update course');
+        toast.error(errorMessage);
+      } else {
+        toast.error('Failed to update course');
+      }
     },
   });
 };
