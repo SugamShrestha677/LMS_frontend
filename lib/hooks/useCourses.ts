@@ -9,6 +9,13 @@ export const useCourses = () => {
   });
 };
 
+export const useCategories = () => {
+  return useQuery({
+    queryKey: ['categories'],
+    queryFn: () => courseService.getCategories(),
+  });
+};
+
 export const useCourse = (id: number) => {
   return useQuery({
     queryKey: ['courses', id],
