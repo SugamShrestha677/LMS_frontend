@@ -93,7 +93,18 @@ export function UserManagement({ roleFilter, title, subtitle }: UserManagementPr
     ];
   };
 
-  const userList = Array.isArray(users) ? users : users?.data || [];
+  const userListFromApi = Array.isArray(users) ? users : users?.data || [];
+  
+  // Dummy data for demonstration if API returns only 1 user or is empty
+  const dummyUsers = [
+    { id: 2, email: 'staff@leapfrog.com', personal_email: 'staff.work@gmail.com', role: 'staff', is_active: true },
+    { id: 3, email: 'tutor.ram@leapfrog.com', personal_email: 'ram.tutor@gmail.com', role: 'tutor', is_active: true },
+    { id: 4, email: 'student.hari@leapfrog.com', personal_email: 'hari.stud@gmail.com', role: 'student', is_active: true },
+    { id: 5, email: 'meta@company.com', personal_email: 'contact@meta.com', role: 'company', is_active: true },
+    { id: 6, email: 'another.admin@leapfrog.com', personal_email: 'admin2@gmail.com', role: 'admin', is_active: true },
+  ];
+
+  const userList = userListFromApi.length <= 1 ? [...userListFromApi, ...dummyUsers] : userListFromApi;
 
   const filteredUsers = userList.filter((u: any) => {
     const matchesSearch = u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -101,6 +112,18 @@ export function UserManagement({ roleFilter, title, subtitle }: UserManagementPr
     const matchesRole = roleFilter ? u.role === roleFilter : true;
     return matchesSearch && matchesRole;
   });
+
+  const canEditUser = (targetUser: any) => {
+    const isSuperAdmin = currentUser?.role === 'super_admin' || currentUser?.is_super_admin;
+    const isAdmin = currentUser?.role === 'admin';
+    
+    if (isSuperAdmin) return true;
+    if (isAdmin) {
+      // Admin cannot edit Super Admin or other Admins
+      return !['super_admin', 'admin'].includes(targetUser.role);
+    }
+    return false;
+  };
 
   return (
     <div className="space-y-8">
@@ -226,7 +249,7 @@ export function UserManagement({ roleFilter, title, subtitle }: UserManagementPr
                       </td>
                       <td className="px-8 py-6 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          {(currentUser?.role === 'super_admin' || currentUser?.is_super_admin) && (
+                          {canEditUser(u) && (
                             <button 
                               onClick={() => {
                                 setSelectedUser(u);
