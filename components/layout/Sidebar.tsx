@@ -65,6 +65,7 @@ const tutorLinks = [
   { href: '/tutor/students', label: 'Students', icon: Users },
   { href: '/tutor/assessments', label: 'Assessments', icon: ClipboardCheck },
   { href: '/tutor/certificates', label: 'Certificates', icon: Award },
+  { href: '/tutor/profile', label: 'Profile', icon: UserCheck },
 ];
 
 const staffLinks = [
