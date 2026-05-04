@@ -1,15 +1,24 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { studentApi } from '@/lib/api/student';
+import { toast } from 'react-hot-toast';
 
-const USE_MOCK = true;
+const USE_MOCK = {
+  dashboard: false,
+  courses: false,
+  enrolledCourses: false,
+  badges: true,
+  progress: true,
+  profile: true,
+  jobs: true,
+};
 
 export function useStudentDashboard() {
   return useQuery({
     queryKey: ['student', 'dashboard'],
     queryFn: async () => {
-      if (USE_MOCK) {
+      if (USE_MOCK.dashboard) {
         return {
           stats: { total_courses: 12, total_badges: 8, avg_score: 88, study_hours: '24h' },
           activity_data: [
@@ -38,7 +47,7 @@ export function useStudentCourses() {
   return useQuery({
     queryKey: ['student', 'courses'],
     queryFn: async () => {
-      if (USE_MOCK) {
+      if (USE_MOCK.courses) {
         return [
           { id: 1, title: 'Introduction to Web Dev', category: 'Frontend', progress: 100, lessons_count: 12 },
           { id: 2, title: 'Modern React Patterns', category: 'Frontend', progress: 65, lessons_count: 24 },
@@ -56,7 +65,7 @@ export function useEnrolledCourses() {
   return useQuery({
     queryKey: ['student', 'courses', 'enrolled'],
     queryFn: async () => {
-      if (USE_MOCK) {
+      if (USE_MOCK.enrolledCourses) {
         return [
           { id: 2, title: 'Modern React Patterns', progress: 65, lessons_count: 24, category: 'Frontend' },
           { id: 4, title: 'UI Design Principles', progress: 20, lessons_count: 15, category: 'Design' },
@@ -72,7 +81,7 @@ export function useStudentBadges() {
   return useQuery({
     queryKey: ['student', 'badges'],
     queryFn: async () => {
-      if (USE_MOCK) {
+      if (USE_MOCK.badges) {
         return [
           { id: 1, name: 'React Expert', date: '2024-03-12', rarity: 'Gold' },
           { id: 2, name: 'Django Master', date: '2024-02-28', rarity: 'Gold' },
@@ -89,7 +98,7 @@ export function useStudentProgress() {
   return useQuery({
     queryKey: ['student', 'progress'],
     queryFn: async () => {
-      if (USE_MOCK) return { current: 75, target: 100 };
+      if (USE_MOCK.progress) return { current: 75, target: 100 };
       return studentApi.getProgress();
     },
   });
@@ -99,7 +108,7 @@ export function useStudentProfile() {
   return useQuery({
     queryKey: ['student', 'profile'],
     queryFn: async () => {
-      if (USE_MOCK) {
+      if (USE_MOCK.profile) {
         return {
           id: 1,
           education: 'Pulchowk Campus',
@@ -119,13 +128,36 @@ export function useStudentJobs() {
   return useQuery({
     queryKey: ['student', 'jobs'],
     queryFn: async () => {
-      if (USE_MOCK) {
+      if (USE_MOCK.jobs) {
         return [
           { id: 1, title: 'Frontend Engineer', company: 'Leapfrog', location: 'Kathmandu', match: 98, salary: 'रू 1.5L', posted: '2024-04-28', required_badges: ['React Expert'], type: 'Full-time' },
           { id: 2, title: 'Python Dev', company: 'LogPoint', location: 'Lalitpur', match: 85, salary: 'रू 1.2L', posted: '2024-04-27', required_badges: ['Django Master'], type: 'Full-time' },
         ];
       }
       return studentApi.getJobs();
+    },
+  });
+}
+
+export function useStudentCourse(courseId?: number) {
+  return useQuery({
+    queryKey: ['student', 'courses', courseId],
+    queryFn: () => studentApi.getCourse(courseId as number),
+    enabled: !!courseId,
+  });
+}
+
+export function useEnrollCourse() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (courseId: number) => studentApi.enrollCourse(courseId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['student', 'courses', 'enrolled'] });
+      toast.success('Enrolled successfully');
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || 'Enrollment failed';
+      toast.error(message);
     },
   });
 }
