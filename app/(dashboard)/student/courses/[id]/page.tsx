@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -13,44 +13,57 @@ import {
   Menu, X, Lock, Clock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-const mockCourse = {
-  id: 'react-101',
-  title: 'Advanced React Patterns',
-  instructor: 'Sandip Subedi',
-  description: 'Master advanced React patterns including Compound Components, Render Props, and Custom Hooks.',
-  total_lessons: 12,
-  completed_lessons: 4,
-  curriculum: [
-    {
-      title: 'Introduction',
-      lessons: [
-        { id: '1', title: 'Welcome to the Course', duration: '5:00', completed: true },
-        { id: '2', title: 'Environment Setup', duration: '12:00', completed: true },
-      ]
-    },
-    {
-      title: 'Advanced Patterns',
-      lessons: [
-        { id: '3', title: 'Compound Components', duration: '25:00', completed: true },
-        { id: '4', title: 'Control Props Pattern', duration: '18:00', completed: true },
-        { id: '5', title: 'Custom Hooks Deep Dive', duration: '32:00', completed: false, active: true },
-        { id: '6', title: 'Performance Optimization', duration: '22:00', completed: false, locked: true },
-      ]
-    }
-  ]
-};
+import { useEnrollCourse, useEnrolledCourses, useStudentCourse } from '@/lib/hooks/useStudentData';
 
 export default function CoursePlayer() {
   const params = useParams();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<'content' | 'resources' | 'discussion'>('content');
+  const courseId = Number(params.id);
 
-  const progress = (mockCourse.completed_lessons / mockCourse.total_lessons) * 100;
+  const { data: course, isLoading } = useStudentCourse(courseId);
+  const { data: enrolledCourses } = useEnrolledCourses();
+  const { mutate: enrollCourse, isPending: enrolling } = useEnrollCourse();
+
+  const enrollment = enrolledCourses?.find((item) => item.course?.id === courseId);
+  const isEnrolled = !!enrollment;
+
+  const curriculum = useMemo(() => {
+    if (!course?.modules) return [];
+    return course.modules.map((module: any) => ({
+      title: module.title,
+      lessons: (module.contents ?? []).map((content: any) => ({
+        id: content.id,
+        title: content.title,
+        duration: `${content.duration_minutes ?? 0} min`,
+        locked: !isEnrolled,
+      })),
+    }));
+  }, [course, isEnrolled]);
+
+  const allLessons = curriculum.flatMap((section) => section.lessons);
+  const [activeLessonId, setActiveLessonId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!activeLessonId && allLessons.length > 0) {
+      setActiveLessonId(allLessons[0].id);
+    }
+  }, [activeLessonId, allLessons]);
+
+  const activeLesson = allLessons.find((lesson) => lesson.id === activeLessonId);
+  const progress = enrollment ? Number(enrollment.progress_percentage ?? 0) : 0;
+
+  if (isLoading || !course) {
+    return (
+      <div className="flex items-center justify-center h-[60vh] text-[var(--color-text-secondary)]">
+        Loading course...
+      </div>
+    );
+  }
 
   return (
-    <div className="flex h-[calc(100vh-64px)] -m-4 md:-m-6 lg:-m-8 bg-white overflow-hidden">
+    <div className="flex h-[calc(100vh-64px)] -m-4 md:-m-6 lg:-m-8 bg-[var(--color-bg)] overflow-hidden">
       
       {/* Sidebar - Curriculum */}
       <AnimatePresence mode="wait">
@@ -60,56 +73,61 @@ export default function CoursePlayer() {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -300, opacity: 0 }}
             transition={{ duration: 0.3, ease: 'circOut' }}
-            className="w-80 border-r border-[#e5e7eb] flex flex-col bg-[#FAFAFA] z-20"
+            className="w-80 border-r border-[var(--color-border)] flex flex-col bg-[var(--color-bg-card)] z-20"
           >
-            <div className="p-5 border-b border-[#e5e7eb] bg-white">
+            <div className="p-5 border-b border-[var(--color-border)] bg-[var(--color-bg-card)]">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-[#1E1E2A]">Course Content</h3>
-                <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-[#5A5A6E]">
+                <h3 className="font-bold text-[var(--color-text-primary)]">Course Content</h3>
+                <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-[var(--color-text-secondary)]">
                   <X size={20} />
                 </button>
               </div>
               <div className="space-y-2">
-                <div className="flex justify-between text-xs font-bold text-[#5A5A6E]">
+                <div className="flex justify-between text-xs font-bold text-[var(--color-text-secondary)]">
                   <span>Overall Progress</span>
                   <span>{Math.round(progress)}%</span>
                 </div>
-                <ProgressBar value={progress} color="#0A5C4A" />
+                <ProgressBar value={progress} color="var(--color-primary)" />
               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-2 space-y-4 pt-4">
-              {mockCourse.curriculum.map((section, sIdx) => (
+              {curriculum.map((section, sIdx) => (
                 <div key={sIdx} className="space-y-1">
-                  <h4 className="px-3 text-[10px] font-black text-[#9ca3af] uppercase tracking-widest mb-2">
+                  <h4 className="px-3 text-[10px] font-black text-[var(--color-text-secondary)] uppercase tracking-widest mb-2">
                     {section.title}
                   </h4>
                   {section.lessons.map((lesson) => (
                     <button
                       key={lesson.id}
                       disabled={lesson.locked}
+                      onClick={() => !lesson.locked && setActiveLessonId(lesson.id)}
                       className={cn(
-                        "w-full flex items-start gap-3 p-3 rounded-xl transition-all text-left group",
-                        lesson.active ? "bg-white shadow-sm border border-[#0A5C4A]/20" : "hover:bg-gray-100",
-                        lesson.locked && "opacity-50 grayscale cursor-not-allowed"
+                        'w-full flex items-start gap-3 p-3 rounded-xl transition-all text-left group',
+                        lesson.id === activeLessonId
+                          ? 'bg-[var(--color-bg-card)] shadow-sm border border-[var(--color-primary)]/20'
+                          : 'hover:bg-[var(--color-muted)]',
+                        lesson.locked && 'opacity-50 grayscale cursor-not-allowed'
                       )}
                     >
                       <div className={cn(
-                        "mt-0.5 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0",
-                        lesson.completed ? "bg-emerald-100 text-emerald-600" : 
-                        lesson.active ? "bg-[#0A5C4A] text-white" : "bg-gray-200 text-gray-500"
+                        'mt-0.5 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0',
+                        lesson.locked
+                          ? 'bg-[var(--color-muted)] text-[var(--color-text-secondary)]'
+                          : lesson.id === activeLessonId
+                            ? 'bg-[var(--color-primary)] text-white'
+                            : 'bg-[var(--color-muted)] text-[var(--color-text-secondary)]'
                       )}>
-                        {lesson.completed ? <CheckCircle2 size={12} /> : 
-                         lesson.locked ? <Lock size={10} /> : <Play size={10} className="fill-current" />}
+                        {lesson.locked ? <Lock size={10} /> : <Play size={10} className="fill-current" />}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className={cn(
-                          "text-sm font-bold truncate",
-                          lesson.active ? "text-[#0A5C4A]" : "text-[#1E1E2A]"
+                          'text-sm font-bold truncate',
+                          lesson.id === activeLessonId ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-primary)]'
                         )}>
                           {lesson.title}
                         </p>
-                        <p className="text-[10px] font-medium text-[#5A5A6E] flex items-center gap-1">
+                        <p className="text-[10px] font-medium text-[var(--color-text-secondary)] flex items-center gap-1">
                           <Clock size={10} /> {lesson.duration}
                         </p>
                       </div>
@@ -123,23 +141,23 @@ export default function CoursePlayer() {
       </AnimatePresence>
 
       {/* Main Player Area */}
-      <main className="flex-1 flex flex-col min-w-0 bg-white">
+      <main className="flex-1 flex flex-col min-w-0 bg-[var(--color-bg-card)]">
         {/* Top Header */}
-        <div className="h-14 border-b border-[#e5e7eb] flex items-center justify-between px-6 bg-white shrink-0">
+        <div className="h-14 border-b border-[var(--color-border)] flex items-center justify-between px-6 bg-[var(--color-bg-card)] shrink-0">
           <div className="flex items-center gap-4">
             {!sidebarOpen && (
-              <button onClick={() => setSidebarOpen(true)} className="p-2 hover:bg-gray-100 rounded-lg text-[#5A5A6E]">
+              <button onClick={() => setSidebarOpen(true)} className="p-2 hover:bg-[var(--color-muted)] rounded-lg text-[var(--color-text-secondary)]">
                 <Menu size={20} />
               </button>
             )}
-            <button onClick={() => router.back()} className="flex items-center gap-1 text-sm font-bold text-[#5A5A6E] hover:text-[#0A5C4A]">
+            <button onClick={() => router.back()} className="flex items-center gap-1 text-sm font-bold text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]">
               <ChevronLeft size={16} /> Back to Dashboard
             </button>
           </div>
           <div className="flex items-center gap-3">
             <Badge variant="success" size="sm" dot>Verified Course</Badge>
-            <div className="h-4 w-px bg-gray-200 mx-1" />
-            <span className="text-xs font-bold text-[#5A5A6E]">Rating: 4.9</span>
+            <div className="h-4 w-px bg-[var(--color-border)] mx-1" />
+            <span className="text-xs font-bold text-[var(--color-text-secondary)]">Rating: 4.9</span>
           </div>
         </div>
 
@@ -151,7 +169,7 @@ export default function CoursePlayer() {
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="relative z-10 w-20 h-20 rounded-full bg-[#0A5C4A] flex items-center justify-center text-white shadow-2xl cursor-pointer hover:scale-110 transition-transform"
+              className="relative z-10 w-20 h-20 rounded-full bg-[var(--color-primary)] flex items-center justify-center text-white shadow-2xl cursor-pointer hover:scale-110 transition-transform"
             >
               <Play size={32} className="fill-current ml-1" />
             </motion.div>
@@ -161,13 +179,13 @@ export default function CoursePlayer() {
               <div className="flex items-center justify-between text-white mb-2">
                 <span className="text-xs font-bold">12:45 / 32:00</span>
                 <div className="flex gap-4">
-                  <button className="hover:text-[#0A5C4A]"><Star size={16} /></button>
-                  <button className="hover:text-[#0A5C4A] font-bold text-xs uppercase">CC</button>
-                  <button className="hover:text-[#0A5C4A] font-bold text-xs uppercase">1.5x</button>
+                  <button className="hover:text-[var(--color-primary)]"><Star size={16} /></button>
+                  <button className="hover:text-[var(--color-primary)] font-bold text-xs uppercase">CC</button>
+                  <button className="hover:text-[var(--color-primary)] font-bold text-xs uppercase">1.5x</button>
                 </div>
               </div>
               <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden">
-                <div className="h-full bg-[#0A5C4A] w-[40%]" />
+                <div className="h-full bg-[var(--color-primary)] w-[40%]" />
               </div>
             </div>
           </div>
@@ -176,28 +194,62 @@ export default function CoursePlayer() {
           <div className="p-8 max-w-4xl mx-auto">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
               <div>
-                <h2 className="text-2xl font-black text-[#1E1E2A] mb-2">Custom Hooks Deep Dive</h2>
-                <p className="text-[#5A5A6E] text-sm">Advanced Patterns • Section 2, Lesson 5</p>
+                <h2 className="text-2xl font-black text-[var(--color-text-primary)] mb-2">
+                  {activeLesson?.title ?? course.title}
+                </h2>
+                <p className="text-[var(--color-text-secondary)] text-sm">
+                  {course.short_description ?? course.description?.slice(0, 120)}
+                </p>
               </div>
-              <Button size="lg" className="h-12 px-8 shadow-primary">
-                <CheckCircle2 size={18} className="mr-2" /> Mark as Completed
-              </Button>
+              {isEnrolled ? (
+                <Button size="lg" className="h-12 px-8 shadow-primary">
+                  <CheckCircle2 size={18} className="mr-2" /> Mark as Completed
+                </Button>
+              ) : (
+                <Button size="lg" className="h-12 px-8" loading={enrolling} onClick={() => enrollCourse(course.id)}>
+                  {course.is_free ? 'Enroll Free' : `Unlock for ${course.price}`}
+                </Button>
+              )}
             </div>
 
+            {!isEnrolled && (
+              <Card className="mb-8">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-bold text-[var(--color-text-primary)]">This course requires enrollment</p>
+                    <p className="text-xs text-[var(--color-text-secondary)]">
+                      {course.is_free ? 'Free course. Enroll to access the content.' : 'Paid course. Review the price before enrolling.'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Badge variant={course.is_free ? 'success' : 'warning'} size="sm">
+                      {course.is_free ? 'Free' : 'Paid'}
+                    </Badge>
+                    <span className="text-sm font-black text-[var(--color-text-primary)]">
+                      {course.is_free ? 'NPR 0' : `NPR ${course.price}`}
+                    </span>
+                    <Button size="sm" loading={enrolling} onClick={() => enrollCourse(course.id)}>
+                      {course.is_free ? 'Enroll Now' : 'Pay & Enroll'}
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            )}
+
             {/* Tabs */}
-            <div className="flex border-b border-[#e5e7eb] mb-8">
+            <div className="flex border-b border-[var(--color-border)] mb-8">
               {(['content', 'resources', 'discussion'] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   className={cn(
-                    "px-6 py-4 text-sm font-bold capitalize transition-all relative",
-                    activeTab === tab ? "text-[#0A5C4A]" : "text-[#5A5A6E] hover:text-[#1E1E2A]"
+                    'px-6 py-4 text-sm font-bold capitalize transition-all relative',
+                    activeTab === tab ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
                   )}
                 >
                   {tab}
                   {activeTab === tab && (
-                    <motion.div layoutId="tabActive" className="absolute bottom-0 left-0 right-0 h-1 bg-[#0A5C4A] rounded-t-full" />
+                    <motion.div layoutId="tabActive" className="absolute bottom-0 left-0 right-0 h-1 bg-[var(--color-primary)] rounded-t-full" />
                   )}
                 </button>
               ))}
@@ -214,26 +266,23 @@ export default function CoursePlayer() {
                     exit={{ opacity: 0, y: -10 }}
                     className="space-y-4"
                   >
-                    <h3 className="font-bold text-[#1E1E2A]">About this lesson</h3>
-                    <p className="text-sm text-[#5A5A6E] leading-relaxed">
-                      In this lesson, we will explore the power of Custom Hooks to encapsulate complex 
-                      logic and share it across multiple components. We'll build a real-world 
-                      `useForm` hook and a `useLocalStorage` hook to understand the mechanics of 
-                      state synchronization and side effects.
+                    <h3 className="font-bold text-[var(--color-text-primary)]">About this lesson</h3>
+                    <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
+                      {course.description || 'Course details will appear here.'}
                     </p>
                     <div className="grid grid-cols-2 gap-4 mt-8">
-                      <div className="p-4 rounded-2xl bg-gray-50 border border-gray-100 flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-[#0A5C4A] shadow-sm"><Play size={14} /></div>
+                      <div className="p-4 rounded-2xl bg-[var(--color-muted)] border border-[var(--color-border)] flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-[var(--color-bg-card)] flex items-center justify-center text-[var(--color-primary)] shadow-sm"><Play size={14} /></div>
                         <div>
-                          <p className="text-[10px] font-black text-[#5A5A6E] uppercase">Type</p>
-                          <p className="text-xs font-bold text-[#1E1E2A]">HD Video Lecture</p>
+                          <p className="text-[10px] font-black text-[var(--color-text-secondary)] uppercase">Type</p>
+                          <p className="text-xs font-bold text-[var(--color-text-primary)]">Lesson Content</p>
                         </div>
                       </div>
-                      <div className="p-4 rounded-2xl bg-gray-50 border border-gray-100 flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-[#0A5C4A] shadow-sm"><FileText size={14} /></div>
+                      <div className="p-4 rounded-2xl bg-[var(--color-muted)] border border-[var(--color-border)] flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-[var(--color-bg-card)] flex items-center justify-center text-[var(--color-primary)] shadow-sm"><FileText size={14} /></div>
                         <div>
-                          <p className="text-[10px] font-black text-[#5A5A6E] uppercase">Resource</p>
-                          <p className="text-xs font-bold text-[#1E1E2A]">PDF Guide Included</p>
+                          <p className="text-[10px] font-black text-[var(--color-text-secondary)] uppercase">Resource</p>
+                          <p className="text-xs font-bold text-[var(--color-text-primary)]">Course Materials</p>
                         </div>
                       </div>
                     </div>
@@ -252,17 +301,17 @@ export default function CoursePlayer() {
                       { name: 'Starter Code (Zip)', size: '15.8 MB' },
                       { name: 'Lesson Transcripts.txt', size: '45 KB' },
                     ].map((res, i) => (
-                      <div key={i} className="flex items-center justify-between p-4 rounded-2xl border border-[#e5e7eb] hover:bg-gray-50 transition-colors">
+                      <div key={i} className="flex items-center justify-between p-4 rounded-2xl border border-[var(--color-border)] hover:bg-[var(--color-muted)] transition-colors">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-[#0A5C4A]/5 flex items-center justify-center text-[#0A5C4A]">
+                          <div className="w-10 h-10 rounded-xl bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)]">
                             <Download size={18} />
                           </div>
                           <div>
-                            <p className="text-sm font-bold text-[#1E1E2A]">{res.name}</p>
-                            <p className="text-[10px] font-black text-[#9ca3af] uppercase">{res.size}</p>
+                            <p className="text-sm font-bold text-[var(--color-text-primary)]">{res.name}</p>
+                            <p className="text-[10px] font-black text-[var(--color-text-secondary)] uppercase">{res.size}</p>
                           </div>
                         </div>
-                        <Button variant="ghost" size="sm" className="text-[#0A5C4A] font-bold">Download</Button>
+                        <Button variant="ghost" size="sm" className="text-[var(--color-primary)] font-bold">Download</Button>
                       </div>
                     ))}
                   </motion.div>
@@ -275,11 +324,11 @@ export default function CoursePlayer() {
                     animate={{ opacity: 1, y: 0 }}
                     className="text-center py-12"
                   >
-                    <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-300">
+                    <div className="w-16 h-16 bg-[var(--color-muted)] rounded-full flex items-center justify-center mx-auto mb-4 text-[var(--color-text-secondary)]/50">
                       <MessageSquare size={28} />
                     </div>
-                    <h4 className="font-bold text-[#1E1E2A]">No discussions yet</h4>
-                    <p className="text-sm text-[#5A5A6E] mt-1 mb-6">Be the first to ask a question about this lesson.</p>
+                    <h4 className="font-bold text-[var(--color-text-primary)]">No discussions yet</h4>
+                    <p className="text-sm text-[var(--color-text-secondary)] mt-1 mb-6">Be the first to ask a question about this lesson.</p>
                     <Button variant="outline" size="md">Start Discussion</Button>
                   </motion.div>
                 )}
@@ -289,11 +338,11 @@ export default function CoursePlayer() {
         </div>
 
         {/* Footer Navigation */}
-        <div className="h-16 border-t border-[#e5e7eb] flex items-center justify-between px-8 bg-white shrink-0">
-          <button className="flex items-center gap-2 text-sm font-bold text-[#5A5A6E] hover:text-[#1E1E2A] transition-colors">
+        <div className="h-16 border-t border-[var(--color-border)] flex items-center justify-between px-8 bg-[var(--color-bg-card)] shrink-0">
+          <button className="flex items-center gap-2 text-sm font-bold text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors">
             <ChevronLeft size={18} /> Previous Lesson
           </button>
-          <button className="flex items-center gap-2 text-sm font-bold text-[#0A5C4A] hover:opacity-80 transition-opacity">
+          <button className="flex items-center gap-2 text-sm font-bold text-[var(--color-primary)] hover:opacity-80 transition-opacity">
             Next Lesson <ChevronRight size={18} />
           </button>
         </div>

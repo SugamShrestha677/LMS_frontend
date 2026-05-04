@@ -56,16 +56,16 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
             exit={{ opacity: 0, scale: 0.94, y: 12 }}
             transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
             className={cn(
-              'relative z-10 w-full bg-white rounded-2xl shadow-xl border border-[#e5e7eb]',
+              'relative z-10 w-full rounded-2xl shadow-xl border border-[var(--color-border)] bg-[var(--color-bg-card)]',
               sizes[size],
             )}
           >
             {title && (
-              <div className="flex items-center justify-between p-6 border-b border-[#e5e7eb]">
-                <h2 className="text-lg font-semibold text-[#1E1E2A]">{title}</h2>
+              <div className="flex items-center justify-between p-6 border-b border-[var(--color-border)]">
+                <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">{title}</h2>
                 <button
                   onClick={onClose}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center text-[#5A5A6E] hover:bg-gray-100 hover:text-[#1E1E2A] transition-colors"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-[var(--color-text-secondary)] hover:bg-[var(--color-muted)] hover:text-[var(--color-text-primary)] transition-colors"
                 >
                   <X size={16} />
                 </button>
