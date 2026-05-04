@@ -234,6 +234,33 @@ export default function TutorCoursesPage() {
             ]} 
             {...register('status')} 
           />
+          {/* NEW: Thumbnail file picker */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Course Thumbnail (Image)</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0] || null;
+                setValue('thumbnail_file', file); // set manually
+              }}
+              className="w-full border border-gray-300 rounded-lg p-2"
+            />
+          </div>
+
+          {/* NEW: Preview video file picker (optional) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Preview Video (optional)</label>
+            <input
+              type="file"
+              accept="video/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0] || null;
+                setValue('preview_video_file', file);
+              }}
+              className="w-full border border-gray-300 rounded-lg p-2"
+            />
+          </div>
           <div className="pt-4 flex gap-4">
             <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} className="flex-1 rounded-xl">Cancel</Button>
             <Button type="submit" loading={isCreating} className="flex-1 rounded-xl">Create Course</Button>
