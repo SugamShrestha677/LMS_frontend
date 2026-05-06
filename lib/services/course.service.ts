@@ -11,6 +11,25 @@ export const courseService = {
     return data;
   },
 
+  getCourseResources: async (id: number) => {
+    const { data } = await api.get(`/courses/${id}/resources/`);
+    return data;
+  },
+
+  createCourseResource: async (courseId: number, formData: FormData) => {
+    const { data } = await api.post(
+      `/courses/${courseId}/resources/`,
+      formData,
+      { headers: { 'Content-Type': undefined } },
+    );
+    return data;
+  },
+
+  deleteCourseResource: async (courseId: number, resourceId: number) => {
+    const { data } = await api.delete(`/courses/${courseId}/resources/${resourceId}/`);
+    return data;
+  },
+
   createCourse: async (courseData: any) => {
     const isFormData = typeof FormData !== 'undefined' && courseData instanceof FormData;
     const { data } = await api.post(
@@ -23,6 +42,20 @@ export const courseService = {
 
   updateCourse: async (id: number, courseData: any) => {
     const { data } = await api.patch(`/courses/${id}/`, courseData);
+    return data;
+  },
+
+  uploadScorm: async (id: number, formData: FormData) => {
+    const { data } = await api.post(
+      `/courses/${id}/upload-scorm/`,
+      formData,
+      { headers: { 'Content-Type': undefined } },
+    );
+    return data;
+  },
+
+  getScormStatus: async (id: number) => {
+    const { data } = await api.get(`/courses/${id}/scorm-status/`);
     return data;
   },
 

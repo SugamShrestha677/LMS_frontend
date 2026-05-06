@@ -10,10 +10,17 @@ import { ProgressBar } from '@/components/ui/Badge';
 import { 
   Play, CheckCircle2, ChevronLeft, ChevronRight, 
   FileText, Download, MessageSquare, Star,
-  Menu, X, Lock, Clock
+  Menu, X, Lock, Clock, ExternalLink
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useEnrollCourse, useEnrolledCourses, useStudentCourse } from '@/lib/hooks/useStudentData';
+import {
+  useEnrollCourse,
+  useEnrolledCourses,
+  useStudentCourse,
+  useCourseResources,
+  useCompleteContent,
+  useScormProgress,
+} from '@/lib/hooks/useStudentData';
 
 export default function CoursePlayer() {
   const params = useParams();
@@ -25,9 +32,15 @@ export default function CoursePlayer() {
   const { data: course, isLoading } = useStudentCourse(courseId);
   const { data: enrolledCourses } = useEnrolledCourses();
   const { mutate: enrollCourse, isPending: enrolling } = useEnrollCourse();
-
+  const { data: resources } = useCourseResources(courseId);
+  const { mutate: completeContent, isPending: completing } = useCompleteContent();
   const enrollment = enrolledCourses?.find((item) => item.course?.id === courseId);
   const isEnrolled = !!enrollment;
+  const {
+    data: scormProgress,
+    refetch: refetchScormProgress,
+    isFetching: fetchingScormProgress,
+  } = useScormProgress(courseId, isEnrolled && !!course?.is_scorm);
 
   const curriculum = useMemo(() => {
     if (!course?.modules) return [];
@@ -38,6 +51,9 @@ export default function CoursePlayer() {
         title: content.title,
         duration: `${content.duration_minutes ?? 0} min`,
         locked: !isEnrolled,
+        contentType: content.content_type,
+        videoUrl: content.video_url || content.file_url || null,
+        externalLink: content.external_link || null,
       })),
     }));
   }, [course, isEnrolled]);
@@ -52,7 +68,28 @@ export default function CoursePlayer() {
   }, [activeLessonId, allLessons]);
 
   const activeLesson = allLessons.find((lesson) => lesson.id === activeLessonId);
-  const progress = enrollment ? Number(enrollment.progress_percentage ?? 0) : 0;
+  const scormCompletion = typeof scormProgress?.completion_amount === 'number'
+    ? scormProgress.completion_amount
+    : null;
+  const progress = scormCompletion ?? (enrollment ? Number(enrollment.progress_percentage ?? 0) : 0);
+  const scormLaunchUrl = course?.scorm_launch_url as string | undefined;
+  const scormLaunchError = course?.scorm_launch_error as string | undefined;
+  const resourceList = useMemo(() => {
+    if (Array.isArray(resources)) return resources;
+    return (resources as any)?.data || [];
+  }, [resources]);
+
+  const handleLessonCompleted = () => {
+    if (!isEnrolled || !enrollment?.id || !activeLessonId || course?.is_scorm) {
+      return;
+    }
+
+    completeContent({
+      enrollmentId: enrollment.id,
+      contentId: activeLessonId,
+      courseId,
+    });
+  };
 
   if (isLoading || !course) {
     return (
@@ -163,32 +200,48 @@ export default function CoursePlayer() {
 
         {/* Video & Content */}
         <div className="flex-1 overflow-y-auto">
-          {/* Mock Video Player */}
-          <div className="aspect-video bg-black relative flex items-center justify-center group overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-black opacity-90" />
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="relative z-10 w-20 h-20 rounded-full bg-[var(--color-primary)] flex items-center justify-center text-white shadow-2xl cursor-pointer hover:scale-110 transition-transform"
-            >
-              <Play size={32} className="fill-current ml-1" />
-            </motion.div>
-            
-            {/* Player Controls Mock */}
-            <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-              <div className="flex items-center justify-between text-white mb-2">
-                <span className="text-xs font-bold">12:45 / 32:00</span>
-                <div className="flex gap-4">
-                  <button className="hover:text-[var(--color-primary)]"><Star size={16} /></button>
-                  <button className="hover:text-[var(--color-primary)] font-bold text-xs uppercase">CC</button>
-                  <button className="hover:text-[var(--color-primary)] font-bold text-xs uppercase">1.5x</button>
+          {course.is_scorm ? (
+            <div className="aspect-video bg-black relative overflow-hidden">
+              {scormLaunchUrl ? (
+                <iframe
+                  src={scormLaunchUrl}
+                  title="SCORM Player"
+                  className="w-full h-full"
+                  allow="autoplay; fullscreen"
+                />
+              ) : (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-white gap-3">
+                  <span className="text-sm font-bold">SCORM content not ready</span>
+                  {scormLaunchError && (
+                    <span className="text-xs text-white/70">{scormLaunchError}</span>
+                  )}
                 </div>
-              </div>
-              <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden">
-                <div className="h-full bg-[var(--color-primary)] w-[40%]" />
-              </div>
+              )}
             </div>
-          </div>
+          ) : (
+            activeLesson?.videoUrl ? (
+              <div className="aspect-video bg-black relative overflow-hidden">
+                <video
+                  key={activeLesson.id}
+                  src={activeLesson.videoUrl}
+                  controls
+                  className="w-full h-full"
+                  onEnded={handleLessonCompleted}
+                />
+              </div>
+            ) : (
+              <div className="aspect-video bg-black relative flex items-center justify-center group overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-black opacity-90" />
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="relative z-10 w-20 h-20 rounded-full bg-[var(--color-primary)] flex items-center justify-center text-white shadow-2xl"
+                >
+                  <Play size={32} className="fill-current ml-1" />
+                </motion.div>
+              </div>
+            )
+          )}
 
           {/* Lesson Details */}
           <div className="p-8 max-w-4xl mx-auto">
@@ -202,9 +255,34 @@ export default function CoursePlayer() {
                 </p>
               </div>
               {isEnrolled ? (
-                <Button size="lg" className="h-12 px-8 shadow-primary">
-                  <CheckCircle2 size={18} className="mr-2" /> Mark as Completed
-                </Button>
+                course.is_scorm ? (
+                  <Button
+                    size="lg"
+                    className="h-12 px-8 shadow-primary"
+                    onClick={() => refetchScormProgress()}
+                    loading={fetchingScormProgress}
+                  >
+                    <CheckCircle2 size={18} className="mr-2" /> Sync Progress
+                  </Button>
+                ) : (
+                  <Button
+                    size="lg"
+                    className="h-12 px-8 shadow-primary"
+                    onClick={() =>
+                      activeLessonId &&
+                      enrollment?.id &&
+                      completeContent({
+                        enrollmentId: enrollment.id,
+                        contentId: activeLessonId,
+                        courseId,
+                      })
+                    }
+                    disabled={!activeLessonId}
+                    loading={completing}
+                  >
+                    <CheckCircle2 size={18} className="mr-2" /> Mark as Completed
+                  </Button>
+                )
               ) : (
                 <Button size="lg" className="h-12 px-8" loading={enrolling} onClick={() => enrollCourse(course.id)}>
                   {course.is_free ? 'Enroll Free' : `Unlock for ${course.price}`}
@@ -296,24 +374,40 @@ export default function CoursePlayer() {
                     animate={{ opacity: 1, y: 0 }}
                     className="space-y-3"
                   >
-                    {[
-                      { name: 'Custom Hooks Guide.pdf', size: '2.4 MB' },
-                      { name: 'Starter Code (Zip)', size: '15.8 MB' },
-                      { name: 'Lesson Transcripts.txt', size: '45 KB' },
-                    ].map((res, i) => (
-                      <div key={i} className="flex items-center justify-between p-4 rounded-2xl border border-[var(--color-border)] hover:bg-[var(--color-muted)] transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)]">
-                            <Download size={18} />
+                    {resourceList.length === 0 ? (
+                      <div className="text-sm text-[var(--color-text-secondary)]">No resources available yet.</div>
+                    ) : (
+                      resourceList.map((res: any) => {
+                        const href = res.external_link || res.file_url;
+                        const isExternal = !!res.external_link;
+                        const label = res.title || res.file_name || res.external_link;
+
+                        return (
+                          <div key={res.id} className="flex items-center justify-between p-4 rounded-2xl border border-[var(--color-border)] hover:bg-[var(--color-muted)] transition-colors">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)]">
+                                {isExternal ? <ExternalLink size={18} /> : <Download size={18} />}
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-[var(--color-text-primary)]">{label}</p>
+                                {res.description && (
+                                  <p className="text-[10px] font-black text-[var(--color-text-secondary)] uppercase line-clamp-1">
+                                    {res.description}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            {href ? (
+                              <Button asChild variant="ghost" size="sm" className="text-[var(--color-primary)] font-bold">
+                                <a href={href} target="_blank" rel="noreferrer">
+                                  {isExternal ? 'Open' : 'Download'}
+                                </a>
+                              </Button>
+                            ) : null}
                           </div>
-                          <div>
-                            <p className="text-sm font-bold text-[var(--color-text-primary)]">{res.name}</p>
-                            <p className="text-[10px] font-black text-[var(--color-text-secondary)] uppercase">{res.size}</p>
-                          </div>
-                        </div>
-                        <Button variant="ghost" size="sm" className="text-[var(--color-primary)] font-bold">Download</Button>
-                      </div>
-                    ))}
+                        );
+                      })
+                    )}
                   </motion.div>
                 )}
 

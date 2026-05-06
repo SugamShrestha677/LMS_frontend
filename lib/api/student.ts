@@ -28,8 +28,25 @@ export const studentApi = {
     return unwrapResponse(res.data);
   },
 
+  getCourseResources: async (courseId: number) => {
+    const res = await api.get(`/courses/${courseId}/resources/`);
+    return unwrapResponse(res.data);
+  },
+
   enrollCourse: async (courseId: number) => {
     const res = await api.post(`/student/courses/${courseId}/enroll/`);
+    return unwrapResponse(res.data);
+  },
+
+  completeContent: async (enrollmentId: number, contentId: number) => {
+    const res = await api.post(`/enrollments/${enrollmentId}/complete_content/`, {
+      content_id: contentId,
+    });
+    return unwrapResponse(res.data);
+  },
+
+  getScormProgress: async (courseId: number) => {
+    const res = await api.get(`/courses/${courseId}/scorm-progress/`);
     return unwrapResponse(res.data);
   },
 
