@@ -147,6 +147,40 @@ export function useStudentCourse(courseId?: number) {
   });
 }
 
+export function useCourseResources(courseId?: number) {
+  return useQuery({
+    queryKey: ['student', 'courses', courseId, 'resources'],
+    queryFn: () => studentApi.getCourseResources(courseId as number),
+    enabled: !!courseId,
+  });
+}
+
+export function useScormProgress(courseId?: number, enabled = true) {
+  return useQuery({
+    queryKey: ['student', 'courses', courseId, 'scorm-progress'],
+    queryFn: () => studentApi.getScormProgress(courseId as number),
+    enabled: !!courseId && enabled,
+    refetchInterval: enabled ? 10000 : false,
+  });
+}
+
+export function useCompleteContent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ enrollmentId, contentId }: { enrollmentId: number; contentId: number; courseId: number }) =>
+      studentApi.completeContent(enrollmentId, contentId),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['student', 'courses', variables.courseId] });
+      queryClient.invalidateQueries({ queryKey: ['student', 'courses', 'enrolled'] });
+      toast.success('Lesson marked as completed');
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || 'Failed to update progress';
+      toast.error(message);
+    },
+  });
+}
+
 export function useEnrollCourse() {
   const queryClient = useQueryClient();
   return useMutation({
