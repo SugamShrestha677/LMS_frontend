@@ -9,10 +9,11 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
 import { TableSkeleton } from '@/components/ui/Skeleton';
-import { BookOpen, Plus, Search, Edit2, PlayCircle, Clock } from 'lucide-react';
+import { BookOpen, Plus, Search, Edit2, PlayCircle, Clock, UploadCloud, FolderOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { useAuthStore } from '@/lib/store/auth-store';
+import Link from 'next/link';
 
 export default function TutorCoursesPage() {
   const { user } = useAuthStore();
@@ -203,6 +204,20 @@ export default function TutorCoursesPage() {
                       </td>
                       <td className="px-8 py-6 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          <Link
+                            href={`/tutor/courses/${course.id}/resources`}
+                            className="w-10 h-10 rounded-xl hover:bg-[var(--color-primary)]/10 text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-all flex items-center justify-center hover:scale-110"
+                            title="Manage Resources"
+                          >
+                            <FolderOpen size={18} />
+                          </Link>
+                          <Link
+                            href={`/tutor/courses/${course.id}/scorm`}
+                            className="w-10 h-10 rounded-xl hover:bg-[var(--color-primary)]/10 text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-all flex items-center justify-center hover:scale-110"
+                            title="Upload SCORM"
+                          >
+                            <UploadCloud size={18} />
+                          </Link>
                           <button 
                             onClick={() => openEditModal(course)}
                             className="w-10 h-10 rounded-xl hover:bg-[var(--color-primary)]/10 text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-all flex items-center justify-center hover:scale-110"
