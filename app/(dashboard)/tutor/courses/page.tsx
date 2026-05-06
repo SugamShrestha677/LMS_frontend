@@ -9,14 +9,20 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
 import { TableSkeleton } from '@/components/ui/Skeleton';
-import { BookOpen, Plus, Search, Edit2, PlayCircle, Clock, UploadCloud, FolderOpen } from 'lucide-react';
+import { 
+  BookOpen, Plus, Search, Edit2, PlayCircle, Clock, 
+  UploadCloud, FolderOpen, Eye, MoreHorizontal, 
+  Users, BarChart3, Trash2, Copy, ExternalLink 
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { useAuthStore } from '@/lib/store/auth-store';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function TutorCoursesPage() {
   const { user } = useAuthStore();
+  const router = useRouter();
   const { data: courses, isLoading: isLoadingCourses } = useCourses();
   const { data: categoriesData } = useCategories();
   const { mutate: createCourse, isPending: isCreating } = useCreateCourse();
@@ -28,6 +34,7 @@ export default function TutorCoursesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [previewVideoFile, setPreviewVideoFile] = useState<File | null>(null);
+  const [showActions, setShowActions] = useState<number | null>(null);
 
   const { register, handleSubmit, reset, setValue } = useForm();
 
@@ -45,11 +52,21 @@ export default function TutorCoursesPage() {
 
   const filteredCourses = courseList.filter((c: any) => 
     (c.title || c.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (c.category || '').toString().toLowerCase().includes(searchTerm.toLowerCase())
+    (c.category_name || '').toString().toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getStatus = (course: any) => {
     return course.status || (course.is_published ? 'published' : course.is_active ? 'active' : 'draft');
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'published': return 'primary';
+      case 'active': return 'success';
+      case 'draft': return 'secondary';
+      case 'archived': return 'danger';
+      default: return 'secondary';
+    }
   };
 
   const onSubmit = (data: any) => {
@@ -149,92 +166,125 @@ export default function TutorCoursesPage() {
         </div>
       </div>
 
-      {/* Course Table */}
-      <Card padding="none" className="overflow-hidden border-none shadow-2xl bg-[var(--color-bg-card)]/60 backdrop-blur-xl rounded-[2.5rem]">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-[var(--color-primary)]/5">
-                <th className="px-8 py-6 text-xs font-black uppercase tracking-widest text-[var(--color-text-secondary)]">Course Details</th>
-                <th className="px-8 py-6 text-xs font-black uppercase tracking-widest text-[var(--color-text-secondary)]">Category</th>
-                <th className="px-8 py-6 text-xs font-black uppercase tracking-widest text-[var(--color-text-secondary)]">Students</th>
-                <th className="px-8 py-6 text-xs font-black uppercase tracking-widest text-[var(--color-text-secondary)]">Status</th>
-                <th className="px-8 py-6 text-xs font-black uppercase tracking-widest text-[var(--color-text-secondary)] text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--color-border)]">
-              {isLoadingCourses ? (
-                <tr><td colSpan={5} className="p-0"><TableSkeleton rows={5} /></td></tr>
-              ) : filteredCourses.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-8 py-20 text-center">
-                    <p className="text-[var(--color-text-secondary)] font-medium">No courses found. Create one to get started.</p>
-                  </td>
-                </tr>
-              ) : (
-                <AnimatePresence mode="popLayout">
-                  {filteredCourses.map((course: any, idx: number) => (
-                    <motion.tr 
-                      key={course.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.05 }}
-                      className="hover:bg-[var(--color-primary)]/[0.03] transition-colors group"
+      {/* Course Cards Grid (Alternative to table for better UX) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {isLoadingCourses ? (
+          Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i} className="p-6 animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-4" />
+              <div className="h-3 bg-gray-200 rounded w-full mb-2" />
+              <div className="h-3 bg-gray-200 rounded w-2/3 mb-4" />
+              <div className="flex gap-2">
+                <div className="h-8 bg-gray-200 rounded w-20" />
+                <div className="h-8 bg-gray-200 rounded w-20" />
+              </div>
+            </Card>
+          ))
+        ) : filteredCourses.length === 0 ? (
+          <div className="col-span-full">
+            <Card className="p-20 text-center">
+              <BookOpen size={64} className="text-[var(--color-text-secondary)] mx-auto mb-4 opacity-30" />
+              <p className="text-[var(--color-text-secondary)] font-medium text-lg mb-4">No courses found</p>
+              <Button onClick={() => setIsModalOpen(true)}>
+                <Plus size={18} className="mr-2" /> Create Your First Course
+              </Button>
+            </Card>
+          </div>
+        ) : (
+          <AnimatePresence mode="popLayout">
+            {filteredCourses.map((course: any, idx: number) => (
+              <motion.div
+                key={course.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ delay: idx * 0.05 }}
+                layout
+              >
+                <Card className="p-6 h-full flex flex-col hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group cursor-pointer"
+                  onClick={() => router.push(`/tutor/courses/${course.id}`)}
+                >
+                  {/* Thumbnail */}
+                  <div className="relative mb-4 rounded-xl overflow-hidden bg-gradient-to-br from-[var(--color-primary)]/10 to-[var(--color-primary)]/5 h-40">
+                    {course.thumbnail_url ? (
+                      <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <BookOpen size={48} className="text-[var(--color-primary)]/30" />
+                      </div>
+                    )}
+                    <div className="absolute top-3 right-3">
+                      <Badge variant={getStatusColor(getStatus(course))} className="uppercase text-xs shadow-lg">
+                        {getStatus(course)}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1">
+                    <h3 className="font-bold text-lg text-[var(--color-text-primary)] group-hover:text-[var(--color-primary)] transition-colors line-clamp-2 mb-2">
+                      {course.title}
+                    </h3>
+                    <p className="text-sm text-[var(--color-text-secondary)] line-clamp-2 mb-4">
+                      {course.short_description || course.description || 'No description'}
+                    </p>
+
+                    <div className="flex items-center gap-3 text-xs text-[var(--color-text-secondary)] mb-4">
+                      <span className="flex items-center gap-1">
+                        <Clock size={12} /> {course.duration_weeks || 4}w
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Users size={12} /> {course.enrolled_count || 0} students
+                      </span>
+                      {course.category_name && (
+                        <span className="flex items-center gap-1">
+                          <BookOpen size={12} /> {course.category_name}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 pt-4 border-t border-[var(--color-border)]">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="flex-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/tutor/courses/${course.id}`);
+                      }}
                     >
-                      <td className="px-8 py-6">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-[var(--color-text-primary)] group-hover:text-[var(--color-primary)] transition-colors">{course.title || course.name}</span>
-                          <span className="text-[10px] text-[var(--color-text-secondary)] font-medium line-clamp-1 max-w-xs mt-1">
-                            <Clock size={10} className="inline mr-1"/> {course.duration_weeks || 4} Weeks • {course.total_hours || 20} Hours
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <Badge variant="outline" className="font-bold border-[var(--color-border)] text-[var(--color-text-primary)]">
-                          {course.category_name || course.category || 'Uncategorized'}
-                        </Badge>
-                      </td>
-                      <td className="px-8 py-6 font-bold text-[var(--color-text-primary)] text-sm">
-                        {course.enrolled_count || course.students || 0}
-                      </td>
-                      <td className="px-8 py-6">
-                        <Badge variant={getStatus(course) === 'published' || getStatus(course) === 'active' ? 'primary' : 'secondary'} className="uppercase text-[10px] tracking-widest">
-                          {getStatus(course)}
-                        </Badge>
-                      </td>
-                      <td className="px-8 py-6 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Link
-                            href={`/tutor/courses/${course.id}/resources`}
-                            className="w-10 h-10 rounded-xl hover:bg-[var(--color-primary)]/10 text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-all flex items-center justify-center hover:scale-110"
-                            title="Manage Resources"
-                          >
-                            <FolderOpen size={18} />
-                          </Link>
-                          <Link
-                            href={`/tutor/courses/${course.id}/scorm`}
-                            className="w-10 h-10 rounded-xl hover:bg-[var(--color-primary)]/10 text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-all flex items-center justify-center hover:scale-110"
-                            title="Upload SCORM"
-                          >
-                            <UploadCloud size={18} />
-                          </Link>
-                          <button 
-                            onClick={() => openEditModal(course)}
-                            className="w-10 h-10 rounded-xl hover:bg-[var(--color-primary)]/10 text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-all flex items-center justify-center hover:scale-110"
-                            title="Edit Course"
-                          >
-                            <Edit2 size={18} />
-                          </button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </AnimatePresence>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+                      <Eye size={14} className="mr-1" /> View
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="flex-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/tutor/courses/${course.id}/modules`);
+                      }}
+                    >
+                      <FolderOpen size={14} className="mr-1" /> Modules
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEditModal(course);
+                      }}
+                    >
+                      <Edit2 size={14} />
+                    </Button>
+                  </div>
+                </Card>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        )}
+      </div>
 
       {/* Create Course Modal */}
       <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)} title="Create New Course">
@@ -255,7 +305,6 @@ export default function TutorCoursesPage() {
             ]} 
             {...register('status')} 
           />
-          {/* NEW: Thumbnail file picker */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Course Thumbnail (Image)</label>
             <input
@@ -272,7 +321,6 @@ export default function TutorCoursesPage() {
             )}
           </div>
 
-          {/* NEW: Preview video file picker (optional) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Preview Video (optional)</label>
             <input
