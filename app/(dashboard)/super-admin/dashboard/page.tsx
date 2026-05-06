@@ -14,52 +14,6 @@ import {
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useAdminStats } from '@/lib/hooks/useAdmin';
-import { Skeleton } from '@/components/ui/Skeleton';
-
-const statCards = [
-  {
-    label: 'Total Admins',
-    value: '12',
-    icon: Shield,
-    color: 'bg-purple-100 text-purple-600',
-    href: '/super-admin/admins',
-    trend: '+2 this month',
-    trendUp: true,
-  },
-  {
-    label: 'Total Students',
-    value: '3,842',
-    icon: UserCheck,
-    color: 'bg-blue-100 text-blue-600',
-    href: '/super-admin/students',
-    trend: '+124 this week',
-    trendUp: true,
-  },
-  {
-    label: 'Partner Companies',
-    value: '86',
-    icon: Building2,
-    color: 'bg-indigo-100 text-indigo-600',
-    href: '/super-admin/companies',
-    trend: '+5 this month',
-    trendUp: true,
-  },
-  {
-    label: 'Total Revenue',
-    value: 'NPR 8.2M',
-    icon: DollarSign,
-    color: 'bg-green-100 text-green-600',
-    href: '/super-admin/finance',
-    trend: '+15% vs last month',
-    trendUp: true,
-  },
-];
-
-const secondaryStats = [
-  { label: 'Tutors', value: '48', icon: GraduationCap, color: 'bg-orange-100 text-orange-600' },
-  { label: 'Active Courses', value: '142', icon: BookOpen, color: 'bg-teal-100 text-teal-600' },
-  { label: 'Active Enrollments', value: '2,910', icon: Activity, color: 'bg-cyan-100 text-cyan-600' },
-];
 
 const quickActions = [
   { label: 'Create Admin', href: '/super-admin/admins/create', icon: Shield, color: 'hover:bg-purple-50 text-purple-600' },
