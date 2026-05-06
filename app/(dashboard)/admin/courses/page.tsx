@@ -27,12 +27,19 @@ export default function AdminCoursesPage() {
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { register, handleSubmit, reset, setValue } = useForm();
+  const { register, handleSubmit, reset, setValue, watch } = useForm({
+    defaultValues: {
+      is_free: true,
+      price: 0
+    }
+  });
+
+  const isFree = watch('is_free');
 
   const tutors = useMemo(() => {
     const userList = Array.isArray(users) ? users : (users as any)?.data || [];
     return userList
-      .filter((u: any) => u.role === 'tutor' || u.role === 'staff' || u.role === 'admin')
+      .filter((u: any) => u.role === 'tutor')
       .map((u: any) => ({
         value: u.id,
         label: u.first_name ? `${u.first_name} ${u.last_name || ''}` : u.email
@@ -85,6 +92,8 @@ export default function AdminCoursesPage() {
       instructor: data.instructor ? parseInt(data.instructor) : null,
       category: data.category ? parseInt(data.category) : null,
       status: data.status,
+      is_free: data.is_free,
+      price: data.is_free ? 0 : parseFloat(data.price || 0),
     };
     
     createCourse(payload, {
@@ -105,6 +114,8 @@ export default function AdminCoursesPage() {
       instructor: data.instructor ? parseInt(data.instructor) : null,
       category: data.category ? parseInt(data.category) : null,
       status: data.status,
+      is_free: data.is_free,
+      price: data.is_free ? 0 : parseFloat(data.price || 0),
     };
 
     updateCourse({ id: selectedCourse.id, data: payload }, {
@@ -124,6 +135,8 @@ export default function AdminCoursesPage() {
     const instructorId = typeof course.instructor === 'object' ? course.instructor?.id : (course.instructor || course.instructor_id || course.tutor);
     setValue('instructor', instructorId || '');
     setValue('status', getStatus(course));
+    setValue('is_free', course.is_free !== false);
+    setValue('price', course.price || 0);
     setIsEditModalOpen(true);
   };
 
@@ -276,6 +289,27 @@ export default function AdminCoursesPage() {
             ]} 
             {...register('status')} 
           />
+          <div className="flex items-center gap-2 px-1">
+            <input 
+              type="checkbox" 
+              id="is_free" 
+              {...register('is_free')}
+              className="w-4 h-4 text-[var(--color-primary)] rounded border-gray-300 focus:ring-[var(--color-primary)]"
+            />
+            <label htmlFor="is_free" className="text-sm font-semibold text-[var(--color-text-primary)] cursor-pointer">
+              This course is free
+            </label>
+          </div>
+          {!isFree && (
+            <Input 
+              label="Course Price ($)" 
+              type="number" 
+              step="0.01" 
+              min="0"
+              placeholder="e.g. 49.99" 
+              {...register('price', { required: !isFree })} 
+            />
+          )}
           <div className="pt-4 flex gap-4">
             <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} className="flex-1 rounded-xl">Cancel</Button>
             <Button type="submit" loading={isCreating} className="flex-1 rounded-xl">Create Course</Button>
@@ -309,6 +343,26 @@ export default function AdminCoursesPage() {
             ]} 
             {...register('status')} 
           />
+          <div className="flex items-center gap-2 px-1">
+            <input 
+              type="checkbox" 
+              id="edit_is_free" 
+              {...register('is_free')}
+              className="w-4 h-4 text-[var(--color-primary)] rounded border-gray-300 focus:ring-[var(--color-primary)]"
+            />
+            <label htmlFor="edit_is_free" className="text-sm font-semibold text-[var(--color-text-primary)] cursor-pointer">
+              This course is free
+            </label>
+          </div>
+          {!isFree && (
+            <Input 
+              label="Course Price ($)" 
+              type="number" 
+              step="0.01" 
+              min="0"
+              {...register('price', { required: !isFree })} 
+            />
+          )}
           <div className="pt-4 flex gap-4">
             <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)} className="flex-1 rounded-xl">Cancel</Button>
             <Button type="submit" loading={isUpdating} className="flex-1 rounded-xl">Save Changes</Button>

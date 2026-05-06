@@ -10,7 +10,8 @@ import { ProgressBar } from '@/components/ui/Badge';
 import { 
   Play, CheckCircle2, ChevronLeft, ChevronRight, 
   FileText, Download, MessageSquare, Star,
-  Menu, X, Lock, Clock, ExternalLink
+  Menu, X, Lock, Clock, ExternalLink, FolderOpen,
+  BookOpen, Video
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -45,7 +46,9 @@ export default function CoursePlayer() {
   const curriculum = useMemo(() => {
     if (!course?.modules) return [];
     return course.modules.map((module: any) => ({
+      id: module.id,
       title: module.title,
+      description: module.description,
       lessons: (module.contents ?? []).map((content: any) => ({
         id: content.id,
         title: content.title,
@@ -54,6 +57,8 @@ export default function CoursePlayer() {
         contentType: content.content_type,
         videoUrl: content.video_url || content.file_url || null,
         externalLink: content.external_link || null,
+        bodyText: content.body_text || null,
+        description: content.description || null,
       })),
     }));
   }, [course, isEnrolled]);
@@ -67,17 +72,52 @@ export default function CoursePlayer() {
     }
   }, [activeLessonId, allLessons]);
 
+  // Find which module the active lesson belongs to
+  const activeModule = useMemo(() => {
+    if (!activeLessonId) return null;
+    return curriculum.find(section => 
+      section.lessons.some(lesson => lesson.id === activeLessonId)
+    );
+  }, [curriculum, activeLessonId]);
+
   const activeLesson = allLessons.find((lesson) => lesson.id === activeLessonId);
+  
   const scormCompletion = typeof scormProgress?.completion_amount === 'number'
     ? scormProgress.completion_amount
     : null;
   const progress = scormCompletion ?? (enrollment ? Number(enrollment.progress_percentage ?? 0) : 0);
   const scormLaunchUrl = course?.scorm_launch_url as string | undefined;
   const scormLaunchError = course?.scorm_launch_error as string | undefined;
+  
+  // Resource list
   const resourceList = useMemo(() => {
-    if (Array.isArray(resources)) return resources;
-    return (resources as any)?.data || [];
+    const list = Array.isArray(resources) ? resources : (resources as any)?.data || [];
+    return list;
   }, [resources]);
+
+  // Filter resources: show resources that belong to active module OR have no module (general)
+  const filteredResources = useMemo(() => {
+    if (!activeModule) {
+      // Show only general resources (no module) when no module is active
+      return resourceList.filter((r: any) => !r.module_id);
+    }
+    
+    // Show resources for active module + general resources
+    return resourceList.filter((r: any) => 
+      !r.module_id || String(r.module_id) === String(activeModule.id)
+    );
+  }, [resourceList, activeModule]);
+
+  // Separate general and module-specific resources
+  const generalResources = useMemo(() => 
+    filteredResources.filter((r: any) => !r.module_id),
+    [filteredResources]
+  );
+  
+  const moduleResources = useMemo(() => 
+    filteredResources.filter((r: any) => r.module_id),
+    [filteredResources]
+  );
 
   const handleLessonCompleted = () => {
     if (!isEnrolled || !enrollment?.id || !activeLessonId || course?.is_scorm) {
@@ -91,10 +131,37 @@ export default function CoursePlayer() {
     });
   };
 
+  // Navigate to previous/next lesson
+  const goToPreviousLesson = () => {
+    const currentIndex = allLessons.findIndex(l => l.id === activeLessonId);
+    if (currentIndex > 0) {
+      setActiveLessonId(allLessons[currentIndex - 1].id);
+    }
+  };
+
+  const goToNextLesson = () => {
+    const currentIndex = allLessons.findIndex(l => l.id === activeLessonId);
+    if (currentIndex < allLessons.length - 1) {
+      setActiveLessonId(allLessons[currentIndex + 1].id);
+    }
+  };
+
+  const getContentTypeIcon = (contentType: string) => {
+    switch (contentType) {
+      case 'video': return <Video size={14} />;
+      case 'pdf': return <FileText size={14} />;
+      case 'quiz': return <Star size={14} />;
+      default: return <Play size={14} />;
+    }
+  };
+
   if (isLoading || !course) {
     return (
       <div className="flex items-center justify-center h-[60vh] text-[var(--color-text-secondary)]">
-        Loading course...
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
+          <p>Loading course...</p>
+        </div>
       </div>
     );
   }
@@ -110,7 +177,7 @@ export default function CoursePlayer() {
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -300, opacity: 0 }}
             transition={{ duration: 0.3, ease: 'circOut' }}
-            className="w-80 border-r border-[var(--color-border)] flex flex-col bg-[var(--color-bg-card)] z-20"
+            className="w-80 border-r border-[var(--color-border)] flex flex-col bg-[var(--color-bg-card)] z-20 flex-shrink-0"
           >
             <div className="p-5 border-b border-[var(--color-border)] bg-[var(--color-bg-card)]">
               <div className="flex items-center justify-between mb-4">
@@ -131,7 +198,8 @@ export default function CoursePlayer() {
             <div className="flex-1 overflow-y-auto p-2 space-y-4 pt-4">
               {curriculum.map((section, sIdx) => (
                 <div key={sIdx} className="space-y-1">
-                  <h4 className="px-3 text-[10px] font-black text-[var(--color-text-secondary)] uppercase tracking-widest mb-2">
+                  <h4 className="px-3 text-[10px] font-black text-[var(--color-text-secondary)] uppercase tracking-widest mb-2 flex items-center gap-2">
+                    <BookOpen size={12} />
                     {section.title}
                   </h4>
                   {section.lessons.map((lesson) => (
@@ -142,7 +210,7 @@ export default function CoursePlayer() {
                       className={cn(
                         'w-full flex items-start gap-3 p-3 rounded-xl transition-all text-left group',
                         lesson.id === activeLessonId
-                          ? 'bg-[var(--color-bg-card)] shadow-sm border border-[var(--color-primary)]/20'
+                          ? 'bg-white shadow-sm border border-[var(--color-primary)]/20'
                           : 'hover:bg-[var(--color-muted)]',
                         lesson.locked && 'opacity-50 grayscale cursor-not-allowed'
                       )}
@@ -155,7 +223,7 @@ export default function CoursePlayer() {
                             ? 'bg-[var(--color-primary)] text-white'
                             : 'bg-[var(--color-muted)] text-[var(--color-text-secondary)]'
                       )}>
-                        {lesson.locked ? <Lock size={10} /> : <Play size={10} className="fill-current" />}
+                        {lesson.locked ? <Lock size={10} /> : getContentTypeIcon(lesson.contentType)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className={cn(
@@ -188,13 +256,23 @@ export default function CoursePlayer() {
               </button>
             )}
             <button onClick={() => router.back()} className="flex items-center gap-1 text-sm font-bold text-[var(--color-text-secondary)] hover:text-[var(--color-primary)]">
-              <ChevronLeft size={16} /> Back to Dashboard
+              <ChevronLeft size={16} /> Back to Courses
             </button>
+            {activeModule && (
+              <>
+                <div className="h-4 w-px bg-[var(--color-border)]" />
+                <span className="text-xs font-semibold text-[var(--color-text-secondary)]">
+                  {activeModule.title}
+                </span>
+              </>
+            )}
           </div>
           <div className="flex items-center gap-3">
-            <Badge variant="success" size="sm" dot>Verified Course</Badge>
+            <Badge variant="success" size="sm" dot>Enrolled</Badge>
             <div className="h-4 w-px bg-[var(--color-border)] mx-1" />
-            <span className="text-xs font-bold text-[var(--color-text-secondary)]">Rating: 4.9</span>
+            <span className="text-xs font-bold text-[var(--color-text-secondary)]">
+              {Math.round(progress)}% Complete
+            </span>
           </div>
         </div>
 
@@ -251,8 +329,16 @@ export default function CoursePlayer() {
                   {activeLesson?.title ?? course.title}
                 </h2>
                 <p className="text-[var(--color-text-secondary)] text-sm">
-                  {course.short_description ?? course.description?.slice(0, 120)}
+                  {activeLesson?.description || course.short_description || course.description?.slice(0, 120)}
                 </p>
+                {activeModule && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <Badge variant="outline" className="text-xs">
+                      <FolderOpen size={12} className="mr-1" />
+                      {activeModule.title}
+                    </Badge>
+                  </div>
+                )}
               </div>
               {isEnrolled ? (
                 course.is_scorm ? (
@@ -268,15 +354,7 @@ export default function CoursePlayer() {
                   <Button
                     size="lg"
                     className="h-12 px-8 shadow-primary"
-                    onClick={() =>
-                      activeLessonId &&
-                      enrollment?.id &&
-                      completeContent({
-                        enrollmentId: enrollment.id,
-                        contentId: activeLessonId,
-                        courseId,
-                      })
-                    }
+                    onClick={handleLessonCompleted}
                     disabled={!activeLessonId}
                     loading={completing}
                   >
@@ -291,7 +369,7 @@ export default function CoursePlayer() {
             </div>
 
             {!isEnrolled && (
-              <Card className="mb-8">
+              <Card className="mb-8 p-4">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>
                     <p className="text-sm font-bold text-[var(--color-text-primary)]">This course requires enrollment</p>
@@ -316,7 +394,7 @@ export default function CoursePlayer() {
 
             {/* Tabs */}
             <div className="flex border-b border-[var(--color-border)] mb-8">
-              {(['content', 'resources', 'discussion'] as const).map((tab) => (
+              {(['content', 'resources'] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
@@ -325,6 +403,15 @@ export default function CoursePlayer() {
                     activeTab === tab ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
                   )}
                 >
+                  {tab === 'resources' && (
+                    <span className="mr-2">
+                      {filteredResources.length > 0 && (
+                        <span className="bg-[var(--color-primary)] text-white text-xs rounded-full px-1.5 py-0.5 mr-1">
+                          {filteredResources.length}
+                        </span>
+                      )}
+                    </span>
+                  )}
                   {tab}
                   {activeTab === tab && (
                     <motion.div layoutId="tabActive" className="absolute bottom-0 left-0 right-0 h-1 bg-[var(--color-primary)] rounded-t-full" />
@@ -344,23 +431,37 @@ export default function CoursePlayer() {
                     exit={{ opacity: 0, y: -10 }}
                     className="space-y-4"
                   >
-                    <h3 className="font-bold text-[var(--color-text-primary)]">About this lesson</h3>
-                    <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-                      {course.description || 'Course details will appear here.'}
-                    </p>
+                    {activeLesson?.bodyText ? (
+                      <div className="prose max-w-none">
+                        <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed whitespace-pre-wrap">
+                          {activeLesson.bodyText}
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <h3 className="font-bold text-[var(--color-text-primary)]">About this lesson</h3>
+                        <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
+                          {activeLesson?.description || course.description || 'Course details will appear here.'}
+                        </p>
+                      </>
+                    )}
                     <div className="grid grid-cols-2 gap-4 mt-8">
                       <div className="p-4 rounded-2xl bg-[var(--color-muted)] border border-[var(--color-border)] flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-[var(--color-bg-card)] flex items-center justify-center text-[var(--color-primary)] shadow-sm"><Play size={14} /></div>
+                        <div className="w-8 h-8 rounded-lg bg-[var(--color-bg-card)] flex items-center justify-center text-[var(--color-primary)] shadow-sm">
+                          {getContentTypeIcon(activeLesson?.contentType || 'video')}
+                        </div>
                         <div>
                           <p className="text-[10px] font-black text-[var(--color-text-secondary)] uppercase">Type</p>
-                          <p className="text-xs font-bold text-[var(--color-text-primary)]">Lesson Content</p>
+                          <p className="text-xs font-bold text-[var(--color-text-primary)] capitalize">{activeLesson?.contentType || 'Lesson'}</p>
                         </div>
                       </div>
                       <div className="p-4 rounded-2xl bg-[var(--color-muted)] border border-[var(--color-border)] flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-[var(--color-bg-card)] flex items-center justify-center text-[var(--color-primary)] shadow-sm"><FileText size={14} /></div>
+                        <div className="w-8 h-8 rounded-lg bg-[var(--color-bg-card)] flex items-center justify-center text-[var(--color-primary)] shadow-sm">
+                          <Clock size={14} />
+                        </div>
                         <div>
-                          <p className="text-[10px] font-black text-[var(--color-text-secondary)] uppercase">Resource</p>
-                          <p className="text-xs font-bold text-[var(--color-text-primary)]">Course Materials</p>
+                          <p className="text-[10px] font-black text-[var(--color-text-secondary)] uppercase">Duration</p>
+                          <p className="text-xs font-bold text-[var(--color-text-primary)]">{activeLesson?.duration || 'N/A'}</p>
                         </div>
                       </div>
                     </div>
@@ -372,41 +473,49 @@ export default function CoursePlayer() {
                     key="resources"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="space-y-3"
+                    className="space-y-6"
                   >
-                    {resourceList.length === 0 ? (
-                      <div className="text-sm text-[var(--color-text-secondary)]">No resources available yet.</div>
+                    {filteredResources.length === 0 ? (
+                      <div className="text-center py-12">
+                        <FolderOpen size={48} className="text-[#5A5A6E] mx-auto mb-4 opacity-30" />
+                        <p className="text-[var(--color-text-secondary)] font-medium">
+                          No resources available for this {activeModule ? 'module' : 'course'} yet.
+                        </p>
+                      </div>
                     ) : (
-                      resourceList.map((res: any) => {
-                        const href = res.external_link || res.file_url;
-                        const isExternal = !!res.external_link;
-                        const label = res.title || res.file_name || res.external_link;
-
-                        return (
-                          <div key={res.id} className="flex items-center justify-between p-4 rounded-2xl border border-[var(--color-border)] hover:bg-[var(--color-muted)] transition-colors">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-xl bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)]">
-                                {isExternal ? <ExternalLink size={18} /> : <Download size={18} />}
-                              </div>
-                              <div>
-                                <p className="text-sm font-bold text-[var(--color-text-primary)]">{label}</p>
-                                {res.description && (
-                                  <p className="text-[10px] font-black text-[var(--color-text-secondary)] uppercase line-clamp-1">
-                                    {res.description}
-                                  </p>
-                                )}
-                              </div>
+                      <>
+                        {/* Module-specific resources */}
+                        {moduleResources.length > 0 && (
+                          <div>
+                            <h3 className="text-sm font-black text-[var(--color-text-primary)] mb-3 flex items-center gap-2">
+                              <FolderOpen size={16} className="text-[var(--color-primary)]" />
+                              {activeModule ? `${activeModule.title} Resources` : 'Module Resources'}
+                              <Badge variant="outline" className="text-xs">{moduleResources.length}</Badge>
+                            </h3>
+                            <div className="space-y-3">
+                              {moduleResources.map((res: any) => (
+                                <ResourceCard key={res.id} resource={res} />
+                              ))}
                             </div>
-                            {href ? (
-                              <Button asChild variant="ghost" size="sm" className="text-[var(--color-primary)] font-bold">
-                                <a href={href} target="_blank" rel="noreferrer">
-                                  {isExternal ? 'Open' : 'Download'}
-                                </a>
-                              </Button>
-                            ) : null}
                           </div>
-                        );
-                      })
+                        )}
+
+                        {/* General resources (shown in all modules) */}
+                        {generalResources.length > 0 && (
+                          <div>
+                            <h3 className="text-sm font-black text-[var(--color-text-primary)] mb-3 flex items-center gap-2">
+                              <FileText size={16} className="text-[var(--color-primary)]" />
+                              General Resources
+                              <Badge variant="outline" className="text-xs">{generalResources.length}</Badge>
+                            </h3>
+                            <div className="space-y-3">
+                              {generalResources.map((res: any) => (
+                                <ResourceCard key={res.id} resource={res} isGeneral />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
                   </motion.div>
                 )}
@@ -433,14 +542,85 @@ export default function CoursePlayer() {
 
         {/* Footer Navigation */}
         <div className="h-16 border-t border-[var(--color-border)] flex items-center justify-between px-8 bg-[var(--color-bg-card)] shrink-0">
-          <button className="flex items-center gap-2 text-sm font-bold text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors">
+          <button 
+            onClick={goToPreviousLesson}
+            disabled={allLessons.findIndex(l => l.id === activeLessonId) === 0}
+            className="flex items-center gap-2 text-sm font-bold text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
             <ChevronLeft size={18} /> Previous Lesson
           </button>
-          <button className="flex items-center gap-2 text-sm font-bold text-[var(--color-primary)] hover:opacity-80 transition-opacity">
+          <span className="text-xs text-[var(--color-text-secondary)] font-medium">
+            {allLessons.findIndex(l => l.id === activeLessonId) + 1} / {allLessons.length}
+          </span>
+          <button 
+            onClick={goToNextLesson}
+            disabled={allLessons.findIndex(l => l.id === activeLessonId) === allLessons.length - 1}
+            className="flex items-center gap-2 text-sm font-bold text-[var(--color-primary)] hover:opacity-80 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
+          >
             Next Lesson <ChevronRight size={18} />
           </button>
         </div>
       </main>
     </div>
+  );
+}
+
+// Resource Card Component
+function ResourceCard({ resource, isGeneral = false }: { resource: any; isGeneral?: boolean }) {
+  const href = resource.external_link || resource.file_url || resource.file;
+  const isExternal = !!resource.external_link;
+  const label = resource.title || resource.file_name || resource.external_link || 'Resource';
+  const fileExt = (resource.file_name || resource.file_url || '').split('.').pop()?.toLowerCase();
+
+  const getFileIcon = (ext?: string) => {
+    switch (ext) {
+      case 'pdf': return <FileText size={18} />;
+      case 'mp4':
+      case 'webm': return <Video size={18} />;
+      case 'mp3':
+      case 'wav': return <Star size={18} />;
+      default: return <Download size={18} />;
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 5 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex items-center justify-between p-4 rounded-2xl border border-[var(--color-border)] hover:bg-[var(--color-muted)] transition-colors group"
+    >
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+          isGeneral 
+            ? 'bg-blue-100 text-blue-600' 
+            : 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
+        }`}>
+          {isExternal ? <ExternalLink size={18} /> : getFileIcon(fileExt)}
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-[var(--color-text-primary)] truncate">{label}</p>
+          {resource.description && (
+            <p className="text-xs text-[var(--color-text-secondary)] line-clamp-1">
+              {resource.description}
+            </p>
+          )}
+          {(resource.file_size && resource.file_size > 0) && (
+            <p className="text-[10px] text-[#5A5A6E]">
+              {(resource.file_size / 1024 / 1024).toFixed(2)} MB
+            </p>
+          )}
+        </div>
+      </div>
+      {href ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          className="px-4 py-2 rounded-lg text-sm font-bold text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+        >
+          {isExternal ? 'Open' : 'Download'}
+        </a>
+      ) : null}
+    </motion.div>
   );
 }

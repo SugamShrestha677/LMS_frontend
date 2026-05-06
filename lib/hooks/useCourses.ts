@@ -313,14 +313,35 @@ export const useCourseResources = (id: number) => {
 export const useCreateCourseResource = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ courseId, data }: { courseId: number; data: FormData }) =>
-      courseService.createCourseResource(courseId, data),
+    mutationFn: ({ courseId, data }: { courseId: number; data: any }) => {
+      const isFormData = data instanceof FormData;
+      
+      // If file is present, use FormData
+      if (data.file_upload || data instanceof FormData) {
+        const formData = data instanceof FormData ? data : new FormData();
+        
+        if (!(data instanceof FormData)) {
+          formData.append('title', data.title);
+          if (data.description) formData.append('description', data.description);
+          if (data.external_link) formData.append('external_link', data.external_link);
+          if (data.module_id) formData.append('module_id', String(data.module_id));
+          if (data.file_upload) formData.append('file_upload', data.file_upload);
+        }
+        
+        return courseService.createCourseResource(courseId, formData);
+      }
+      
+      // Otherwise send as JSON
+      return courseService.createCourseResourceJson(courseId, data);
+    },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['courses', variables.courseId, 'resources'] });
       toast.success('Resource added');
     },
     onError: (error: any) => {
-      const message = error?.response?.data?.message || 'Failed to add resource';
+      const message = error?.response?.data?.errors?.error || 
+                     error?.response?.data?.message || 
+                     'Failed to add resource';
       toast.error(message);
     },
   });
