@@ -25,6 +25,8 @@ export default function TutorCoursesPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [previewVideoFile, setPreviewVideoFile] = useState<File | null>(null);
 
   const { register, handleSubmit, reset, setValue } = useForm();
 
@@ -50,19 +52,23 @@ export default function TutorCoursesPage() {
   };
 
   const onSubmit = (data: any) => {
-    const payload = {
-      title: data.title,
-      description: data.description || data.title,
-      short_description: data.description || data.title,
-      instructor: user?.id,
-      category: data.category ? parseInt(data.category) : null,
-      status: data.status,
-    };
-    
+    const payload = new FormData();
+    payload.append('title', data.title);
+    payload.append('description', data.description || data.title);
+    payload.append('short_description', data.description || data.title);
+    if (user?.id) payload.append('instructor', String(user.id));
+    if (data.category) payload.append('category', String(parseInt(data.category)));
+    if (data.status) payload.append('status', data.status);
+
+    if (thumbnailFile) payload.append('thumbnail_file', thumbnailFile);
+    if (previewVideoFile) payload.append('preview_video_file', previewVideoFile);
+
     createCourse(payload, {
       onSuccess: () => {
         setIsModalOpen(false);
         reset();
+        setThumbnailFile(null);
+        setPreviewVideoFile(null);
       }
     });
   };
@@ -242,10 +248,13 @@ export default function TutorCoursesPage() {
               accept="image/*"
               onChange={(e) => {
                 const file = e.target.files?.[0] || null;
-                setValue('thumbnail_file', file); // set manually
+                setThumbnailFile(file);
               }}
               className="w-full border border-gray-300 rounded-lg p-2"
             />
+            {thumbnailFile && (
+              <p className="mt-1 text-xs text-gray-500">Selected: {thumbnailFile.name}</p>
+            )}
           </div>
 
           {/* NEW: Preview video file picker (optional) */}
@@ -256,10 +265,13 @@ export default function TutorCoursesPage() {
               accept="video/*"
               onChange={(e) => {
                 const file = e.target.files?.[0] || null;
-                setValue('preview_video_file', file);
+                setPreviewVideoFile(file);
               }}
               className="w-full border border-gray-300 rounded-lg p-2"
             />
+            {previewVideoFile && (
+              <p className="mt-1 text-xs text-gray-500">Selected: {previewVideoFile.name}</p>
+            )}
           </div>
           <div className="pt-4 flex gap-4">
             <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} className="flex-1 rounded-xl">Cancel</Button>

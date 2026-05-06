@@ -45,6 +45,16 @@ export default function StudentCourses() {
     return `NPR ${formatNumber(amount)}`;
   };
 
+  const getThumbnailUrl = (course: any) => {
+    const thumbnail = course?.thumbnail_url ?? course?.thumbnail;
+    if (!thumbnail) return null;
+    if (typeof thumbnail === 'string') return thumbnail;
+    if (typeof thumbnail.url === 'string') return thumbnail.url;
+    if (typeof thumbnail.secure_url === 'string') return thumbnail.secure_url;
+    if (typeof thumbnail.path === 'string') return thumbnail.path;
+    return null;
+  };
+
   return (
     <div className="space-y-8 pb-12">
       {/* Header & Tabs */}
@@ -144,12 +154,12 @@ export default function StudentCourses() {
                 transition={{ delay: idx * 0.05 }}
               >
                 <Card hover className="p-0 overflow-hidden group">
-                  {/* Thumbnail Placeholder */}
+                  {/* Thumbnail */}
                   <div className="h-48 bg-[var(--color-muted)] relative overflow-hidden">
                     <img 
-                      src={`https://api.dicebear.com/7.x/shapes/svg?seed=${course.id}`} 
+                      src={getThumbnailUrl(course) || `https://api.dicebear.com/7.x/shapes/svg?seed=${course.id}`}
                       alt={course.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-60"
+                      className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500${getThumbnailUrl(course) ? '' : ' opacity-60'}`}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
                     <div className="absolute bottom-4 left-4">
