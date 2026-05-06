@@ -1,3 +1,4 @@
+// lib/hooks/useAdmin.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { userService } from '@/lib/services/user.service';
 import { adminService } from '@/lib/services/admin.service';
@@ -48,6 +49,37 @@ export const useActivateUser = () => {
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Failed to activate user');
+    },
+  });
+};
+
+// Add Soft Delete Hook
+export const useSoftDeleteUser = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: number; reason?: string }) => 
+      userService.softDeleteUser(id, reason),
+    onSuccess: (response) => {
+      toast.success(response.message || 'User deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to delete user');
+    },
+  });
+};
+
+// Add Restore User Hook
+export const useRestoreUser = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => userService.restoreUser(id),
+    onSuccess: (response) => {
+      toast.success(response.message || 'User restored successfully');
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to restore user');
     },
   });
 };

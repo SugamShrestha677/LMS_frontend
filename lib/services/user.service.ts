@@ -1,3 +1,4 @@
+// lib/services/user.service.ts
 import api from './api';
 import { User, AuditLog } from '@/lib/types/auth';
 
@@ -24,6 +25,18 @@ export const userService = {
 
   deleteUser: async (id: number) => {
     const { data } = await api.delete(`/accounts/users/${id}/`);
+    return data;
+  },
+
+  // Soft delete a user
+  softDeleteUser: async (id: number, reason?: string) => {
+    const { data } = await api.post(`/accounts/users/${id}/soft-delete/`, { reason });
+    return data;
+  },
+
+  // Restore a soft-deleted user
+  restoreUser: async (id: number) => {
+    const { data } = await api.post(`/accounts/users/${id}/restore/`);
     return data;
   },
 
