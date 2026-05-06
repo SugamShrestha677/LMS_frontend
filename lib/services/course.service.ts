@@ -271,4 +271,9 @@ export const courseService = {
     const { data } = await api.get('/student/dashboard/');
     return data;
   },
+  // Add this method to courseService
+createCourseResourceJson: async (courseId: number, data: any) => {
+    const { data: response } = await api.post(`/courses/${courseId}/resources/`, data);
+    return response;
+},
 };
