@@ -68,10 +68,39 @@ export default function CoursePlayer() {
   }, [activeLessonId, allLessons]);
 
   const activeLesson = allLessons.find((lesson) => lesson.id === activeLessonId);
-  const scormCompletion = typeof scormProgress?.completion_amount === 'number'
-    ? scormProgress.completion_amount
-    : null;
-  const progress = scormCompletion ?? (enrollment ? Number(enrollment.progress_percentage ?? 0) : 0);
+  const scormPayload = (scormProgress as any)?.data ?? scormProgress;
+  const scormCompletionRaw =
+    (scormPayload as any)?.completion_amount ??
+    (scormPayload as any)?.progress_percentage ??
+    (scormPayload as any)?.progress;
+  const scormCompletionState = String((scormPayload as any)?.completion ?? '').trim().toLowerCase();
+  const scormIsCompleted = ['complete', 'completed', 'passed'].includes(scormCompletionState);
+  const scormTrackedSeconds = Number((scormPayload as any)?.total_seconds_tracked ?? 0);
+
+  const scormCompletionParsed =
+    scormCompletionRaw === null || scormCompletionRaw === undefined
+      ? null
+      : Number(scormCompletionRaw);
+
+  const scormCompletion =
+    scormIsCompleted
+      ? 100
+      : scormCompletionParsed !== null && Number.isFinite(scormCompletionParsed)
+        ? (scormCompletionParsed <= 1 ? scormCompletionParsed * 100 : scormCompletionParsed)
+        : null;
+
+  const scormInProgressFallback =
+    course?.is_scorm &&
+    scormTrackedSeconds > 0 &&
+    (scormCompletion === null || scormCompletion <= 0) &&
+    !scormIsCompleted
+      ? 5
+      : null;
+
+  const progress = Math.max(
+    0,
+    Math.min(100, scormCompletion ?? scormInProgressFallback ?? (enrollment ? Number(enrollment.progress_percentage ?? 0) : 0))
+  );
   const scormLaunchUrl = course?.scorm_launch_url as string | undefined;
   const scormLaunchError = course?.scorm_launch_error as string | undefined;
   const resourceList = useMemo(() => {
