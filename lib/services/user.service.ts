@@ -23,6 +23,11 @@ export const userService = {
     return data;
   },
 
+  changeRole: async (id: number, role: string) => {
+    const { data } = await api.post(`/accounts/users/${id}/change-role/`, { role });
+    return data;
+  },
+
   deleteUser: async (id: number) => {
     const { data } = await api.delete(`/accounts/users/${id}/`);
     return data;
@@ -54,4 +59,15 @@ export const userService = {
     const { data } = await api.get('/accounts/audit-logs/');
     return data;
   },
+
+  getStaffPermissionByStaffId: async (staffId: number) => {
+    const { data } = await api.get(`/accounts/staff-permissions/${staffId}/`);
+    return data;
+  },
+
+  updateStaffPermission: async (id: number, permissionData: any) => {
+    const { data } = await api.patch(`/accounts/staff-permissions/${id}/`, permissionData);
+    return data;
+  },
 };
+ 

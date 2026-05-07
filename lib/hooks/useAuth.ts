@@ -110,6 +110,24 @@ export function useUsers() {
   });
 }
 
+export function useProfile() {
+  const { setUser, isAuthenticated } = useAuthStore();
+  
+  return useQuery({
+    queryKey: ['profile'],
+    queryFn: async () => {
+      const response = await authService.getCurrentUser();
+      const user = response.data || response;
+      if (user) {
+        setUser(user);
+      }
+      return user;
+    },
+    enabled: isAuthenticated,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
 export function useCreateUser() {
   const queryClient = useQueryClient();
 

@@ -185,7 +185,7 @@ export default function StudentAssessmentsPage() {
   const handleViewResult = (assessment: any) => {
     const attempt = assessment.studentAttempt || attempts.find((a: any) => a.assessment === assessment.id);
     if (attempt) {
-      if (assessment.assessment_type === 'quiz') {
+      if (assessment.assessment_type === 'quiz' || assessment.assessment_type === 'exam') {
         router.push(`/student/assessments/${assessment.id}/take?attempt=${attempt.id}&courseId=${assessment.course_id}`);
       } else {
         router.push(`/student/assessments/${assessment.id}/assignment?attempt=${attempt.id}&courseId=${assessment.course_id}`);

@@ -11,7 +11,7 @@ import {
   Play, CheckCircle2, ChevronLeft, ChevronRight, 
   FileText, Download, MessageSquare, Star,
   Menu, X, Lock, Clock, ExternalLink, FolderOpen,
-  BookOpen, Video, Megaphone, User, Calendar
+  BookOpen, Video, Megaphone, User, Calendar, Award
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -23,13 +23,15 @@ import {
   useScormProgress,
   useCourseAnnouncements,
 } from '@/lib/hooks/useStudentData';
-import { format } from 'date-fns';
+import { usePayments } from '@/lib/hooks/useCourses';
+import { CoursePaymentModal } from '@/components/student/CoursePaymentModal';
+import { format, isPast } from 'date-fns';
 
 export default function CoursePlayer() {
   const params = useParams();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<'content' | 'resources' | 'announcements'>('content');
+  const [activeTab, setActiveTab] = useState<'content' | 'resources' | 'assignments' | 'announcements'>('content');
   const courseId = Number(params.id);
 
   const { data: course, isLoading } = useStudentCourse(courseId);
@@ -45,6 +47,26 @@ export default function CoursePlayer() {
     refetch: refetchScormProgress,
     isFetching: fetchingScormProgress,
   } = useScormProgress(courseId, isEnrolled && !!course?.is_scorm);
+
+  const { data: payments } = usePayments();
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  
+  const paymentList = useMemo(() => {
+    return Array.isArray(payments) ? payments : (payments as any)?.data || [];
+  }, [payments]);
+
+  const pendingPayment = useMemo(() => {
+    return paymentList.find((p: any) => p.course === courseId && p.status === 'pending');
+  }, [paymentList, courseId]);
+
+  const confirmedPayment = useMemo(() => {
+    return paymentList.find((p: any) => p.course === courseId && p.status === 'confirmed');
+  }, [paymentList, courseId]);
+  
+  const hasPendingPayment = !!pendingPayment;
+  const isPaid = !!confirmedPayment || course?.is_free;
+  const canAccessContent = isEnrolled && isPaid;
+
 
   // Announcements
   const announcements = useMemo(() => {
@@ -66,16 +88,20 @@ export default function CoursePlayer() {
         duration: `${content.duration_minutes ?? 0} min`,
         locked: !isEnrolled,
         contentType: content.content_type,
-        videoUrl: content.video_url || content.file_url || null,
+        videoUrl: content.video_url || content.file_url || content.audio_url || null,
         externalLink: content.external_link || null,
         bodyText: content.body_text || null,
         description: content.description || null,
+        scormCourseId: content.scorm_course_id,
+        scormStatus: content.scorm_status,
       })),
     }));
   }, [course, isEnrolled]);
 
   const allLessons = curriculum.flatMap((section) => section.lessons);
   const [activeLessonId, setActiveLessonId] = useState<number | null>(null);
+  const [contentLaunchUrl, setContentLaunchUrl] = useState<string | null>(null);
+  const [launchingContent, setLaunchingContent] = useState(false);
 
   useEffect(() => {
     if (!activeLessonId && allLessons.length > 0) {
@@ -91,6 +117,28 @@ export default function CoursePlayer() {
   }, [curriculum, activeLessonId]);
 
   const activeLesson = allLessons.find((lesson) => lesson.id === activeLessonId);
+
+  useEffect(() => {
+    if (activeLesson?.scormCourseId && activeLesson?.scormStatus === 'finished') {
+      const fetchLaunchUrl = async () => {
+        setLaunchingContent(true);
+        try {
+          const { courseService } = await import('@/lib/services/course.service');
+          const response = await courseService.launchContentScorm(courseId, activeModule?.id, activeLesson.id);
+          if (response.success) {
+            setContentLaunchUrl(response.data.launch_url);
+          }
+        } catch (error) {
+          console.error('Failed to launch content:', error);
+        } finally {
+          setLaunchingContent(false);
+        }
+      };
+      fetchLaunchUrl();
+    } else {
+      setContentLaunchUrl(null);
+    }
+  }, [activeLesson, courseId, activeModule]);
   
   const scormCompletion = typeof scormProgress?.completion_amount === 'number'
     ? scormProgress.completion_amount
@@ -112,6 +160,20 @@ export default function CoursePlayer() {
       !r.module_id || String(r.module_id) === String(activeModule.id)
     );
   }, [resourceList, activeModule]);
+
+  const assessments = useMemo(() => {
+    const list = Array.isArray(course?.assessments) ? course.assessments : [];
+    return list;
+  }, [course?.assessments]);
+
+  const filteredAssessments = useMemo(() => {
+    if (!activeModule) {
+      return assessments.filter((a: any) => !a.module);
+    }
+    return assessments.filter((a: any) => 
+      !a.module || String(a.module) === String(activeModule.id)
+    );
+  }, [assessments, activeModule]);
 
   const generalResources = useMemo(() => 
     filteredResources.filter((r: any) => !r.module_id),
@@ -300,8 +362,69 @@ export default function CoursePlayer() {
                     </div>
                   )}
                 </div>
+              ) : activeLesson?.scormCourseId ? (
+                <div className="aspect-video bg-black relative overflow-hidden">
+                  {contentLaunchUrl ? (
+                    <iframe
+                      src={contentLaunchUrl}
+                      title="SCORM Content Player"
+                      className="w-full h-full"
+                      allow="autoplay; fullscreen"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-white gap-3 text-center p-4">
+                      {launchingContent ? (
+                        <>
+                          <div className="w-8 h-8 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
+                          <span className="text-sm font-bold">Launching secure content...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Lock size={32} className="text-white/50 mb-2" />
+                          <span className="text-sm font-bold">SCORM Cloud content not ready</span>
+                          <p className="text-xs text-white/70 max-w-xs mb-4">
+                            This content is being processed by SCORM Cloud. Status: {activeLesson.scormStatus}
+                          </p>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="text-white border-white/20 hover:bg-white/10"
+                            onClick={async () => {
+                              try {
+                                const { courseService } = await import('@/lib/services/course.service');
+                                await courseService.getContentScormStatus(courseId, activeModule?.id, activeLesson.id);
+                                router.refresh(); // Or better, refetch the course data if possible
+                              } catch (e) {
+                                console.error(e);
+                              }
+                            }}
+                          >
+                            Refresh Status
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
               ) : (
-                activeLesson?.videoUrl ? (
+                activeLesson?.contentType === 'mp3' && activeLesson?.videoUrl ? (
+                  <div className="aspect-video bg-[var(--color-bg-card)] relative flex items-center justify-center overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-primary)]/10 to-transparent" />
+                    <div className="relative z-10 w-full max-w-md p-8 text-center">
+                      <div className="w-24 h-24 rounded-3xl bg-[var(--color-primary)] mx-auto mb-6 flex items-center justify-center text-white shadow-2xl">
+                        <Play size={40} className="fill-current" />
+                      </div>
+                      <h3 className="font-bold text-[var(--color-text-primary)] mb-4">{activeLesson.title}</h3>
+                      <audio
+                        key={activeLesson.id}
+                        src={activeLesson.videoUrl}
+                        controls
+                        className="w-full"
+                        onEnded={handleLessonCompleted}
+                      />
+                    </div>
+                  </div>
+                ) : activeLesson?.videoUrl ? (
                   <div className="aspect-video bg-black relative overflow-hidden">
                     <video
                       key={activeLesson.id}
@@ -347,6 +470,7 @@ export default function CoursePlayer() {
                     </div>
                   )}
                 </div>
+                {/* 
                 {isEnrolled ? (
                   course.is_scorm ? (
                     <Button
@@ -373,27 +497,63 @@ export default function CoursePlayer() {
                     {course.is_free ? 'Enroll Free' : `Unlock for ${course.price}`}
                   </Button>
                 )}
+                */}
               </div>
 
-              {!isEnrolled && (
-                <Card className="mb-8 p-4">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                      <p className="text-sm font-bold text-[var(--color-text-primary)]">This course requires enrollment</p>
-                      <p className="text-xs text-[var(--color-text-secondary)]">
-                        {course.is_free ? 'Free course. Enroll to access the content.' : 'Paid course. Review the price before enrolling.'}
-                      </p>
+              {!canAccessContent && (
+                <Card className="mb-8 p-4 bg-white shadow-xl shadow-[var(--color-primary)]/5 border-2 border-[var(--color-border)] rounded-[2rem]">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="flex items-center gap-5">
+                      <div className={cn(
+                        "w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg",
+                        course.is_free ? "bg-green-500/10 text-green-500" : "bg-orange-500/10 text-orange-500"
+                      )}>
+                        {course.is_free ? <CheckCircle2 size={28} /> : <Lock size={28} />}
+                      </div>
+                      <div>
+                        <p className="text-lg font-black text-[var(--color-text-primary)] tracking-tight">
+                          {hasPendingPayment ? 'Verification in Progress' : isEnrolled ? 'Payment Required' : 'Start Your Learning Journey'}
+                        </p>
+                        <p className="text-xs text-[var(--color-text-secondary)] font-medium">
+                          {hasPendingPayment 
+                            ? 'Our staff is verifying your payment. You will gain access shortly.' 
+                            : isEnrolled 
+                              ? `This is a premium course. Please complete payment of NPR ${course.price} to unlock content.`
+                              : course.is_free 
+                                ? 'This course is free. Enroll now to get instant access!' 
+                                : `This is a premium course. Pay NPR ${course.price} to unlock.`}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <Badge variant={course.is_free ? 'success' : 'warning'} size="sm">
-                        {course.is_free ? 'Free' : 'Paid'}
-                      </Badge>
-                      <span className="text-sm font-black text-[var(--color-text-primary)]">
-                        {course.is_free ? 'NPR 0' : `NPR ${course.price}`}
-                      </span>
-                      <Button size="sm" loading={enrolling} onClick={() => enrollCourse(course.id)}>
-                        {course.is_free ? 'Enroll Now' : 'Pay & Enroll'}
-                      </Button>
+                    <div className="flex items-center gap-4">
+                      {!course.is_free && (
+                        <div className="text-right mr-2">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-[var(--color-text-secondary)]">Price</p>
+                          <p className="text-xl font-black text-[var(--color-text-primary)] tracking-tighter">NPR {course.price}</p>
+                        </div>
+                      )}
+                      
+                      {hasPendingPayment ? (
+                        <div className="flex items-center gap-2 px-6 py-3 bg-orange-500/10 text-orange-600 rounded-2xl font-black text-xs uppercase tracking-widest border border-orange-500/20">
+                          <Clock size={16} className="animate-pulse" />
+                          Pending Verification
+                        </div>
+                      ) : (
+                        <Button 
+                          size="lg" 
+                          className="px-10 h-14 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-[var(--color-primary)]/30 hover:scale-105 transition-transform"
+                          loading={enrolling} 
+                          onClick={() => {
+                            if (course.is_free) {
+                              enrollCourse(course.id);
+                            } else {
+                              setShowPaymentModal(true);
+                            }
+                          }}
+                        >
+                          {course.is_free ? 'Enroll Free' : isEnrolled ? 'Pay Now' : 'Pay & Enroll'}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </Card>
@@ -401,12 +561,22 @@ export default function CoursePlayer() {
             </div>
           )}
 
-          {/* Tabs */}
+          <CoursePaymentModal 
+            course={course} 
+            isOpen={showPaymentModal} 
+            onClose={() => setShowPaymentModal(false)} 
+          />
+
+
+          {canAccessContent && (
+            <>
+              {/* Tabs */}
           <div className="px-8 max-w-4xl mx-auto">
             <div className="flex border-b border-[var(--color-border)] mb-6">
               {([
                 { key: 'content', label: 'Content', icon: Play },
                 { key: 'resources', label: 'Resources', icon: FolderOpen, count: filteredResources.length },
+                { key: 'assignments', label: 'Assignments', icon: FileText, count: filteredAssessments.length },
                 { key: 'announcements', label: 'Announcements', icon: Megaphone, count: announcements.length },
               ] as const).map((tab) => (
                 <button
@@ -459,23 +629,19 @@ export default function CoursePlayer() {
                     </>
                   )}
                   <div className="grid grid-cols-2 gap-4 mt-8">
-                    <div className="p-4 rounded-2xl bg-[var(--color-muted)] border border-[var(--color-border)] flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-[var(--color-bg-card)] flex items-center justify-center text-[var(--color-primary)] shadow-sm">
-                        {getContentTypeIcon(activeLesson?.contentType || 'video')}
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black text-[var(--color-text-secondary)] uppercase">Type</p>
-                        <p className="text-xs font-bold text-[var(--color-text-primary)] capitalize">{activeLesson?.contentType || 'Lesson'}</p>
-                      </div>
+                    <div className="p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)]/50">
+                      <p className="text-[var(--color-text-secondary)] text-xs mb-1">Duration</p>
+                      <p className="font-bold text-[var(--color-text-primary)]">{activeLesson?.duration || 'N/A'}</p>
                     </div>
-                    <div className="p-4 rounded-2xl bg-[var(--color-muted)] border border-[var(--color-border)] flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-[var(--color-bg-card)] flex items-center justify-center text-[var(--color-primary)] shadow-sm">
-                        <Clock size={14} />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black text-[var(--color-text-secondary)] uppercase">Duration</p>
-                        <p className="text-xs font-bold text-[var(--color-text-primary)]">{activeLesson?.duration || 'N/A'}</p>
-                      </div>
+                    <div className="p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)]/50">
+                      <p className="text-[var(--color-text-secondary)] text-xs mb-1">Status</p>
+                      <p className="font-bold text-[var(--color-text-primary)] flex items-center gap-1">
+                        {activeLessonId && (enrollment?.completed_contents?.includes(activeLessonId) ? (
+                          <><CheckCircle2 size={14} className="text-green-500" /> Completed</>
+                        ) : (
+                          <><Clock size={14} className="text-orange-500" /> In Progress</>
+                        ))}
+                      </p>
                     </div>
                   </div>
                 </motion.div>
@@ -487,49 +653,158 @@ export default function CoursePlayer() {
                   key="resources"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="space-y-6"
+                  exit={{ opacity: 0, y: -10 }}
+                  className="space-y-4"
                 >
                   {filteredResources.length === 0 ? (
-                    <div className="text-center py-12">
-                      <FolderOpen size={48} className="text-[#5A5A6E] mx-auto mb-4 opacity-30" />
-                      <p className="text-[var(--color-text-secondary)] font-medium">
-                        No resources available for this {activeModule ? 'module' : 'course'} yet.
-                      </p>
+                    <div className="text-center py-12 bg-[var(--color-bg-secondary)]/50 rounded-2xl border-2 border-dashed border-[var(--color-border)]">
+                      <FolderOpen className="mx-auto text-[var(--color-text-secondary)] mb-3" size={32} />
+                      <p className="text-[var(--color-text-secondary)]">No resources available for this section.</p>
                     </div>
                   ) : (
-                    <>
-                      {moduleResources.length > 0 && (
-                        <div>
-                          <h3 className="text-sm font-black text-[var(--color-text-primary)] mb-3 flex items-center gap-2">
-                            <FolderOpen size={16} className="text-[var(--color-primary)]" />
-                            {activeModule ? `${activeModule.title} Resources` : 'Module Resources'}
-                            <Badge variant="outline" className="text-xs">{moduleResources.length}</Badge>
-                          </h3>
-                          <div className="space-y-3">
-                            {moduleResources.map((res: any) => (
-                              <ResourceCard key={res.id} resource={res} />
-                            ))}
+                    <div className="grid gap-3">
+                      {filteredResources.map((resource: any) => (
+                        <div
+                          key={resource.id}
+                          className="group p-4 rounded-xl border border-[var(--color-border)] bg-white hover:border-[var(--color-primary)] transition-all flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-lg bg-[var(--color-primary)]/5 flex items-center justify-center text-[var(--color-primary)]">
+                              {resource.file_name?.endsWith('.pdf') ? <FileText size={20} /> : <Download size={20} />}
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-[var(--color-text-primary)] text-sm group-hover:text-[var(--color-primary)] transition-colors">
+                                {resource.title}
+                              </h4>
+                              <p className="text-[var(--color-text-secondary)] text-xs">
+                                {resource.file_size ? `${(resource.file_size / 1024 / 1024).toFixed(2)} MB` : 'External Link'}
+                              </p>
+                            </div>
                           </div>
+                          <a
+                            href={resource.file || resource.external_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-2 rounded-lg hover:bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-all"
+                          >
+                            <ExternalLink size={18} />
+                          </a>
                         </div>
-                      )}
-                      {generalResources.length > 0 && (
-                        <div>
-                          <h3 className="text-sm font-black text-[var(--color-text-primary)] mb-3 flex items-center gap-2">
-                            <FileText size={16} className="text-[var(--color-primary)]" />
-                            General Resources
-                            <Badge variant="outline" className="text-xs">{generalResources.length}</Badge>
-                          </h3>
-                          <div className="space-y-3">
-                            {generalResources.map((res: any) => (
-                              <ResourceCard key={res.id} resource={res} isGeneral />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </>
+                      ))}
+                    </div>
                   )}
                 </motion.div>
               )}
+
+              {/* Assignments Tab */}
+              {activeTab === 'assignments' && (
+                <motion.div
+                  key="assignments"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="space-y-4"
+                >
+                  {filteredAssessments.length === 0 ? (
+                    <div className="text-center py-12 bg-[var(--color-bg-secondary)]/50 rounded-2xl border-2 border-dashed border-[var(--color-border)]">
+                      <FileText className="mx-auto text-[var(--color-text-secondary)] mb-3" size={32} />
+                      <p className="text-[var(--color-text-secondary)]">No assignments or quizzes available for this section.</p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-3">
+                      {filteredAssessments.map((assessment: any) => {
+                        const attempt = (course as any)?.student_attempts?.find((a: any) => a.assessment === assessment.id);
+                        const status = attempt?.status || 'not_started';
+                        const score = attempt?.score;
+                        const isDone = status === 'submitted' || status === 'graded';
+                        const deadline = assessment.end_datetime ? new Date(assessment.end_datetime) : null;
+                        const isPastDeadline = deadline && new Date() > deadline;
+
+                        return (
+                          <div
+                            key={assessment.id}
+                            className="group p-4 rounded-xl border border-[var(--color-border)] bg-white hover:border-[var(--color-primary)] transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                          >
+                            <div className="flex items-start gap-4">
+                              <div className={cn(
+                                "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-colors",
+                                isDone ? "bg-green-100 text-green-600" : "bg-[var(--color-primary)]/5 text-[var(--color-primary)]"
+                              )}>
+                                {isDone ? <CheckCircle2 size={24} /> : <BookOpen size={24} />}
+                              </div>
+                              <div>
+                                <div className="flex flex-wrap items-center gap-2 mb-1">
+                                  <h4 className="font-bold text-[var(--color-text-primary)] text-sm group-hover:text-[var(--color-primary)] transition-colors">
+                                    {assessment.title}
+                                  </h4>
+                                  <Badge className="text-[10px] h-4 capitalize" variant="secondary">
+                                    {assessment.assessment_type}
+                                  </Badge>
+                                  {status !== 'not_started' && (
+                                    <Badge 
+                                      className="text-[10px] h-4 capitalize" 
+                                      variant={status === 'graded' ? 'success' : 'warning'}
+                                    >
+                                      {status}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-[var(--color-text-secondary)] text-xs line-clamp-1 mb-2">
+                                  {assessment.description || `Complete this ${assessment.assessment_type} to test your knowledge.`}
+                                </p>
+                                <div className="flex flex-wrap items-center gap-4 text-[10px] text-[var(--color-text-secondary)]">
+                                  {deadline && (
+                                    <span className={cn(
+                                      "flex items-center gap-1 font-medium",
+                                      isPastDeadline && !isDone ? "text-red-500" : ""
+                                    )}>
+                                      <Clock size={12} /> 
+                                      Deadline: {format(deadline, 'MMM dd, HH:mm')}
+                                    </span>
+                                  )}
+                                  {score !== null && score !== undefined && (
+                                    <span className="flex items-center gap-1 font-bold text-[var(--color-primary)]">
+                                      <Award size={12} /> Score: {score}%
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <Button 
+                              variant={isDone ? "outline" : "primary"}
+                              size="sm" 
+                              className="rounded-xl h-9 px-6 sm:w-auto w-full font-bold shadow-sm"
+                              onClick={() => {
+                                const courseId = course.id;
+                                if (isDone) {
+                                  // View results
+                                  if (assessment.assessment_type === 'quiz' || assessment.assessment_type === 'exam') {
+                                    router.push(`/student/assessments/${assessment.id}/take?attempt=${attempt.id}&courseId=${courseId}`);
+                                  } else {
+                                    router.push(`/student/assessments/${assessment.id}/assignment?attempt=${attempt.id}&courseId=${courseId}`);
+                                  }
+                                } else {
+                                  // Start/Resume
+                                  if (assessment.assessment_type === 'quiz' || assessment.assessment_type === 'exam') {
+                                    router.push(`/student/assessments/${assessment.id}/take?courseId=${courseId}`);
+                                  } else {
+                                    router.push(`/student/assessments/${assessment.id}/assignment?courseId=${courseId}`);
+                                  }
+                                }
+                              }}
+                            >
+                              {status === 'graded' ? 'View Result' : 
+                               status === 'submitted' ? 'Submitted' :
+                               status === 'started' ? 'Resume' : 'Start'}
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </motion.div>
+              )}
+
 
               {/* Announcements Tab */}
               {activeTab === 'announcements' && (
@@ -591,10 +866,12 @@ export default function CoursePlayer() {
               )}
             </AnimatePresence>
           </div>
+        </>
+      )}
         </div>
 
         {/* Footer Navigation - Only show on content tab */}
-        {activeTab === 'content' && (
+        {canAccessContent && activeTab === 'content' && (
           <div className="h-16 border-t border-[var(--color-border)] flex items-center justify-between px-8 bg-[var(--color-bg-card)] shrink-0">
             <button 
               onClick={goToPreviousLesson}
@@ -614,8 +891,8 @@ export default function CoursePlayer() {
               Next Lesson <ChevronRight size={18} />
             </button>
           </div>
-        )}
-      </main>
+          )}
+        </main>
     </div>
   );
 }

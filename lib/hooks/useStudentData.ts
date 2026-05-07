@@ -185,8 +185,9 @@ export function useEnrollCourse() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (courseId: number) => studentApi.enrollCourse(courseId),
-    onSuccess: () => {
+    onSuccess: (_data, courseId) => {
       queryClient.invalidateQueries({ queryKey: ['student', 'courses', 'enrolled'] });
+      queryClient.invalidateQueries({ queryKey: ['student', 'courses', courseId] });
       toast.success('Enrolled successfully');
     },
     onError: (error: any) => {

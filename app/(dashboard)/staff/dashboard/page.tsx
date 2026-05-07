@@ -10,52 +10,6 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
-const statCards = [
-  {
-    label: 'Total Tutors',
-    value: '48',
-    icon: GraduationCap,
-    color: 'bg-orange-100 text-orange-600',
-    href: '/staff/tutors',
-    trend: '+2 this month',
-    trendUp: true,
-  },
-  {
-    label: 'Total Students',
-    value: '1,240',
-    icon: Users,
-    color: 'bg-blue-100 text-blue-600',
-    href: '/staff/students',
-    trend: '+45 this week',
-    trendUp: true,
-  },
-  {
-    label: 'Partner Companies',
-    value: '32',
-    icon: Building2,
-    color: 'bg-indigo-100 text-indigo-600',
-    href: '/staff/companies',
-    trend: '3 pending approval',
-    trendUp: false,
-  },
-  {
-    label: 'Active Courses',
-    value: '142',
-    icon: BookOpen,
-    color: 'bg-teal-100 text-teal-600',
-    href: '/staff/courses',
-    trend: '+8 new courses',
-    trendUp: true,
-  },
-];
-
-const quickActions = [
-  { label: 'Manage Tutors', href: '/staff/tutors', icon: GraduationCap, color: 'hover:bg-orange-50 text-orange-600' },
-  { label: 'Manage Students', href: '/staff/students', icon: Users, color: 'hover:bg-blue-50 text-blue-600' },
-  { label: 'Manage Companies', href: '/staff/companies', icon: Building2, color: 'hover:bg-indigo-50 text-indigo-600' },
-  { label: 'Manage Courses', href: '/staff/courses', icon: BookOpen, color: 'hover:bg-teal-50 text-teal-600' },
-];
-
 const container = {
   hidden: { opacity: 0 },
   show: { opacity: 1, transition: { staggerChildren: 0.07 } },
@@ -67,6 +21,68 @@ const item = {
 
 export default function StaffDashboard() {
   const { user } = useAuthStore();
+  const permissions = user?.permissions || {};
+
+  const filteredStatCards = [
+    {
+      label: 'Total Tutors',
+      value: '48',
+      icon: GraduationCap,
+      color: 'bg-orange-100 text-orange-600',
+      href: '/staff/tutors',
+      trend: '+2 this month',
+      trendUp: true,
+      show: permissions.can_manage_tutors
+    },
+    {
+      label: 'Total Students',
+      value: '1,240',
+      icon: Users,
+      color: 'bg-blue-100 text-blue-600',
+      href: '/staff/students',
+      trend: '+45 this week',
+      trendUp: true,
+      show: permissions.can_manage_students
+    },
+    {
+      label: 'Partner Companies',
+      value: '32',
+      icon: Building2,
+      color: 'bg-indigo-100 text-indigo-600',
+      href: '/staff/companies',
+      trend: '3 pending approval',
+      trendUp: false,
+      show: permissions.can_manage_companies
+    },
+    {
+      label: 'Active Courses',
+      value: '142',
+      icon: BookOpen,
+      color: 'bg-teal-100 text-teal-600',
+      href: '/staff/courses',
+      trend: '+8 new courses',
+      trendUp: true,
+      show: permissions.can_manage_courses
+    },
+    {
+      label: 'Pending Payments',
+      value: '7',
+      icon: CheckCircle2,
+      color: 'bg-purple-100 text-purple-600',
+      href: '/staff/payments',
+      trend: 'Needs verification',
+      trendUp: false,
+      show: permissions.can_manage_payments
+    },
+  ].filter(card => card.show);
+
+  const filteredQuickActions = [
+    { label: 'Manage Tutors', href: '/staff/tutors', icon: GraduationCap, color: 'hover:bg-orange-50 text-orange-600', show: permissions.can_manage_tutors },
+    { label: 'Manage Students', href: '/staff/students', icon: Users, color: 'hover:bg-blue-50 text-blue-600', show: permissions.can_manage_students },
+    { label: 'Manage Companies', href: '/staff/companies', icon: Building2, color: 'hover:bg-indigo-50 text-indigo-600', show: permissions.can_manage_companies },
+    { label: 'Manage Courses', href: '/staff/courses', icon: BookOpen, color: 'hover:bg-teal-50 text-teal-600', show: permissions.can_manage_courses },
+    { label: 'Verify Payments', href: '/staff/payments', icon: CheckCircle2, color: 'hover:bg-purple-50 text-purple-600', show: permissions.can_manage_payments },
+  ].filter(action => action.show);
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="space-y-8 pb-12">
@@ -94,7 +110,7 @@ export default function StaffDashboard() {
 
       {/* Stat Cards */}
       <motion.div variants={item} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statCards.map(({ label, value, icon: Icon, color, href, trend, trendUp }) => (
+        {filteredStatCards.map(({ label, value, icon: Icon, color, href, trend, trendUp }) => (
           <Link key={label} href={href}>
             <Card className="p-6 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer group border border-[var(--color-border)]">
               <div className="flex items-start justify-between mb-4">
@@ -112,19 +128,22 @@ export default function StaffDashboard() {
       </motion.div>
 
       {/* Quick Access */}
-      <motion.div variants={item}>
-        <h2 className="text-xl font-black text-[var(--color-text-primary)] mb-4 tracking-tight">Management Access</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {quickActions.map(({ label, href, icon: Icon, color }) => (
-            <Link key={label} href={href}>
-              <Card className={`p-5 text-center ${color} transition-all duration-200 cursor-pointer border border-[var(--color-border)] hover:shadow-md`}>
-                <Icon size={26} className="mx-auto mb-3" />
-                <p className="text-xs font-black text-[var(--color-text-primary)]">{label}</p>
-              </Card>
-            </Link>
-          ))}
-        </div>
-      </motion.div>
+      {filteredQuickActions.length > 0 && (
+        <motion.div variants={item}>
+          <h2 className="text-xl font-black text-[var(--color-text-primary)] mb-4 tracking-tight">Management Access</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {filteredQuickActions.map(({ label, href, icon: Icon, color }) => (
+              <Link key={label} href={href}>
+                <Card className={`p-5 text-center ${color} transition-all duration-200 cursor-pointer border border-[var(--color-border)] hover:shadow-md`}>
+                  <Icon size={26} className="mx-auto mb-3" />
+                  <p className="text-xs font-black text-[var(--color-text-primary)]">{label}</p>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
 
       {/* Activities & Schedule */}
       <motion.div variants={item} className="grid grid-cols-1 lg:grid-cols-2 gap-8">

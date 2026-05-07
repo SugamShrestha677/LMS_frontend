@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { useUIStore } from '@/lib/store/uiStore';
-import { useLogout } from '@/lib/hooks/useAuth';
+import { useLogout, useProfile } from '@/lib/hooks/useAuth';
 import { cn, getInitials } from '@/lib/utils';
 import {
   LayoutDashboard, BookOpen, Award, Briefcase, BarChart2,
@@ -76,17 +76,48 @@ const staffLinks = [
   { href: '/staff/courses', label: 'Courses', icon: BookOpen },
 ];
 
-function getLinks(role?: string) {
+function getLinks(user: any | null) {
+  const role = user?.role;
+  const permissions = user?.permissions;
+
   switch (role) {
     case 'student':    return studentLinks;
     case 'company':    return companyLinks;
     case 'admin':      return adminLinks;
     case 'super_admin': return superAdminLinks;
     case 'tutor':      return tutorLinks;
-    case 'staff':      return staffLinks;
+    case 'staff': {
+      const links = [
+        { href: '/staff/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      ];
+
+      const staffPermissions = user?.permissions || user?.profile?.permissions;
+
+      if (staffPermissions?.can_manage_tutors) {
+        links.push({ href: '/staff/tutors', label: 'Tutors', icon: GraduationCap });
+      }
+      if (staffPermissions?.can_manage_students) {
+        links.push({ href: '/staff/students', label: 'Students', icon: UserCheck });
+      }
+      if (staffPermissions?.can_manage_companies) {
+        links.push({ href: '/staff/companies', label: 'Companies', icon: Building2 });
+      }
+      if (staffPermissions?.can_manage_courses) {
+        links.push({ href: '/staff/courses', label: 'Courses', icon: BookOpen });
+      }
+      if (staffPermissions?.can_manage_payments) {
+        links.push({ href: '/staff/payments', label: 'Payments', icon: CreditCard });
+      }
+      
+      // Settings is always available for staff as requested
+      links.push({ href: '/staff/settings', label: 'Settings', icon: Settings });
+      
+      return links;
+    }
     default:           return [];
   }
 }
+
 
 /** Display name helper */
 function displayName(user: { first_name?: string; last_name?: string; email: string }) {
@@ -106,6 +137,9 @@ export function Sidebar() {
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
   const { mutate: logout, isPending: isLoggingOut } = useLogout();
+  
+  // Keep profile in sync with backend to reflect permission changes
+  useProfile();
 
   useEffect(() => {
     setMounted(true);
@@ -113,7 +147,7 @@ export function Sidebar() {
 
   const isActuallyHydrated = _hasHydrated || (typeof window !== 'undefined' && useAuthStore.persist.hasHydrated());
 
-  const links = (mounted && isActuallyHydrated) ? getLinks(user?.role) : [];
+  const links = (mounted && isActuallyHydrated) ? getLinks(user) : [];
 
   const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => (
     <div className="flex flex-col h-full bg-[var(--color-bg-sidebar)]">

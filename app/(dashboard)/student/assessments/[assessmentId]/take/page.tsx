@@ -12,7 +12,8 @@ import {
   Clock, AlertTriangle, CheckCircle, XCircle, 
   Eye, EyeOff, ArrowLeft, ArrowRight, 
   Timer, Monitor, AlertOctagon, Edit3,
-  FileText, Send, ChevronLeft
+  FileText, Send, ChevronLeft,
+  Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
@@ -37,6 +38,7 @@ export default function TakeAssessmentPage() {
   const [attemptId, setAttemptId] = useState<number | null>(null);
   const [reviewMode, setReviewMode] = useState(false);
   const [assessmentEnded, setAssessmentEnded] = useState(false);
+  const [attemptData, setAttemptData] = useState<any>(null);
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<Date>(new Date());
@@ -71,6 +73,28 @@ export default function TakeAssessmentPage() {
       });
       const attempt = response.data?.data || response.data;
       setAttemptId(attempt.id);
+      
+      // If already submitted or graded, show results/review
+      if (attempt.status === 'submitted' || attempt.status === 'graded') {
+        setAnswers(attempt.answers || {});
+        setReviewMode(true);
+        setAttemptData(attempt);
+        
+        // Show results view ONLY if after deadline for both Quizzes and Exams
+        const isAfterDeadline = !assessment?.end_datetime || new Date() >= new Date(assessment.end_datetime);
+        
+        if (isQuiz || isExam) {
+          if (isAfterDeadline) {
+            setShowResults(true);
+          } else {
+            setAssessmentEnded(true); // Shows "Assessment Submitted" message without results
+          }
+        } else {
+          setAssessmentEnded(true);
+        }
+        return;
+      }
+
       startTimeRef.current = new Date();
       
       // Set timer
@@ -78,13 +102,8 @@ export default function TakeAssessmentPage() {
         setTimeLeft(assessment.duration_minutes * 60);
       }
     } catch (error: any) {
-      // Check if already has an attempt
-      if (error.response?.status === 400) {
-        toast.error(error.response?.data?.error || 'You cannot start this assessment');
-        router.back();
-      } else {
-        toast.error('Failed to start assessment');
-      }
+      toast.error('Failed to access assessment');
+      router.back();
     }
   };
 
@@ -187,9 +206,11 @@ export default function TakeAssessmentPage() {
     setIsSubmitting(true);
 
     try {
-      await api.post(`/student-assessments/${attemptId}/submit/`, {
+      const response = await api.post(`/student-assessments/${attemptId}/submit/`, {
         answers,
       });
+      const updatedAttempt = response.data?.data || response.data;
+      setAttemptData(updatedAttempt);
 
       if (isQuiz) {
         // Quiz: Show results after end time or immediately
@@ -203,9 +224,10 @@ export default function TakeAssessmentPage() {
           router.push('/student/courses');
         }
       } else if (isExam) {
-        // Exam: Manual grading
-        toast.success('Exam submitted for grading! Your instructor will review your answers.');
-        router.push('/student/courses');
+        // Exam: Show submitted answers immediately
+        setShowResults(true);
+        setReviewMode(true);
+        toast.success('Exam submitted! Your answers are shown below and awaiting instructor grading.');
       }
     } catch (error) {
       toast.error('Failed to submit assessment');
@@ -220,11 +242,13 @@ export default function TakeAssessmentPage() {
     setIsAutoSubmitted(true);
     
     try {
-      await api.post(`/student-assessments/${attemptId}/submit/`, {
+      const response = await api.post(`/student-assessments/${attemptId}/submit/`, {
         answers,
         auto_submitted: true,
         reason,
       });
+      const updatedAttempt = response.data?.data || response.data;
+      setAttemptData(updatedAttempt);
       
       setReviewMode(true);
       setAssessmentEnded(true);
@@ -234,6 +258,8 @@ export default function TakeAssessmentPage() {
         if (canView) {
           setShowResults(true);
         }
+      } else if (isExam) {
+        setShowResults(true);
       }
       
       const messages: Record<string, string> = {
@@ -303,68 +329,71 @@ export default function TakeAssessmentPage() {
 
   return (
     <div className="min-h-screen bg-[#FAFAFA]">
-      {/* Header with timer */}
-      <div className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button onClick={() => router.back()} className="text-[#5A5A6E] hover:text-[#1E1E2A]">
-                <ChevronLeft size={20} />
-              </button>
-              <div>
-                <h1 className="font-bold text-lg text-[#1E1E2A]">{assessment.title}</h1>
-                <div className="flex items-center gap-3 text-sm text-[#5A5A6E]">
+      {/* Header */}
+      {!showResults && (
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-20">
+        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.back()}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <div>
+              <h1 className="font-bold text-gray-900 line-clamp-1">{assessment?.title}</h1>
+              {!showResults && (
+                <div className="flex items-center gap-2 text-xs text-gray-500">
                   <span>Q {currentQuestion + 1}/{questions.length}</span>
                   <span>•</span>
                   <span>{getAnsweredCount()} answered</span>
                   <span>•</span>
-                  <Badge variant="outline" className="text-xs capitalize">
-                    {assessment.assessment_type}
-                  </Badge>
+                  <span className="capitalize">{assessment?.assessment_type}</span>
                 </div>
-              </div>
+              )}
             </div>
-            
+          </div>
+
+          {!showResults && (
             <div className="flex items-center gap-4">
-              {/* Tab warning indicator */}
-              {tabWarningCount > 0 && (
-                <div className="flex items-center gap-1 text-orange-500">
-                  <AlertOctagon size={16} />
-                  <span className="text-xs font-semibold">{tabWarningCount}</span>
+              {assessment?.is_proctored && (
+                <div className="hidden md:flex items-center gap-1 px-2 py-1 bg-red-50 text-red-600 rounded text-[10px] font-bold uppercase tracking-wider">
+                  <Shield size={12} />
+                  Proctored
                 </div>
               )}
               
-              {/* Timer */}
-              {timeLeft > 0 && (
-                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${
-                  timeLeft < 300 ? 'bg-red-50 text-red-600 animate-pulse' : 'bg-gray-100 text-[#1E1E2A]'
-                }`}>
-                  <Timer size={16} />
-                  <span className="font-mono font-bold">{formatTime(timeLeft)}</span>
-                </div>
-              )}
-              
-              {/* Submit button in header */}
+              <div className={`flex items-center gap-2 px-4 py-2 rounded-lg font-mono font-bold ${
+                timeLeft < 300 ? 'bg-red-50 text-red-600 animate-pulse' : 'bg-gray-100 text-gray-700'
+              }`}>
+                <Timer size={18} />
+                {formatTime(timeLeft)}
+              </div>
+
               <Button
                 size="sm"
                 onClick={handleSubmit}
                 loading={isSubmitting}
-                disabled={reviewMode || assessmentEnded}
+                className="hidden md:flex"
               >
-                <Send size={14} className="mr-1" /> Submit
+                Submit
               </Button>
             </div>
-          </div>
-          
-          {/* Progress bar */}
-          <div className="w-full h-1.5 bg-gray-200 rounded-full mt-3 overflow-hidden">
-            <div 
-              className="h-full bg-[#0A5C4A] transition-all duration-500 rounded-full"
-              style={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }}
+          )}
+        </div>
+
+        {/* Progress Bar - Only during assessment */}
+        {!showResults && (
+          <div className="h-1 bg-gray-100 w-full overflow-hidden">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }}
+              className="h-full bg-[#0A5C4A]"
             />
           </div>
-        </div>
+        )}
       </div>
+      )}
 
       {/* Main content */}
       <div className="max-w-6xl mx-auto p-4 py-8">
@@ -372,7 +401,7 @@ export default function TakeAssessmentPage() {
           <ResultsView 
             assessment={assessment}
             answers={answers}
-            attemptId={attemptId}
+            attempt={attemptData}
           />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
@@ -609,12 +638,13 @@ export default function TakeAssessmentPage() {
 }
 
 // ==================== RESULTS VIEW COMPONENT ====================
-function ResultsView({ assessment, answers, attemptId }: {
+function ResultsView({ assessment, answers, attempt }: {
   assessment: any;
   answers: Record<string, any>;
-  attemptId: number | null;
+  attempt: any;
 }) {
   const questions = assessment?.questions || [];
+  const router = useRouter();
   const [showCorrect, setShowCorrect] = useState(true);
 
   const calculateScore = () => {
@@ -625,10 +655,18 @@ function ResultsView({ assessment, answers, attemptId }: {
       const points = q.points || 10;
       total += points;
       
+      const rawAns = answers[idx];
+      const studentAnsValue = typeof rawAns === 'object' ? rawAns?.value : rawAns;
+
       // Only MCQ can be auto-graded
       if (q.type !== 'long_answer') {
-        if (String(answers[idx]) === String(q.correct)) {
+        if (String(studentAnsValue) === String(q.correct)) {
           earned += points;
+        }
+      } else {
+        // For long answer, use the grade if it exists
+        if (typeof rawAns === 'object' && rawAns.grade !== undefined) {
+          earned += Number(rawAns.grade);
         }
       }
     });
@@ -636,11 +674,26 @@ function ResultsView({ assessment, answers, attemptId }: {
     return { earned, total, percentage: total > 0 ? Math.round((earned / total) * 100) : 0 };
   };
 
-  const { earned, total, percentage } = calculateScore();
+  const localResult = calculateScore();
+  const hasOfficialScore = attempt?.score !== null && attempt?.score !== undefined;
+  
+  // Backend score is usually a percentage (0-100)
+  const percentage = hasOfficialScore ? Math.round(Number(attempt.score)) : localResult.percentage;
+  const total = localResult.total;
+  // Calculate earned points from percentage if official, otherwise use local points
+  const earned = hasOfficialScore ? Math.round((percentage / 100) * total) : localResult.earned;
   const passed = percentage >= (assessment?.passing_score || 60);
+  const isPendingGrading = assessment.assessment_type === 'exam' && attempt?.status === 'submitted';
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+      <button
+        onClick={() => router.push('/student/assessments')}
+        className="flex items-center gap-2 text-[#5A5A6E] hover:text-[#0A5C4A] font-bold transition-colors mb-4 group"
+      >
+        <ArrowLeft size={18} className="transition-transform group-hover:-translate-x-1" />
+        Back to Assessments
+      </button>
       {/* Score summary */}
       <Card className="p-8 md:p-12 text-center bg-gradient-to-br from-[#0A5C4A]/5 to-transparent border-2 border-[#0A5C4A]/10">
         <motion.div
@@ -659,26 +712,28 @@ function ResultsView({ assessment, answers, attemptId }: {
         </motion.div>
         
         <h2 className="text-3xl font-black text-[#1E1E2A] mb-3">
-          {passed ? 'Congratulations! 🎉' : 'Keep Trying! 💪'}
+          {isPendingGrading ? 'Assessment Submitted!' : (passed ? 'Congratulations! 🎉' : 'Keep Trying! 💪')}
         </h2>
         
         <div className="text-lg mb-2">
           <span className="font-bold text-[#0A5C4A]">
-            Score: {earned}/{total} ({percentage}%)
+            {isPendingGrading ? 'Pending Instructor Grading' : `Score: ${earned}/${total} (${percentage}%)`}
           </span>
         </div>
         
-        <p className="text-[#5A5A6E] mb-6">
-          Passing score: {assessment?.passing_score}%
-          {passed ? ' - You passed!' : ' - You did not pass'}
-        </p>
+        {!isPendingGrading && (
+          <p className="text-[#5A5A6E] mb-6">
+            Passing score: {assessment?.passing_score}%
+            {passed ? ' - You passed!' : ' - You did not pass'}
+          </p>
+        )}
 
         {assessment.assessment_type === 'exam' && (
-          <div className="p-4 bg-purple-50 rounded-xl inline-block">
+          <div className="p-4 bg-purple-50 rounded-xl inline-block mt-4">
             <p className="text-sm text-purple-700">
               <Edit3 size={14} className="inline mr-1" />
-              This is an exam. Long answer questions will be graded by your instructor.
-              Final score may change after grading.
+              This is an exam. Long answer questions require manual grading by your instructor.
+              {isPendingGrading ? ' Your score will be available after grading.' : ' Final score may change after instructor review.'}
             </p>
           </div>
         )}
@@ -699,8 +754,10 @@ function ResultsView({ assessment, answers, attemptId }: {
         </div>
 
         {questions.map((q: any, idx: number) => {
+          const rawAns = answers[idx];
+          const studentAnsValue = typeof rawAns === 'object' ? rawAns?.value : rawAns;
           const isMCQ = q.type !== 'long_answer';
-          const isCorrect = isMCQ && String(answers[idx]) === String(q.correct);
+          const isCorrect = isMCQ && String(studentAnsValue) === String(q.correct);
           const isUnanswered = answers[idx] === undefined || answers[idx] === '';
           
           return (
@@ -742,7 +799,8 @@ function ResultsView({ assessment, answers, attemptId }: {
               {isMCQ && q.options && (
                 <div className="space-y-1.5 mt-3">
                   {q.options.map((opt: string, optIdx: number) => {
-                    const isUserAnswer = String(answers[idx]) === String(optIdx);
+                    const studentAns = typeof answers[idx] === 'object' ? answers[idx]?.value : answers[idx];
+                    const isUserAnswer = String(studentAns) === String(optIdx);
                     const isCorrectAnswer = showCorrect && String(optIdx) === String(q.correct);
                     
                     return (
@@ -777,11 +835,21 @@ function ResultsView({ assessment, answers, attemptId }: {
 
               {/* Long Answer Review */}
               {!isMCQ && (
-                <div className="mt-3 p-4 bg-gray-50 rounded-lg">
-                  <p className="text-xs text-[#5A5A6E] mb-2 font-semibold">Your Answer:</p>
-                  <p className="text-sm whitespace-pre-wrap text-[#1E1E2A]">
-                    {answers[idx] || <span className="text-gray-400 italic">No answer provided</span>}
-                  </p>
+                <div className="mt-3 space-y-3">
+                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-100">
+                    <p className="text-xs text-[#5A5A6E] mb-2 font-semibold uppercase tracking-wider">Your Answer:</p>
+                    <p className="text-sm whitespace-pre-wrap text-[#1E1E2A]">
+                      {(typeof answers[idx] === 'object' ? answers[idx]?.value : answers[idx]) || 
+                       <span className="text-gray-400 italic">No answer provided</span>}
+                    </p>
+                  </div>
+                  
+                  {typeof answers[idx] === 'object' && answers[idx].grade !== undefined && (
+                    <div className="flex items-center justify-between px-4 py-2 bg-purple-50 rounded-lg border border-purple-100">
+                      <span className="text-xs font-bold text-purple-700">Instructor Grade:</span>
+                      <span className="text-sm font-black text-purple-700">{answers[idx].grade} / {q.points || 10} Points</span>
+                    </div>
+                  )}
                 </div>
               )}
             </Card>

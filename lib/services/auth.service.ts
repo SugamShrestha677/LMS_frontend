@@ -110,7 +110,17 @@ export const authService = {
   },
 
   async updateUser(id: string | number, data: any) {
-    const response = await api.patch(`/accounts/users/${id}`, data);
+    const response = await api.patch(`/accounts/users/${id}/`, data);
+    return response.data;
+  },
+
+  async changeRole(id: string | number, role: string) {
+    const response = await api.post(`/accounts/users/${id}/change-role/`, { role });
+    return response.data;
+  },
+
+  async softDelete(id: string | number, reason: string) {
+    const response = await api.post(`/accounts/users/${id}/soft-delete/`, { reason });
     return response.data;
   },
 };

@@ -502,3 +502,59 @@ export const useStudentDashboard = () => {
     queryFn: () => courseService.getStudentDashboard(),
   });
 };
+
+// ==================== PAYMENTS ====================
+export const usePayments = () => {
+  return useQuery({
+    queryKey: ['payments'],
+    queryFn: () => courseService.getPayments(),
+  });
+};
+
+export const useSubmitPayment = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: any) => courseService.submitPayment(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      toast.success('Payment submitted for verification');
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || 'Failed to submit payment';
+      toast.error(message);
+    },
+  });
+};
+
+export const useConfirmPayment = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (paymentId: number) => courseService.confirmPayment(paymentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['enrollments'] });
+      queryClient.invalidateQueries({ queryKey: ['student-enrolled-courses'] });
+      toast.success('Payment confirmed and student enrolled');
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || 'Failed to confirm payment';
+      toast.error(message);
+    },
+  });
+};
+
+export const useRejectPayment = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ paymentId, reason }: { paymentId: number; reason: string }) =>
+      courseService.rejectPayment(paymentId, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      toast.success('Payment rejected');
+    },
+    onError: (error: any) => {
+      const message = error?.response?.data?.message || 'Failed to reject payment';
+      toast.error(message);
+    },
+  });
+};

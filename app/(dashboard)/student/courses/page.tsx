@@ -1,6 +1,7 @@
 'use client';
 
 import { useStudentCourses, useEnrolledCourses, useEnrollCourse } from '@/lib/hooks/useStudentData';
+import { usePayments } from '@/lib/hooks/useCourses';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -9,9 +10,10 @@ import { ProgressBar } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Filter, BookOpen, Clock, Star, Play } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatNumber } from '@/lib/utils';
+import { CoursePaymentModal } from '@/components/student/CoursePaymentModal';
 
 export default function StudentCourses() {
   const { data: allCourses, isLoading: loadingAll } = useStudentCourses();
@@ -21,6 +23,11 @@ export default function StudentCourses() {
   
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'enrolled'>('enrolled');
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedCourseForPayment, setSelectedCourseForPayment] = useState<any>(null);
+  const [enrollingId, setEnrollingId] = useState<number | null>(null);
+
+  const { data: paymentsData } = usePayments();
 
   const enrolledList = (enrolledCourses ?? []).map((enrollment) => {
     const course = enrollment.course ?? enrollment;
@@ -31,6 +38,25 @@ export default function StudentCourses() {
   });
 
   const enrolledCourseIds = new Set(enrolledList.map((course) => course.id));
+  
+  const pendingPaymentCourseIds = useMemo(() => {
+    const paymentList = Array.isArray(paymentsData) ? paymentsData : (paymentsData as any)?.data || [];
+    return new Set(
+      paymentList
+        .filter((p: any) => p.status === 'pending')
+        .map((p: any) => p.course)
+    );
+  }, [paymentsData]);
+
+  const confirmedPaymentCourseIds = useMemo(() => {
+    const paymentList = Array.isArray(paymentsData) ? paymentsData : (paymentsData as any)?.data || [];
+    return new Set(
+      paymentList
+        .filter((p: any) => p.status === 'confirmed')
+        .map((p: any) => p.course)
+    );
+  }, [paymentsData]);
+
   const courses = activeTab === 'all' ? allCourses : enrolledList;
   const isLoading = activeTab === 'all' ? loadingAll : loadingEnrolled;
 
@@ -217,12 +243,35 @@ export default function StudentCourses() {
                           <Star size={14} className="fill-current" />
                           <span className="text-sm font-black text-[var(--color-text-primary)]">{course.rating ?? '4.8'}</span>
                         </div>
-                        {enrolledCourseIds.has(course.id) ? (
+                        {enrolledCourseIds.has(course.id) && (course.is_free || confirmedPaymentCourseIds.has(course.id)) ? (
                           <Button size="sm" className="h-9 px-5" onClick={() => router.push(`/student/courses/${course.id}`)}>
                             Open
                           </Button>
+                        ) : pendingPaymentCourseIds.has(course.id) ? (
+                          <Badge variant="warning" size="sm" className="h-9 px-4 flex items-center gap-1.5 font-black uppercase tracking-wider">
+                            <Clock size={12} className="animate-pulse" /> Pending
+                          </Badge>
+                        ) : enrolledCourseIds.has(course.id) && !course.is_free ? (
+                          <Button size="sm" className="h-9 px-5 bg-amber-500 hover:bg-amber-600 text-white border-none shadow-md font-bold" onClick={() => router.push(`/student/courses/${course.id}`)}>
+                            Pay Now
+                          </Button>
                         ) : (
-                          <Button size="sm" className="h-9 px-5" loading={enrolling} onClick={() => enrollCourse(course.id)}>
+                          <Button 
+                            size="sm" 
+                            className="h-9 px-5" 
+                            loading={enrolling && (selectedCourseForPayment?.id === course.id || enrollingId === course.id)} 
+                            onClick={() => {
+                              if (course.is_free) {
+                                setEnrollingId(course.id);
+                                enrollCourse(course.id, {
+                                  onSettled: () => setTimeout(() => setEnrollingId(null), 500)
+                                });
+                              } else {
+                                setSelectedCourseForPayment(course);
+                                setShowPaymentModal(true);
+                              }
+                            }}
+                          >
                             {course.is_free ? 'Enroll Free' : 'Unlock & Enroll'}
                           </Button>
                         )}
@@ -235,6 +284,17 @@ export default function StudentCourses() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {selectedCourseForPayment && (
+        <CoursePaymentModal
+          course={selectedCourseForPayment}
+          isOpen={showPaymentModal}
+          onClose={() => {
+            setShowPaymentModal(false);
+            setSelectedCourseForPayment(null);
+          }}
+        />
+      )}
     </div>
   );
 }

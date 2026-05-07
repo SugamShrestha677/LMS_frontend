@@ -97,6 +97,29 @@ export const courseService = {
     return data;
   },
 
+  uploadContentScorm: async (courseId: number, moduleId: number, contentId: number, formData: FormData) => {
+    const { data } = await api.post(
+      `/courses/${courseId}/modules/${moduleId}/contents/${contentId}/upload-to-scorm/`,
+      formData,
+      { headers: { 'Content-Type': undefined } }
+    );
+    return data;
+  },
+
+  getContentScormStatus: async (courseId: number, moduleId: number, contentId: number) => {
+    const { data } = await api.get(
+      `/courses/${courseId}/modules/${moduleId}/contents/${contentId}/scorm-status/`
+    );
+    return data;
+  },
+
+  launchContentScorm: async (courseId: number, moduleId: number, contentId: number) => {
+    const { data } = await api.get(
+      `/courses/${courseId}/modules/${moduleId}/contents/${contentId}/launch/`
+    );
+    return data;
+  },
+
   // Announcements
   getAnnouncements: async (courseId: number) => {
     const { data } = await api.get(`/courses/${courseId}/announcements/`);
@@ -284,4 +307,25 @@ createCourseResourceJson: async (courseId: number, data: any) => {
     const { data: response } = await api.post(`/courses/${courseId}/resources/`, data);
     return response;
 },
-};
+
+  // Payments
+  getPayments: async () => {
+    const { data } = await api.get('/payments/');
+    return data;
+  },
+
+  submitPayment: async (paymentData: any) => {
+    const { data } = await api.post('/payments/', paymentData);
+    return data;
+  },
+
+  confirmPayment: async (paymentId: number) => {
+    const { data } = await api.post(`/payments/${paymentId}/confirm/`);
+    return data;
+  },
+
+  rejectPayment: async (paymentId: number, reason: string) => {
+    const { data } = await api.post(`/payments/${paymentId}/reject/`, { reason });
+    return data;
+  },
+};
