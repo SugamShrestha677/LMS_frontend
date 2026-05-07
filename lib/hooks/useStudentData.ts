@@ -195,3 +195,11 @@ export function useEnrollCourse() {
     },
   });
 }
+
+export const useCourseAnnouncements = (courseId: number) => {
+  return useQuery({
+    queryKey: ['courses', courseId, 'announcements'],
+    queryFn: () => studentApi.getAnnouncements(courseId),
+    enabled: !!courseId,
+  });
+};

@@ -96,4 +96,8 @@ export const studentApi = {
     const res = await api.get('/student/certificates/');
     return unwrapResponse(res.data);
   },
+  getAnnouncements: async (courseId: number) => {
+    const { data } = await api.get(`/courses/${courseId}/announcements/`);
+    return data;
+},
 };

@@ -203,7 +203,15 @@ export const useCreateAnnouncement = () => {
       toast.success('Announcement created');
     },
     onError: (error: any) => {
-      toast.error('Failed to create announcement');
+      const fieldErrors = error.response?.data?.errors;
+      if (fieldErrors && typeof fieldErrors === 'object') {
+        const firstError = Object.values(fieldErrors)[0];
+        const errorMessage = Array.isArray(firstError) ? firstError[0] : (fieldErrors.message || 'Failed to create announcement');
+        toast.error(errorMessage);
+      } else {
+        const message = error.response?.data?.message || 'Failed to create announcement';
+        toast.error(message);
+      }
     },
   });
 };
