@@ -23,7 +23,12 @@ export const courseService = {
   },
 
   updateCourse: async (id: number, courseData: any) => {
-    const { data } = await api.patch(`/courses/${id}/`, courseData);
+    const isFormData = typeof FormData !== 'undefined' && courseData instanceof FormData;
+    const { data } = await api.patch(
+      `/courses/${id}/`,
+      courseData,
+      isFormData ? { headers: { 'Content-Type': undefined } } : undefined,
+    );
     return data;
   },
 

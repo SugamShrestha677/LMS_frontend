@@ -15,10 +15,11 @@ import {
   Users, BarChart3, Trash2, Copy, ExternalLink 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useForm } from 'react-hook-form';
-import { useAuthStore } from '@/lib/store/auth-store';
+import { useForm, Controller } from 'react-hook-form';
+import { useAuthStore } from '@/lib/store/authStore';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { ImageUpload } from '@/components/ui/ImageUpload';
 
 export default function TutorCoursesPage() {
   const { user } = useAuthStore();
@@ -28,15 +29,31 @@ export default function TutorCoursesPage() {
   const { mutate: createCourse, isPending: isCreating } = useCreateCourse();
   const { mutate: updateCourse, isPending: isUpdating } = useUpdateCourse();
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
+
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [previewVideoFile, setPreviewVideoFile] = useState<File | null>(null);
-  const [showActions, setShowActions] = useState<number | null>(null);
 
-  const { register, handleSubmit, reset, setValue } = useForm();
+  const { register, handleSubmit, reset, setValue, watch, control } = useForm({
+    defaultValues: {
+      thumbnail_file: null,
+      title: '',
+      description: '',
+      short_description: '',
+      category: '',
+      status: 'draft',
+      level: 'beginner',
+      duration_weeks: 4,
+      total_hours: 20,
+      is_free: true,
+      price: 0,
+      prerequisites: '',
+      target_audience: '',
+    }
+  });
+
+  const isFree = watch('is_free');
 
   const courseList = useMemo(() => {
     return Array.isArray(courses) ? courses : (courses as any)?.data || [];
@@ -69,40 +86,30 @@ export default function TutorCoursesPage() {
     }
   };
 
-  const onSubmit = (data: any) => {
-    const payload = new FormData();
-    payload.append('title', data.title);
-    payload.append('description', data.description || data.title);
-    payload.append('short_description', data.description || data.title);
-    if (user?.id) payload.append('instructor', String(user.id));
-    if (data.category) payload.append('category', String(parseInt(data.category)));
-    if (data.status) payload.append('status', data.status);
 
-    if (thumbnailFile) payload.append('thumbnail_file', thumbnailFile);
-    if (previewVideoFile) payload.append('preview_video_file', previewVideoFile);
-
-    createCourse(payload, {
-      onSuccess: () => {
-        setIsModalOpen(false);
-        reset();
-        setThumbnailFile(null);
-        setPreviewVideoFile(null);
-      }
-    });
-  };
 
   const onUpdate = (data: any) => {
     if (!selectedCourse) return;
     
-    const payload = {
-      title: data.title,
-      description: data.description || selectedCourse.description || selectedCourse.short_description || '',
-      short_description: data.description || selectedCourse.short_description || '',
-      category: data.category ? parseInt(data.category) : null,
-      status: data.status,
-    };
+    const formData = new FormData();
+    formData.append('title', data.title);
+    formData.append('description', data.description || selectedCourse.description || selectedCourse.short_description || '');
+    formData.append('short_description', data.short_description || selectedCourse.short_description || '');
+    if (data.category) formData.append('category', String(parseInt(data.category)));
+    formData.append('status', data.status);
+    formData.append('level', data.level);
+    formData.append('duration_weeks', String(data.duration_weeks));
+    formData.append('total_hours', String(data.total_hours));
+    formData.append('is_free', String(data.is_free));
+    formData.append('price', String(data.is_free ? 0 : parseFloat(data.price || 0)));
+    formData.append('prerequisites', data.prerequisites || '');
+    formData.append('target_audience', data.target_audience || '');
 
-    updateCourse({ id: selectedCourse.id, data: payload }, {
+    if (data.thumbnail_file instanceof File) {
+      formData.append('thumbnail_file', data.thumbnail_file);
+    }
+
+    updateCourse({ id: selectedCourse.id, data: formData }, {
       onSuccess: () => {
         setIsEditModalOpen(false);
         setSelectedCourse(null);
@@ -114,8 +121,17 @@ export default function TutorCoursesPage() {
     setSelectedCourse(course);
     setValue('title', course.title || course.name || '');
     setValue('description', course.description || course.short_description || '');
+    setValue('short_description', course.short_description || '');
     setValue('category', course.category || '');
     setValue('status', getStatus(course));
+    setValue('level', course.level || 'beginner');
+    setValue('duration_weeks', course.duration_weeks || 4);
+    setValue('total_hours', course.total_hours || 20);
+    setValue('is_free', course.is_free !== false);
+    setValue('price', course.price || 0);
+    setValue('prerequisites', course.prerequisites || '');
+    setValue('target_audience', course.target_audience || '');
+    setValue('thumbnail_file', course.thumbnail_url || course.thumbnail || null);
     setIsEditModalOpen(true);
   };
 
@@ -131,16 +147,7 @@ export default function TutorCoursesPage() {
             Manage your course content and track student enrollments.
           </p>
         </div>
-        <Button 
-          onClick={() => {
-            reset();
-            setIsModalOpen(true);
-          }}
-          size="lg" 
-          className="rounded-2xl shadow-xl shadow-[var(--color-primary)]/20"
-        >
-          <Plus size={20} className="mr-2" /> Create New Course
-        </Button>
+
       </div>
 
       {/* Stats and Search */}
@@ -166,7 +173,7 @@ export default function TutorCoursesPage() {
         </div>
       </div>
 
-      {/* Course Cards Grid (Alternative to table for better UX) */}
+      {/* Course Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {isLoadingCourses ? (
           Array.from({ length: 6 }).map((_, i) => (
@@ -185,9 +192,7 @@ export default function TutorCoursesPage() {
             <Card className="p-20 text-center">
               <BookOpen size={64} className="text-[var(--color-text-secondary)] mx-auto mb-4 opacity-30" />
               <p className="text-[var(--color-text-secondary)] font-medium text-lg mb-4">No courses found</p>
-              <Button onClick={() => setIsModalOpen(true)}>
-                <Plus size={18} className="mr-2" /> Create Your First Course
-              </Button>
+
             </Card>
           </div>
         ) : (
@@ -206,8 +211,8 @@ export default function TutorCoursesPage() {
                 >
                   {/* Thumbnail */}
                   <div className="relative mb-4 rounded-xl overflow-hidden bg-gradient-to-br from-[var(--color-primary)]/10 to-[var(--color-primary)]/5 h-40">
-                    {course.thumbnail_url ? (
-                      <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover" />
+                    {course.thumbnail_url || course.thumbnail ? (
+                      <img src={course.thumbnail_url || course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
                     ) : (
                       <div className="flex items-center justify-center h-full">
                         <BookOpen size={48} className="text-[var(--color-primary)]/30" />
@@ -273,7 +278,7 @@ export default function TutorCoursesPage() {
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        openEditModal(course);
+                        router.push(`/tutor/courses/${course.id}/edit`);
                       }}
                     >
                       <Edit2 size={14} />
@@ -286,88 +291,9 @@ export default function TutorCoursesPage() {
         )}
       </div>
 
-      {/* Create Course Modal */}
-      <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)} title="Create New Course">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 pt-4">
-          <Input label="Course Title" placeholder="e.g. Advanced JavaScript" {...register('title', { required: true })} />
-          <Input label="Description" placeholder="Brief overview of the course content..." {...register('description')} />
-          <Select 
-            label="Category" 
-            options={categories} 
-            {...register('category')} 
-          />
-          <Select 
-            label="Initial Status" 
-            options={[
-              { value: 'draft', label: 'Draft' },
-              { value: 'active', label: 'Active' },
-              { value: 'published', label: 'Published' },
-            ]} 
-            {...register('status')} 
-          />
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Course Thumbnail (Image)</label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0] || null;
-                setThumbnailFile(file);
-              }}
-              className="w-full border border-gray-300 rounded-lg p-2"
-            />
-            {thumbnailFile && (
-              <p className="mt-1 text-xs text-gray-500">Selected: {thumbnailFile.name}</p>
-            )}
-          </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Preview Video (optional)</label>
-            <input
-              type="file"
-              accept="video/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0] || null;
-                setPreviewVideoFile(file);
-              }}
-              className="w-full border border-gray-300 rounded-lg p-2"
-            />
-            {previewVideoFile && (
-              <p className="mt-1 text-xs text-gray-500">Selected: {previewVideoFile.name}</p>
-            )}
-          </div>
-          <div className="pt-4 flex gap-4">
-            <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} className="flex-1 rounded-xl">Cancel</Button>
-            <Button type="submit" loading={isCreating} className="flex-1 rounded-xl">Create Course</Button>
-          </div>
-        </form>
-      </Modal>
 
-      {/* Edit Course Modal */}
-      <Modal open={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Update Course Details">
-        <form onSubmit={handleSubmit(onUpdate)} className="space-y-6 pt-4">
-          <Input label="Course Title" {...register('title', { required: true })} />
-          <Input label="Description" {...register('description')} />
-          <Select 
-            label="Category" 
-            options={categories} 
-            {...register('category')} 
-          />
-          <Select 
-            label="Course Status" 
-            options={[
-              { value: 'draft', label: 'Draft' },
-              { value: 'active', label: 'Active' },
-              { value: 'published', label: 'Published' },
-            ]} 
-            {...register('status')} 
-          />
-          <div className="pt-4 flex gap-4">
-            <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)} className="flex-1 rounded-xl">Cancel</Button>
-            <Button type="submit" loading={isUpdating} className="flex-1 rounded-xl">Save Changes</Button>
-          </div>
-        </form>
-      </Modal>
+
     </div>
   );
-}
+}
