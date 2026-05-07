@@ -98,10 +98,13 @@ export const courseService = {
     return data;
   },
 
-  createAnnouncement: async (courseId: number, announcementData: any) => {
-    const { data } = await api.post(`/courses/${courseId}/announcements/`, announcementData);
+createAnnouncement: async (courseId: number, announcementData: any) => {
+    const { data } = await api.post(`/courses/${courseId}/announcements/`, {
+      title: announcementData.title,
+      content: announcementData.content,
+    });
     return data;
-  },
+},
 
   updateAnnouncement: async (courseId: number, announcementId: number, announcementData: any) => {
     const { data } = await api.patch(
