@@ -8,13 +8,13 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 
+import { courseService } from '@/lib/services/course.service';
+import { toast } from 'react-hot-toast';
+
 const contentTypes = [
-  { value: 'video', label: 'Video' },
   { value: 'pdf', label: 'PDF Document' },
-  { value: 'text', label: 'Text/Article' },
-  { value: 'quiz', label: 'Quiz' },
-  { value: 'assignment', label: 'Assignment' },
-  { value: 'link', label: 'External Link' },
+  { value: 'mp4', label: 'MP4 Video' },
+  { value: 'mp3', label: 'MP3 Audio' },
 ];
 
 interface ContentFormData {
@@ -23,6 +23,7 @@ interface ContentFormData {
   description: string;
   file_url: string;
   video_url: string;
+  audio_url: string;
   external_link: string;
   body_text: string;
   order_number: number;
@@ -38,38 +39,85 @@ export default function EditContentPage() {
   const moduleId = Number(params.moduleId);
   const contentId = Number(params.contentId);
   
-  const { data: contentsData, isLoading } = useModuleContents(courseId, moduleId);
+  const { data: contentsData, isLoading, refetch } = useModuleContents(courseId, moduleId);
   const { mutate: updateContent, isPending } = useUpdateModuleContent();
-  const [selectedType, setSelectedType] = useState('video');
+  const [selectedType, setSelectedType] = useState('pdf');
+  const [uploading, setUploading] = useState(false);
+  const [scormStatus, setScormStatus] = useState<any>(null);
   
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<ContentFormData>();
+  const { register, handleSubmit, reset, formState: { errors }, watch } = useForm<ContentFormData>();
+
+  const currentItem = contentsData ? (Array.isArray(contentsData) ? contentsData : (contentsData as any)?.data || []).find((c: any) => c.id === contentId) : null;
 
   useEffect(() => {
-    if (contentsData) {
-      const contents = Array.isArray(contentsData) ? contentsData : (contentsData as any)?.data || [];
-      const item = contents.find((c: any) => c.id === contentId);
-      if (item) {
-        reset({
-          title: item.title,
-          content_type: item.content_type,
-          description: item.description || '',
-          file_url: item.file_url || '',
-          video_url: item.video_url || '',
-          external_link: item.external_link || '',
-          body_text: item.body_text || '',
-          order_number: item.order_number,
-          duration_minutes: item.duration_minutes,
-          is_required: item.is_required,
-          minimum_score: item.minimum_score || 0,
-        });
-        setSelectedType(item.content_type);
-      }
+    if (currentItem) {
+      reset({
+        title: currentItem.title,
+        content_type: currentItem.content_type,
+        description: currentItem.description || '',
+        file_url: currentItem.file_url || '',
+        video_url: currentItem.video_url || '',
+        audio_url: currentItem.audio_url || '',
+        external_link: currentItem.external_link || '',
+        body_text: currentItem.body_text || '',
+        order_number: currentItem.order_number,
+        duration_minutes: currentItem.duration_minutes,
+        is_required: currentItem.is_required,
+        minimum_score: currentItem.minimum_score || 0,
+      });
+      setSelectedType(currentItem.content_type);
+      setScormStatus(currentItem.scorm_status);
     }
-  }, [contentsData, contentId, reset]);
+  }, [currentItem, reset]);
+
+  // Polling for SCORM status
+  useEffect(() => {
+    let interval: any;
+    if (currentItem?.scorm_status === 'processing' || scormStatus === 'processing') {
+      interval = setInterval(async () => {
+        try {
+          const response = await courseService.getContentScormStatus(courseId, moduleId, contentId);
+          if (response.success) {
+            const status = response.data.status.toLowerCase();
+            setScormStatus(status);
+            if (status === 'finished' || status === 'complete' || status === 'error') {
+              clearInterval(interval);
+              refetch();
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch SCORM status:', error);
+        }
+      }, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [currentItem, scormStatus, courseId, moduleId, contentId, refetch]);
+
+  const onFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await courseService.uploadContentScorm(courseId, moduleId, contentId, formData);
+      if (response.success) {
+        toast.success('Upload started. Processing content...');
+        setScormStatus('processing');
+        refetch();
+      } else {
+        toast.error(response.message || 'Upload failed');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const onSubmit = (data: ContentFormData) => {
-    // Ensure the module association is preserved in the payload
-    // We exclude content_type because many backends consider it read-only after creation
     const { content_type, ...rest } = data;
     const updatePayload = {
       ...rest,
@@ -78,7 +126,12 @@ export default function EditContentPage() {
 
     updateContent(
       { courseId, moduleId, contentId, data: updatePayload },
-      { onSuccess: () => router.push(`/tutor/courses/${courseId}/modules/${moduleId}/contents`) }
+      { 
+        onSuccess: () => {
+          toast.success('Content updated successfully');
+          router.push(`/tutor/courses/${courseId}/modules/${moduleId}/contents`);
+        }
+      }
     );
   };
 
@@ -92,9 +145,20 @@ export default function EditContentPage() {
 
   return (
     <div className="space-y-8 pb-12">
-      <div>
-        <h1 className="text-3xl font-black text-[var(--color-text-primary)]">Edit Content</h1>
-        <p className="text-[var(--color-text-secondary)] mt-1">Update learning material details</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-black text-[var(--color-text-primary)]">Edit Content</h1>
+          <p className="text-[var(--color-text-secondary)] mt-1">Update learning material and SCORM Cloud hosting</p>
+        </div>
+        {currentItem?.scorm_status && (
+          <div className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider ${
+            currentItem.scorm_status === 'finished' ? 'bg-green-100 text-green-700' :
+            currentItem.scorm_status === 'processing' ? 'bg-blue-100 text-blue-700 animate-pulse' :
+            currentItem.scorm_status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
+          }`}>
+            SCORM Cloud: {currentItem.scorm_status}
+          </div>
+        )}
       </div>
 
       <Card className="p-8 max-w-3xl bg-[var(--color-bg-card)]/60 backdrop-blur-sm border-[var(--color-border)] rounded-[2rem]">
@@ -132,6 +196,49 @@ export default function EditContentPage() {
             </div>
           </div>
 
+          {/* SCORM Cloud Upload Section */}
+          <div className="p-6 bg-[var(--color-primary)]/5 rounded-[1.5rem] border border-[var(--color-primary)]/10 border-dashed">
+            <h3 className="text-sm font-bold text-[var(--color-primary)] mb-3 flex items-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              SCORM Cloud Hosting
+            </h3>
+            <p className="text-xs text-[var(--color-text-secondary)] mb-4">
+              Host your {selectedType.toUpperCase()} on SCORM Cloud for secure delivery and tracking.
+            </p>
+            
+            <div className="flex items-center gap-4">
+              <label className={`relative flex-1 cursor-pointer group ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                <div className="flex items-center justify-center w-full py-4 px-4 bg-white border-2 border-dashed border-[var(--color-border)] group-hover:border-[var(--color-primary)] rounded-xl transition-all">
+                  <div className="flex flex-center gap-3">
+                    {uploading ? (
+                      <div className="w-5 h-5 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <svg className="w-5 h-5 text-[var(--color-text-secondary)] group-hover:text-[var(--color-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                    )}
+                    <span className="text-sm font-bold text-[var(--color-text-primary)]">
+                      {uploading ? 'Uploading...' : `Upload ${selectedType.toUpperCase()} to SCORM Cloud`}
+                    </span>
+                  </div>
+                </div>
+                <input 
+                  type="file" 
+                  className="hidden" 
+                  accept={selectedType === 'pdf' ? '.pdf' : selectedType === 'mp4' ? '.mp4' : '.mp3'}
+                  onChange={onFileUpload}
+                />
+              </label>
+            </div>
+            {currentItem?.scorm_version > 1 && (
+              <p className="mt-2 text-[10px] font-bold text-[var(--color-primary)] text-right">
+                Current Version: {currentItem.scorm_version}
+              </p>
+            )}
+          </div>
+
           <div className="space-y-1">
             <label className="block text-sm font-semibold text-[var(--color-text-primary)]">Description</label>
             <textarea
@@ -141,43 +248,6 @@ export default function EditContentPage() {
               className="w-full px-4 py-3 rounded-xl border border-[var(--color-border)] bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] transition-all"
             />
           </div>
-
-          {/* Type-specific fields */}
-          {selectedType === 'video' && (
-            <Input
-              label="Video URL"
-              placeholder="https://youtube.com/watch?v=..."
-              {...register('video_url')}
-            />
-          )}
-
-          {selectedType === 'pdf' && (
-            <Input
-              label="PDF URL"
-              placeholder="https://example.com/document.pdf"
-              {...register('file_url')}
-            />
-          )}
-
-          {selectedType === 'link' && (
-            <Input
-              label="External Link"
-              placeholder="https://..."
-              {...register('external_link')}
-            />
-          )}
-
-          {selectedType === 'text' && (
-            <div className="space-y-1">
-              <label className="block text-sm font-semibold text-[var(--color-text-primary)]">Text Content</label>
-              <textarea
-                {...register('body_text')}
-                rows={8}
-                placeholder="Write your content here..."
-                className="w-full px-4 py-3 rounded-xl border border-[var(--color-border)] bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] transition-all font-mono text-sm leading-relaxed"
-              />
-            </div>
-          )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Input
@@ -190,7 +260,7 @@ export default function EditContentPage() {
               type="number"
               {...register('duration_minutes', { valueAsNumber: true })}
             />
-            {(selectedType === 'quiz' || selectedType === 'assignment') && (
+            {currentItem?.minimum_score !== undefined && (
               <Input
                 label="Min Score (%)"
                 type="number"

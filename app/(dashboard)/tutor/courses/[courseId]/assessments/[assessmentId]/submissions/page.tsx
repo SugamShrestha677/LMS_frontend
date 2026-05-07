@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card } from '@/components/ui/Card';
@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { 
   Eye, CheckCircle, XCircle, FileText, Download,
-  Clock, User, Star
+  Clock, User, Star, Calendar, Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/lib/services/api';
@@ -28,6 +28,7 @@ export default function AssessmentSubmissionsPage() {
   const [score, setScore] = useState('');
   const [feedback, setFeedback] = useState('');
   const [passed, setPassed] = useState(false);
+  const [questionGrades, setQuestionGrades] = useState<Record<number, number>>({});
 
   const { data: submissionsData, isLoading } = useQuery({
     queryKey: ['assessment-submissions', assessmentId],
@@ -50,11 +51,12 @@ export default function AssessmentSubmissionsPage() {
   const submissions = Array.isArray(submissionsData) ? submissionsData : [];
 
   const gradeMutation = useMutation({
-    mutationFn: async (data: { id: number; score: number; feedback: string; passed: boolean }) => {
+    mutationFn: async (data: { id: number; score: number; feedback: string; passed: boolean; answers: any }) => {
       return api.post(`/student-assessments/${data.id}/grade/`, {
         score: data.score,
         feedback: data.feedback,
         passed: data.passed,
+        answers: data.answers
       });
     },
     onSuccess: () => {
@@ -76,17 +78,64 @@ export default function AssessmentSubmissionsPage() {
     setScore(submission.score || '');
     setFeedback(submission.feedback || '');
     setPassed(submission.passed || false);
+
+    // Initialize question grades
+    const initialGrades: Record<number, number> = {};
+    if (assessmentData?.questions) {
+      assessmentData.questions.forEach((q: any, idx: number) => {
+        const studentAns = submission.answers[idx];
+        const isMCQ = q.type !== 'long_answer';
+        
+        if (isMCQ) {
+          // Auto-grade MCQ
+          const val = typeof studentAns === 'object' ? studentAns.value : studentAns;
+          const isCorrect = String(val) === String(q.correct);
+          initialGrades[idx] = isCorrect ? (q.points || 10) : 0;
+        } else {
+          // Load manual grade if exists
+          initialGrades[idx] = typeof studentAns === 'object' ? (studentAns.grade || 0) : 0;
+        }
+      });
+    }
+    setQuestionGrades(initialGrades);
     setIsGradingModal(true);
   };
 
+  // Auto-calculate score whenever question grades change
+  useEffect(() => {
+    if (Object.keys(questionGrades).length > 0 && assessmentData?.questions) {
+      let earned = 0;
+      let total = 0;
+      assessmentData.questions.forEach((q: any, idx: number) => {
+        earned += (questionGrades[idx] || 0);
+        total += (q.points || 10);
+      });
+      const percent = total > 0 ? Math.round((earned / total) * 100) : 0;
+      setScore(String(percent));
+      setPassed(percent >= (assessmentData.passing_score || 60));
+    }
+  }, [questionGrades, assessmentData]);
+
   const submitGrade = () => {
-    if (!selectedSubmission) return;
+    if (!selectedSubmission || !assessmentData) return;
     
+    // Construct updated answers with grades
+    const updatedAnswers = { ...selectedSubmission.answers };
+    assessmentData.questions.forEach((q: any, idx: number) => {
+      const currentAns = updatedAnswers[idx];
+      const val = typeof currentAns === 'object' ? currentAns.value : currentAns;
+      updatedAnswers[idx] = {
+        value: val,
+        grade: questionGrades[idx] || 0
+      };
+    });
+
     gradeMutation.mutate({
       id: selectedSubmission.id,
       score: Number(score),
       feedback,
       passed,
+      answers: updatedAnswers
     });
   };
 
@@ -213,6 +262,7 @@ export default function AssessmentSubmissionsPage() {
         open={isGradingModal}
         onClose={() => setIsGradingModal(false)}
         title="Grade Submission"
+        size="xl"
       >
         {selectedSubmission && (
           <div className="space-y-6 pt-4">
@@ -257,44 +307,77 @@ export default function AssessmentSubmissionsPage() {
             {/* Exam/Quiz Answers */}
             {assessmentData && assessmentData.questions && assessmentData.questions.length > 0 && selectedSubmission.answers && (
               <div>
-                <label className="block text-sm font-semibold mb-2">Student Answers</label>
-                <div className="space-y-4 max-h-80 overflow-y-auto pr-2">
-                  {assessmentData.questions.map((q: any, idx: number) => {
-                    const ans = selectedSubmission.answers[idx];
+                <label className="block text-sm font-bold mb-4 text-[#0A5C4A]">Questions & Grading</label>
+                <div className="space-y-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                   {assessmentData.questions.map((q: any, idx: number) => {
+                    const rawAns = selectedSubmission.answers[idx];
+                    const ans = typeof rawAns === 'object' ? rawAns.value : rawAns;
                     const isMCQ = q.type !== 'long_answer';
                     const isCorrect = isMCQ && String(ans) === String(q.correct);
                     
                     return (
-                      <div key={idx} className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
-                        <div className="flex gap-2 mb-2">
-                          <Badge variant="outline">Q{idx + 1}</Badge>
-                          <Badge variant="secondary" className="text-xs">{isMCQ ? 'MCQ' : 'Long Answer'} ({q.points} pts)</Badge>
-                          {isMCQ && (
-                            <Badge variant={isCorrect ? 'success' : 'danger'} className="ml-auto">
-                              {isCorrect ? 'Correct' : 'Incorrect'}
-                            </Badge>
-                          )}
+                      <div key={idx} className={`p-6 border-2 rounded-2xl transition-all ${
+                        isMCQ ? (isCorrect ? 'border-green-100 bg-green-50/30' : 'border-red-100 bg-red-50/30') : 'border-gray-100 bg-white shadow-sm'
+                      }`}>
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            <Badge variant="outline" className="font-bold">Q{idx + 1}</Badge>
+                            <Badge variant="secondary" className="text-[10px] uppercase tracking-wider">{isMCQ ? 'MCQ' : 'Long Answer'}</Badge>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs font-bold text-gray-500 uppercase tracking-tighter">
+                              Max Points: {q.points || 10}
+                            </span>
+                            {isMCQ ? (
+                              <Badge variant={isCorrect ? 'success' : 'danger'}>
+                                {isCorrect ? `${q.points || 10} pts` : '0 pts'}
+                              </Badge>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <label className="text-xs font-bold">Grade:</label>
+                                <input
+                                  type="number"
+                                  value={questionGrades[idx] || 0}
+                                  onChange={(e) => setQuestionGrades(prev => ({ ...prev, [idx]: Number(e.target.value) }))}
+                                  max={q.points || 10}
+                                  min="0"
+                                  className="w-16 h-8 px-2 rounded-lg border-2 border-[#0A5C4A]/20 focus:border-[#0A5C4A] text-sm font-bold outline-none transition-all"
+                                />
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <p className="font-semibold text-sm mb-3">{q.question}</p>
+
+                        <p className="font-bold text-[#1E1E2A] mb-4">{q.question}</p>
                         
                         {isMCQ ? (
-                          <div className="space-y-1 mt-2">
-                            {q.options.map((opt: string, optIdx: number) => (
-                              <div key={optIdx} className={`p-2 rounded text-xs flex items-center gap-2 ${
-                                String(optIdx) === String(q.correct) ? 'bg-green-100 font-bold border border-green-200' :
-                                String(ans) === String(optIdx) ? 'bg-red-100 border border-red-200' : 'bg-white border border-gray-200'
-                              }`}>
-                                <span className="w-5 h-5 rounded-full bg-white flex items-center justify-center border text-[10px]">
-                                  {String.fromCharCode(65 + optIdx)}
-                                </span>
-                                {opt}
-                              </div>
-                            ))}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {q.options.map((opt: string, optIdx: number) => {
+                              const isSelected = String(ans) === String(optIdx);
+                              const isCorrectOption = String(optIdx) === String(q.correct);
+                              return (
+                                <div key={optIdx} className={`p-3 rounded-xl text-xs flex items-center gap-3 border ${
+                                  isCorrectOption ? 'border-green-500 bg-green-100 font-bold' :
+                                  isSelected ? 'border-red-500 bg-red-100' : 'border-gray-100 bg-white'
+                                }`}>
+                                  <div className={`w-6 h-6 rounded-full flex items-center justify-center border text-[10px] font-black ${
+                                    isCorrectOption ? 'bg-green-500 text-white' : 'bg-gray-50'
+                                  }`}>
+                                    {String.fromCharCode(65 + optIdx)}
+                                  </div>
+                                  <span className="flex-1">{opt}</span>
+                                  {isCorrectOption && <span className="text-[8px] text-green-600 font-black">CORRECT</span>}
+                                  {isSelected && !isCorrectOption && <span className="text-[8px] text-red-600 font-black">STUDENT'S</span>}
+                                </div>
+                              );
+                            })}
                           </div>
                         ) : (
-                          <div className="mt-2 p-3 bg-white border border-gray-200 rounded-lg">
-                            <p className="text-xs text-[#5A5A6E] mb-1 font-semibold">Student Answer:</p>
-                            <p className="text-sm whitespace-pre-wrap">{ans || <span className="text-gray-400 italic">No answer provided</span>}</p>
+                          <div className="p-4 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                            <p className="text-[10px] font-black text-gray-400 uppercase mb-2 tracking-widest">Student Response</p>
+                            <p className="text-sm whitespace-pre-wrap text-[#1E1E2A] leading-relaxed">
+                              {ans || <span className="text-gray-400 italic">No answer provided</span>}
+                            </p>
                           </div>
                         )}
                       </div>
@@ -304,46 +387,55 @@ export default function AssessmentSubmissionsPage() {
               </div>
             )}
 
-            {/* Grading fields */}
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="Score (%)"
-                type="number"
-                value={score}
-                onChange={(e) => setScore(e.target.value)}
-                min="0"
-                max="100"
-              />
-              <div className="space-y-1">
-                <label className="block text-sm font-semibold">Result</label>
+            {/* Final grading fields */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-[var(--color-primary)]/5 rounded-3xl border-2 border-[var(--color-primary)]/10">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-bold text-[#0A5C4A]">Final Score (%)</label>
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Calculated from points</span>
+                </div>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    value={score}
+                    onChange={(e) => setScore(e.target.value)}
+                    min="0"
+                    max="100"
+                    className="pl-12 h-14 rounded-2xl text-xl font-black"
+                  />
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-black text-gray-300">%</div>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-[#0A5C4A] mb-2">Status</label>
                 <select
                   value={passed ? 'pass' : 'fail'}
                   onChange={(e) => setPassed(e.target.value === 'pass')}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300"
+                  className="w-full h-14 px-4 rounded-2xl border-2 border-gray-100 text-lg font-black bg-white focus:border-[#0A5C4A] outline-none"
                 >
-                  <option value="fail">Not Passed</option>
-                  <option value="pass">Passed</option>
+                  <option value="fail">Not Passed ✗</option>
+                  <option value="pass">Passed ✓</option>
                 </select>
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="block text-sm font-semibold">Feedback</label>
+            <div className="space-y-2">
+              <label className="block text-sm font-bold text-[#0A5C4A]">Overall Feedback</label>
               <textarea
                 value={feedback}
                 onChange={(e) => setFeedback(e.target.value)}
                 rows={4}
-                placeholder="Provide feedback to the student..."
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 resize-none"
+                placeholder="Share constructive feedback with the student..."
+                className="w-full p-5 rounded-2xl border-2 border-gray-100 focus:border-[#0A5C4A] focus:ring-0 resize-none text-sm font-medium transition-all"
               />
             </div>
 
             <div className="flex gap-4 pt-4">
-              <Button variant="outline" onClick={() => setIsGradingModal(false)} className="flex-1">
-                Cancel
+              <Button variant="outline" size="lg" onClick={() => setIsGradingModal(false)} className="flex-1 rounded-2xl h-14 font-black">
+                Discard
               </Button>
-              <Button onClick={submitGrade} loading={gradeMutation.isPending} className="flex-1">
-                {selectedSubmission.status === 'graded' ? 'Update Grade' : 'Submit Grade'}
+              <Button size="lg" onClick={submitGrade} loading={gradeMutation.isPending} className="flex-1 rounded-2xl h-14 font-black shadow-lg">
+                {selectedSubmission.status === 'graded' ? 'Update Grade' : 'Finalize Grade'}
               </Button>
             </div>
           </div>

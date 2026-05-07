@@ -14,7 +14,21 @@ export interface User {
   created_by_email?: string;
   created_at?: string;
   updated_at?: string;
+  permissions?: StaffPermission;
 }
+
+export interface StaffPermission {
+  can_create_users: boolean;
+  can_manage_courses: boolean;
+  can_manage_students: boolean;
+  can_manage_tutors: boolean;
+  can_manage_companies: boolean;
+  can_manage_payments: boolean;
+  can_manage_settings: boolean;
+  can_view_analytics: boolean;
+  course_scope: 'all' | 'assigned';
+}
+
 
 export interface LoginResponse {
   message: string;

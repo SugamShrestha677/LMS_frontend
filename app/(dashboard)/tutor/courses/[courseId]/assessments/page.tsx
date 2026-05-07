@@ -58,11 +58,36 @@ export default function AssessmentsPage() {
                 <span>Max: {assessment.max_score}</span>
               </div>
               
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => router.push(`/tutor/courses/${courseId}/assessments/${assessment.id}/edit`)}>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button 
+                  variant="primary" 
+                  size="sm" 
+                  onClick={() => router.push(`/tutor/courses/${courseId}/assessments/${assessment.id}/submissions`)}
+                >
+                  <BarChart3 size={14} className="mr-1" /> Submissions ({assessment.total_attempts || 0})
+                </Button>
+                
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => router.push(`/tutor/courses/${courseId}/assessments/${assessment.id}/edit`)}
+                  disabled={(assessment.assessment_type === 'quiz' || assessment.assessment_type === 'exam') && assessment.total_attempts > 0}
+                  title={(assessment.assessment_type === 'quiz' || assessment.assessment_type === 'exam') && assessment.total_attempts > 0 ? "Cannot edit after students have started" : ""}
+                >
                   <Edit2 size={14} className="mr-1" /> Edit
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => deleteAssessment({ courseId, assessmentId: assessment.id })} className="text-red-500">
+                
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => {
+                    if (window.confirm('Are you sure you want to delete this assessment?')) {
+                      deleteAssessment({ courseId, assessmentId: assessment.id });
+                    }
+                  }} 
+                  className="text-red-500 hover:bg-red-50"
+                  disabled={(assessment.assessment_type === 'quiz' || assessment.assessment_type === 'exam') && assessment.total_attempts > 0}
+                >
                   <Trash2 size={14} />
                 </Button>
               </div>

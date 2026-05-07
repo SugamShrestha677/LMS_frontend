@@ -115,3 +115,43 @@ export const useUpdateUser = () => {
     },
   });
 };
+
+export const useChangeRole = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, role }: { id: string | number; role: string }) => 
+      userService.changeRole(id as number, role),
+    onSuccess: () => {
+      toast.success('Role updated successfully');
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.error || 'Failed to update role.';
+      toast.error(message);
+    },
+  });
+};
+
+export const useStaffPermissionByStaffId = (staffId: number | null) => {
+  return useQuery({
+    queryKey: ['staff-permissions', staffId],
+    queryFn: () => userService.getStaffPermissionByStaffId(staffId!),
+    enabled: !!staffId,
+  });
+};
+
+export const useUpdateStaffPermission = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => 
+      userService.updateStaffPermission(id, data),
+    onSuccess: () => {
+      toast.success('Permissions updated successfully');
+      queryClient.invalidateQueries({ queryKey: ['staff-permissions'] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to update permissions');
+    },
+  });
+};

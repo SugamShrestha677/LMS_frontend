@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { 
   Clock, Upload, File, X, Download, Eye, 
-  AlertTriangle, Cloud, CheckCircle, XCircle
+  AlertTriangle, Cloud, CheckCircle, XCircle,
+  ArrowLeft, ChevronLeft
 } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/lib/services/api';
@@ -97,22 +98,27 @@ export default function AssignmentSubmissionPage() {
     setFile(selectedFile);
   };
 
-  // Create attempt
+  // Create/Resume attempt
   useEffect(() => {
     if (assessment && !attemptId && !reviewMode) {
       api.post('/student-assessments/', {
         assessment: assessmentId,
         status: 'started',
       }).then((response) => {
-        setAttemptId(response.data?.data?.id || response.data?.id);
-      }).catch((error: any) => {
-        if (error.response?.status === 400) {
-          toast.error(error.response?.data?.error || 'You cannot start this assignment');
-          router.back();
+        const attempt = response.data?.data || response.data;
+        setAttemptId(attempt.id);
+        
+        // If already submitted or graded, switch to review mode logic
+        if (attempt.status === 'submitted' || attempt.status === 'graded') {
+          // Redirect to the same page but with the attempt parameter to trigger review mode
+          router.replace(`/student/assessments/${assessmentId}/assignment?attempt=${attempt.id}&courseId=${courseId}`);
         }
+      }).catch((error: any) => {
+        toast.error('Failed to access assignment');
+        router.back();
       });
     }
-  }, [assessment, assessmentId, router]);
+  }, [assessment, assessmentId, router, courseId, reviewMode]);
 
   const handleSubmit = async () => {
     if (!file && !text) {
@@ -191,62 +197,133 @@ export default function AssignmentSubmissionPage() {
   }
 
   if (reviewMode && attemptData) {
+    const passed = attemptData.passed;
+    const isGraded = attemptData.status === 'graded';
+
     return (
-      <div className="max-w-3xl mx-auto p-4 py-8">
-        <Card className="p-6 md:p-8">
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-black text-[#1E1E2A]">{assessment?.title || attemptData.assessment_title}</h1>
-            <Badge variant={attemptData.status === 'graded' ? 'success' : 'warning'}>
-              {attemptData.status}
-            </Badge>
-          </div>
+      <div className="max-w-4xl mx-auto p-4 py-8 pb-12">
+        <button
+          onClick={() => router.push('/student/assessments')}
+          className="flex items-center gap-2 text-[#5A5A6E] hover:text-[#0A5C4A] font-bold transition-colors mb-6 group"
+        >
+          <ArrowLeft size={18} className="transition-transform group-hover:-translate-x-1" />
+          Back to Assessments
+        </button>
 
-          <div className="bg-gray-50 rounded-xl p-4 mb-6">
-            <p className="text-sm text-[#5A5A6E] mb-2 font-semibold">Your Submission:</p>
-            {attemptData.submission_file && (
-              <a 
-                href={attemptData.submission_file} 
-                target="_blank" 
-                rel="noreferrer"
-                className="flex items-center gap-2 text-[#0A5C4A] font-semibold p-3 bg-white border border-gray-200 rounded-lg w-fit mb-3 hover:bg-gray-50"
-              >
-                <Download size={18} /> Download Submitted File
-              </a>
-            )}
-            {attemptData.submission_text && (
-              <div className="p-3 bg-white border border-gray-200 rounded-lg">
-                <p className="text-sm whitespace-pre-wrap">{attemptData.submission_text}</p>
-              </div>
-            )}
-            {!attemptData.submission_file && !attemptData.submission_text && (
-              <p className="text-sm italic text-gray-500">No content submitted.</p>
+        <Card className="p-8 md:p-12 text-center bg-gradient-to-br from-[#0A5C4A]/5 to-transparent border-2 border-[#0A5C4A]/10 mb-8">
+          <div className={`w-24 h-24 rounded-full mx-auto mb-6 flex items-center justify-center ${
+            isGraded ? (passed ? 'bg-green-100' : 'bg-red-100') : 'bg-amber-100'
+          }`}>
+            {isGraded ? (
+              passed ? <CheckCircle size={48} className="text-green-600" /> : <XCircle size={48} className="text-red-600" />
+            ) : (
+              <Clock size={48} className="text-amber-600" />
             )}
           </div>
-
-          {attemptData.status === 'graded' && (
-            <div className={`rounded-xl p-6 ${attemptData.passed ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-              <h3 className={`font-bold mb-2 flex items-center gap-2 ${attemptData.passed ? 'text-green-800' : 'text-red-800'}`}>
-                {attemptData.passed ? <CheckCircle size={20} /> : <XCircle size={20} />}
-                Grade Result
-              </h3>
-              <p className={`text-2xl font-black mb-3 ${attemptData.passed ? 'text-green-600' : 'text-red-600'}`}>
+          
+          <h2 className="text-3xl font-black text-[#1E1E2A] mb-3">
+            {!isGraded ? 'Submission Pending Review' : (passed ? 'Assignment Passed! 🎉' : 'Keep Improving! 💪')}
+          </h2>
+          
+          {isGraded ? (
+            <div className="space-y-2">
+              <p className="text-2xl font-black text-[#0A5C4A]">
                 Score: {attemptData.score}%
               </p>
-              {attemptData.feedback && (
-                <div>
-                  <p className="text-xs font-semibold mb-1 opacity-70">Tutor Feedback:</p>
-                  <p className="text-sm">{attemptData.feedback}</p>
-                </div>
-              )}
+              <p className="text-[#5A5A6E]">
+                Passing score: {assessment?.passing_score || 60}%
+              </p>
             </div>
+          ) : (
+            <p className="text-[#5A5A6E]">
+              Your assignment has been submitted and is awaiting manual grading by your instructor.
+            </p>
           )}
-
-          <div className="mt-8 flex justify-center">
-            <Button onClick={() => router.push('/student/assessments')} variant="outline">
-              Back to Assessments
-            </Button>
-          </div>
         </Card>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="md:col-span-2 space-y-6">
+            <Card className="p-6">
+              <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                <File size={20} className="text-[#0A5C4A]" />
+                Your Submission
+              </h3>
+              
+              <div className="space-y-4">
+                {attemptData.submission_file && (
+                  <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Submitted File</p>
+                    <a 
+                      href={attemptData.submission_file} 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="flex items-center gap-3 text-[#0A5C4A] font-bold p-3 bg-white border border-gray-200 rounded-lg hover:border-[#0A5C4A] transition-colors"
+                    >
+                      <Download size={20} />
+                      Download Submission
+                    </a>
+                  </div>
+                )}
+                
+                {attemptData.submission_text && (
+                  <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Submission Text</p>
+                    <div className="bg-white p-4 rounded-lg border border-gray-100">
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed">{attemptData.submission_text}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Card>
+          </div>
+
+          <div className="space-y-6">
+            {isGraded && (
+              <Card className="p-6 bg-[#0A5C4A]/5 border-[#0A5C4A]/20">
+                <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-[#0A5C4A]">
+                  <CheckCircle size={20} />
+                  Instructor Feedback
+                </h3>
+                
+                {attemptData.feedback ? (
+                  <div className="space-y-4">
+                    <p className="text-sm text-[#1E1E2A] leading-relaxed italic">
+                      "{attemptData.feedback}"
+                    </p>
+                    <div className="pt-4 border-t border-[#0A5C4A]/10 text-xs text-[#5A5A6E]">
+                      Graded on {format(new Date(attemptData.graded_at || new Date()), 'MMM dd, yyyy')}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm italic text-gray-500">No feedback provided.</p>
+                )}
+              </Card>
+            )}
+
+            <Card className="p-6">
+              <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+                <Clock size={20} className="text-[#0A5C4A]" />
+                Timeline
+              </h3>
+              <div className="space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-[#5A5A6E]">Started</span>
+                  <span className="font-medium">{format(new Date(attemptData.started_at), 'MMM dd, HH:mm')}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-[#5A5A6E]">Submitted</span>
+                  <span className="font-medium">{format(new Date(attemptData.submitted_at), 'MMM dd, HH:mm')}</span>
+                </div>
+                {isGraded && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[#5A5A6E]">Graded</span>
+                    <span className="font-medium">{format(new Date(attemptData.graded_at), 'MMM dd, HH:mm')}</span>
+                  </div>
+                )}
+              </div>
+            </Card>
+          </div>
+        </div>
       </div>
     );
   }
