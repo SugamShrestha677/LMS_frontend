@@ -1,68 +1,159 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { ClipboardCheck, Search, CheckCircle2, Clock, XCircle, Eye } from 'lucide-react';
+import { Input } from '@/components/ui/Input';
+import { TableSkeleton } from '@/components/ui/Skeleton';
+import { 
+  ClipboardCheck, Search, CheckCircle2, Clock, XCircle, 
+  Eye, User, FileText, Upload, Monitor, Edit3,
+  BookOpen, Timer, Award, ChevronRight
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-
-// Mock assessments until hooked up with backend API
-const mockAssessments = [
-  {
-    id: 1,
-    studentName: 'Aarav Sharma',
-    courseName: 'Advanced React Development',
-    assessmentTitle: 'React Context API Project',
-    submittedAt: '2026-05-04T10:30:00Z',
-    status: 'pending',
-    score: null,
-  },
-  {
-    id: 2,
-    studentName: 'Priya Thapa',
-    courseName: 'Node.js & REST APIs',
-    assessmentTitle: 'Express Authentication Module',
-    submittedAt: '2026-05-03T15:45:00Z',
-    status: 'graded',
-    score: 92,
-  },
-  {
-    id: 3,
-    studentName: 'Rajesh KC',
-    courseName: 'Advanced React Development',
-    assessmentTitle: 'Redux Toolkit Implementation',
-    submittedAt: '2026-05-02T09:15:00Z',
-    status: 'rejected',
-    score: 45,
-  }
-];
+import { format, isPast, isFuture } from 'date-fns';
+import api from '@/lib/services/api';
+import { useAuthStore } from '@/lib/store/auth-store';
 
 export default function TutorAssessmentsPage() {
+  const router = useRouter();
+  const { user } = useAuthStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'graded'>('all');
+  const [selectedCourse, setSelectedCourse] = useState<string>('all');
 
-  const filteredAssessments = mockAssessments.filter(a => {
-    const matchesSearch = a.studentName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          a.assessmentTitle.toLowerCase().includes(searchTerm.toLowerCase());
-    if (activeTab === 'all') return matchesSearch;
-    if (activeTab === 'pending') return matchesSearch && a.status === 'pending';
-    return matchesSearch && a.status === 'graded';
+  // Fetch tutor's courses
+  const { data: coursesData } = useQuery({
+    queryKey: ['tutor-courses'],
+    queryFn: async () => {
+      const response = await api.get('/courses/');
+      return response.data?.data || response.data || [];
+    },
   });
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending': return <Badge variant="warning" className="uppercase text-[10px] tracking-widest"><Clock size={10} className="mr-1 inline"/> Pending</Badge>;
-      case 'graded': return <Badge variant="success" className="uppercase text-[10px] tracking-widest"><CheckCircle2 size={10} className="mr-1 inline"/> Graded</Badge>;
-      case 'rejected': return <Badge variant="danger" className="uppercase text-[10px] tracking-widest"><XCircle size={10} className="mr-1 inline"/> Rejected</Badge>;
-      default: return <Badge variant="secondary" className="uppercase text-[10px] tracking-widest">{status}</Badge>;
+  const courses = Array.isArray(coursesData) ? coursesData : [];
+
+  // Fetch all assessments for tutor's courses
+  const { data: assessmentsData, isLoading } = useQuery({
+    queryKey: ['tutor-assessments', courses.map((c: any) => c.id)],
+    queryFn: async () => {
+      if (courses.length === 0) return [];
+      
+      const promises = courses.map((course: any) =>
+        api.get(`/courses/${course.id}/assessments/`)
+          .then(res => {
+            const assessments = res.data?.data || res.data || [];
+            return assessments.map((a: any) => ({
+              ...a,
+              course_title: course.title,
+              course_id: course.id,
+            }));
+          })
+          .catch(() => [])
+      );
+      
+      const results = await Promise.all(promises);
+      return results.flat();
+    },
+    enabled: courses.length > 0,
+  });
+
+  const allAssessments = Array.isArray(assessmentsData) ? assessmentsData : [];
+
+  // Fetch student submissions
+  const { data: submissionsData, isLoading: isLoadingSubmissions } = useQuery({
+    queryKey: ['all-student-assessments'],
+    queryFn: async () => {
+      const response = await api.get('/student-assessments/');
+      return response.data?.data || response.data || [];
+    },
+  });
+
+  const submissions = Array.isArray(submissionsData) ? submissionsData : [];
+
+  // Merge assessments with their submissions
+  const mergedAssessments = useMemo(() => {
+    return allAssessments.map((assessment: any) => {
+      const assessmentSubmissions = submissions.filter(
+        (s: any) => s.assessment === assessment.id
+      );
+      
+      return {
+        ...assessment,
+        submissions: assessmentSubmissions,
+        totalSubmissions: assessmentSubmissions.length,
+        pendingSubmissions: assessmentSubmissions.filter(
+          (s: any) => s.status === 'submitted' && s.score == null
+        ).length,
+        gradedSubmissions: assessmentSubmissions.filter(
+          (s: any) => s.status === 'graded'
+        ).length,
+      };
+    });
+  }, [allAssessments, submissions]);
+
+  // Filter
+  const filteredAssessments = useMemo(() => {
+    return mergedAssessments.filter((a: any) => {
+      const matchesSearch = 
+        a.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        a.course_title?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesCourse = selectedCourse === 'all' || String(a.course_id) === selectedCourse;
+      
+      if (activeTab === 'all') return matchesSearch && matchesCourse;
+      if (activeTab === 'pending') return matchesSearch && matchesCourse && a.pendingSubmissions > 0;
+      if (activeTab === 'graded') return matchesSearch && matchesCourse && a.gradedSubmissions > 0;
+      
+      return matchesSearch && matchesCourse;
+    });
+  }, [mergedAssessments, searchTerm, activeTab, selectedCourse]);
+
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case 'quiz': return <Monitor size={16} />;
+      case 'exam': return <ClipboardCheck size={16} />;
+      case 'assignment': return <Upload size={16} />;
+      default: return <FileText size={16} />;
     }
   };
 
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case 'quiz': return 'bg-blue-100 text-blue-700';
+      case 'exam': return 'bg-purple-100 text-purple-700';
+      case 'assignment': return 'bg-orange-100 text-orange-700';
+      default: return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  const handleViewSubmissions = (assessment: any) => {
+    router.push(`/tutor/courses/${assessment.course_id}/assessments/${assessment.id}/submissions`);
+  };
+
+  if (isLoading || isLoadingSubmissions) {
+    return (
+      <div className="space-y-8 pb-12">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="w-10 h-10 border-4 border-[#0A5C4A] border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 pb-12">
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-[var(--color-bg-card)]/40 p-8 rounded-[2rem] border border-[var(--color-border)] shadow-xl backdrop-blur-md">
         <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Badge variant="primary" size="sm" dot pulse>
+              {mergedAssessments.length} Assessments
+            </Badge>
+          </div>
           <h1 className="text-4xl font-black text-[var(--color-text-primary)] tracking-tight">
             Student <span className="text-[var(--color-primary)]">Assessments</span>
           </h1>
@@ -72,99 +163,200 @@ export default function TutorAssessmentsPage() {
         </div>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-6">
-        <div className="flex bg-[var(--color-muted)] p-1 rounded-2xl w-fit">
-          <button 
-            onClick={() => setActiveTab('all')}
-            className={`px-6 py-2.5 rounded-xl text-sm font-black transition-all ${activeTab === 'all' ? 'bg-[var(--color-bg-card)] shadow-sm text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}
-          >
-            All Submissions
-          </button>
-          <button 
-            onClick={() => setActiveTab('pending')}
-            className={`px-6 py-2.5 rounded-xl text-sm font-black transition-all ${activeTab === 'pending' ? 'bg-[var(--color-bg-card)] shadow-sm text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}
-          >
-            Pending Review
-          </button>
-          <button 
-            onClick={() => setActiveTab('graded')}
-            className={`px-6 py-2.5 rounded-xl text-sm font-black transition-all ${activeTab === 'graded' ? 'bg-[var(--color-bg-card)] shadow-sm text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}
-          >
-            Graded
-          </button>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+            <FileText size={20} className="text-blue-600" />
+          </div>
+          <div>
+            <p className="text-xs text-[#5A5A6E] font-semibold">Total</p>
+            <p className="text-xl font-black">{mergedAssessments.length}</p>
+          </div>
+        </Card>
+        <Card className="p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+            <Clock size={20} className="text-amber-600" />
+          </div>
+          <div>
+            <p className="text-xs text-[#5A5A6E] font-semibold">Pending Grade</p>
+            <p className="text-xl font-black">
+              {submissions.filter((s: any) => s.status === 'submitted' && s.score == null).length}
+            </p>
+          </div>
+        </Card>
+        <Card className="p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
+            <CheckCircle2 size={20} className="text-green-600" />
+          </div>
+          <div>
+            <p className="text-xs text-[#5A5A6E] font-semibold">Graded</p>
+            <p className="text-xl font-black">
+              {submissions.filter((s: any) => s.status === 'graded').length}
+            </p>
+          </div>
+        </Card>
+        <Card className="p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
+            <User size={20} className="text-purple-600" />
+          </div>
+          <div>
+            <p className="text-xs text-[#5A5A6E] font-semibold">Students</p>
+            <p className="text-xl font-black">
+              {new Set(submissions.map((s: any) => s.student)).size}
+            </p>
+          </div>
+        </Card>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="flex bg-gray-100 p-1 rounded-2xl w-fit">
+          {[
+            { key: 'all', label: 'All', count: mergedAssessments.length },
+            { key: 'pending', label: 'Pending Review', count: submissions.filter((s: any) => s.status === 'submitted' && s.score == null).length },
+            { key: 'graded', label: 'Graded', count: submissions.filter((s: any) => s.status === 'graded').length },
+          ].map((tab) => (
+            <button 
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key as any)}
+              className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                activeTab === tab.key 
+                  ? 'bg-white shadow-sm text-[#0A5C4A]' 
+                  : 'text-[#5A5A6E] hover:text-[#1E1E2A]'
+              }`}
+            >
+              {tab.label} ({tab.count})
+            </button>
+          ))}
         </div>
+
+        {/* Course filter */}
+        <select
+          value={selectedCourse}
+          onChange={(e) => setSelectedCourse(e.target.value)}
+          className="px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold"
+        >
+          <option value="all">All Courses</option>
+          {courses.map((course: any) => (
+            <option key={course.id} value={String(course.id)}>
+              {course.title}
+            </option>
+          ))}
+        </select>
         
         <div className="flex-1 relative">
-          <Search size={20} className="absolute left-6 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]" />
+          <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#5A5A6E]" />
           <input 
             type="text" 
-            placeholder="Search by student or assessment title..."
+            placeholder="Search assessments..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full h-full min-h-[48px] bg-[var(--color-bg-card)]/60 border border-[var(--color-border)] rounded-2xl pl-14 pr-6 outline-none focus:ring-4 focus:ring-[var(--color-primary)]/5 focus:border-[var(--color-primary)]/30 transition-all font-medium text-[var(--color-text-primary)] backdrop-blur-sm"
+            className="w-full h-full min-h-[48px] bg-white border border-gray-200 rounded-2xl pl-12 pr-4 outline-none focus:ring-2 focus:ring-[#0A5C4A]/20 focus:border-[#0A5C4A] transition-all font-medium"
           />
         </div>
       </div>
 
-      <Card padding="none" className="overflow-hidden border-none shadow-2xl bg-[var(--color-bg-card)]/60 backdrop-blur-xl rounded-[2.5rem]">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-[var(--color-primary)]/5">
-                <th className="px-8 py-6 text-xs font-black uppercase tracking-widest text-[var(--color-text-secondary)]">Student & Submission</th>
-                <th className="px-8 py-6 text-xs font-black uppercase tracking-widest text-[var(--color-text-secondary)]">Course</th>
-                <th className="px-8 py-6 text-xs font-black uppercase tracking-widest text-[var(--color-text-secondary)]">Status</th>
-                <th className="px-8 py-6 text-xs font-black uppercase tracking-widest text-[var(--color-text-secondary)]">Score</th>
-                <th className="px-8 py-6 text-xs font-black uppercase tracking-widest text-[var(--color-text-secondary)] text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--color-border)]">
-              {filteredAssessments.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-8 py-20 text-center">
-                    <p className="text-[var(--color-text-secondary)] font-medium">No assessments found matching your criteria.</p>
-                  </td>
-                </tr>
-              ) : (
-                <AnimatePresence mode="popLayout">
-                  {filteredAssessments.map((assessment, idx) => (
-                    <motion.tr 
-                      key={assessment.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.05 }}
-                      className="hover:bg-[var(--color-primary)]/[0.03] transition-colors group"
-                    >
-                      <td className="px-8 py-6">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-[var(--color-text-primary)]">{assessment.assessmentTitle}</span>
-                          <span className="text-[10px] text-[var(--color-text-secondary)] font-medium mt-1">
-                            By <span className="font-bold">{assessment.studentName}</span> • Submitted on {new Date(assessment.submittedAt).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-8 py-6">
-                        <span className="text-sm font-bold text-[var(--color-text-secondary)]">{assessment.courseName}</span>
-                      </td>
-                      <td className="px-8 py-6">
-                        {getStatusBadge(assessment.status)}
-                      </td>
-                      <td className="px-8 py-6 font-bold text-[var(--color-text-primary)]">
-                        {assessment.score !== null ? `${assessment.score}%` : '-'}
-                      </td>
-                      <td className="px-8 py-6 text-right">
-                        <Button variant={assessment.status === 'pending' ? 'primary' : 'outline'} size="sm" className="rounded-xl font-bold tracking-wide">
-                          {assessment.status === 'pending' ? 'Grade Now' : 'View'}
-                        </Button>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </AnimatePresence>
-              )}
-            </tbody>
-          </table>
+      {/* Assessments Grid */}
+      {filteredAssessments.length === 0 ? (
+        <Card className="p-20 text-center">
+          <ClipboardCheck size={64} className="text-[#5A5A6E] mx-auto mb-4 opacity-30" />
+          <p className="text-[#5A5A6E] font-medium text-lg">
+            {courses.length === 0 ? 'No courses yet. Create a course first.' : 'No assessments found.'}
+          </p>
+          {courses.length === 0 && (
+            <Button onClick={() => router.push('/tutor/courses')} className="mt-4">
+              Create Course
+            </Button>
+          )}
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <AnimatePresence>
+            {filteredAssessments.map((assessment: any, idx: number) => (
+              <motion.div
+                key={assessment.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ delay: idx * 0.05 }}
+              >
+                <Card className="p-6 hover:shadow-lg transition-shadow h-full">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl ${getTypeColor(assessment.assessment_type)} flex items-center justify-center`}>
+                        {getTypeIcon(assessment.assessment_type)}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-[#1E1E2A]">{assessment.title}</h3>
+                        <p className="text-xs text-[#5A5A6E] flex items-center gap-1">
+                          <BookOpen size={12} /> {assessment.course_title}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="text-xs capitalize">
+                      {assessment.assessment_type}
+                    </Badge>
+                  </div>
+
+                  {assessment.description && (
+                    <p className="text-sm text-[#5A5A6E] mb-4 line-clamp-2">
+                      {assessment.description}
+                    </p>
+                  )}
+
+                  <div className="flex items-center gap-4 text-xs text-[#5A5A6E] mb-4">
+                    {assessment.duration_minutes > 0 && (
+                      <span className="flex items-center gap-1">
+                        <Timer size={12} /> {assessment.duration_minutes} min
+                      </span>
+                    )}
+                    {assessment.questions?.length > 0 && (
+                      <span className="flex items-center gap-1">
+                        <FileText size={12} /> {assessment.questions.length} Q
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1">
+                      <Award size={12} /> Pass: {assessment.passing_score}%
+                    </span>
+                  </div>
+
+                  {/* Submission stats */}
+                  <div className="flex items-center gap-3 mb-4 p-3 bg-gray-50 rounded-xl">
+                    <div className="text-center flex-1">
+                      <p className="text-xs text-[#5A5A6E]">Total</p>
+                      <p className="font-bold text-sm">{assessment.totalSubmissions}</p>
+                    </div>
+                    <div className="w-px h-8 bg-gray-200" />
+                    <div className="text-center flex-1">
+                      <p className="text-xs text-[#5A5A6E]">Pending</p>
+                      <p className="font-bold text-sm text-amber-600">{assessment.pendingSubmissions}</p>
+                    </div>
+                    <div className="w-px h-8 bg-gray-200" />
+                    <div className="text-center flex-1">
+                      <p className="text-xs text-[#5A5A6E]">Graded</p>
+                      <p className="font-bold text-sm text-green-600">{assessment.gradedSubmissions}</p>
+                    </div>
+                  </div>
+
+                  <Button
+                    fullWidth
+                    variant={assessment.pendingSubmissions > 0 ? 'primary' : 'outline'}
+                    onClick={() => handleViewSubmissions(assessment)}
+                  >
+                    {assessment.pendingSubmissions > 0 ? (
+                      <>Grade Submissions ({assessment.pendingSubmissions})</>
+                    ) : (
+                      <>View Submissions</>
+                    )}
+                    <ChevronRight size={16} className="ml-1" />
+                  </Button>
+                </Card>
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
-      </Card>
+      )}
     </div>
   );
 }

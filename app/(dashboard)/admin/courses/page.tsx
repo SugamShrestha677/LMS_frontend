@@ -12,8 +12,9 @@ import { Modal } from '@/components/ui/Modal';
 import { TableSkeleton } from '@/components/ui/Skeleton';
 import { BookOpen, Plus, Search, Edit2, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { toast } from 'sonner';
+import { ImageUpload } from '@/components/ui/ImageUpload';
 
 export default function AdminCoursesPage() {
   const { data: courses, isLoading: isLoadingCourses } = useCourses();
@@ -27,12 +28,22 @@ export default function AdminCoursesPage() {
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { register, handleSubmit, reset, setValue } = useForm();
+  const { register, handleSubmit, reset, setValue, watch, control } = useForm({
+    defaultValues: {
+      course_type: 'self_paced',
+      is_free: true,
+      price: 0,
+      max_students: 50,
+      thumbnail_file: null
+    }
+  });
+
+  const isFree = watch('is_free');
 
   const tutors = useMemo(() => {
     const userList = Array.isArray(users) ? users : (users as any)?.data || [];
     return userList
-      .filter((u: any) => u.role === 'tutor' || u.role === 'staff' || u.role === 'admin')
+      .filter((u: any) => u.role === 'tutor')
       .map((u: any) => ({
         value: u.id,
         label: u.first_name ? `${u.first_name} ${u.last_name || ''}` : u.email
@@ -57,7 +68,6 @@ export default function AdminCoursesPage() {
   );
 
   const getInstructorName = (course: any) => {
-    // Priority: instructor_name > expanded instructor object > ID lookup in users
     if (course.instructor_name) return course.instructor_name;
     
     if (course.instructor && typeof course.instructor === 'object') {
@@ -78,16 +88,23 @@ export default function AdminCoursesPage() {
   };
 
   const onSubmit = (data: any) => {
-    const payload = {
-      title: data.title,
-      description: data.description || data.title,
-      short_description: data.description || data.title,
-      instructor: data.instructor ? parseInt(data.instructor) : null,
-      category: data.category ? parseInt(data.category) : null,
-      status: data.status,
-    };
+    const formData = new FormData();
+    formData.append('title', data.title);
+    formData.append('description', data.description || data.title);
+    formData.append('short_description', data.description || data.title);
+    formData.append('course_type', data.course_type);
+    if (data.instructor) formData.append('instructor', String(data.instructor));
+    if (data.category) formData.append('category', String(data.category));
+    formData.append('status', data.status);
+    formData.append('is_free', String(data.is_free));
+    formData.append('price', String(data.is_free ? 0 : parseFloat(data.price || 0)));
+    formData.append('max_students', String(data.max_students || 50));
     
-    createCourse(payload, {
+    if (data.thumbnail_file) {
+      formData.append('thumbnail_file', data.thumbnail_file);
+    }
+    
+    createCourse(formData, {
       onSuccess: () => {
         setIsModalOpen(false);
         reset();
@@ -98,16 +115,23 @@ export default function AdminCoursesPage() {
   const onUpdate = (data: any) => {
     if (!selectedCourse) return;
     
-    const payload = {
-      title: data.title,
-      description: data.description || selectedCourse.description || selectedCourse.short_description || '',
-      short_description: data.description || selectedCourse.short_description || '',
-      instructor: data.instructor ? parseInt(data.instructor) : null,
-      category: data.category ? parseInt(data.category) : null,
-      status: data.status,
-    };
+    const formData = new FormData();
+    formData.append('title', data.title);
+    formData.append('description', data.description || selectedCourse.description || selectedCourse.short_description || '');
+    formData.append('short_description', data.description || selectedCourse.short_description || '');
+    formData.append('course_type', data.course_type);
+    if (data.instructor) formData.append('instructor', String(data.instructor));
+    if (data.category) formData.append('category', String(data.category));
+    formData.append('status', data.status);
+    formData.append('is_free', String(data.is_free));
+    formData.append('price', String(data.is_free ? 0 : parseFloat(data.price || 0)));
+    formData.append('max_students', String(data.max_students || 50));
 
-    updateCourse({ id: selectedCourse.id, data: payload }, {
+    if (data.thumbnail_file instanceof File) {
+      formData.append('thumbnail_file', data.thumbnail_file);
+    }
+
+    updateCourse({ id: selectedCourse.id, data: formData }, {
       onSuccess: () => {
         setIsEditModalOpen(false);
         setSelectedCourse(null);
@@ -120,10 +144,15 @@ export default function AdminCoursesPage() {
     setValue('title', course.title || course.name || '');
     setValue('description', course.description || course.short_description || '');
     setValue('category', course.category || '');
+    setValue('course_type', course.course_type || 'self_paced');
     
     const instructorId = typeof course.instructor === 'object' ? course.instructor?.id : (course.instructor || course.instructor_id || course.tutor);
     setValue('instructor', instructorId || '');
     setValue('status', getStatus(course));
+    setValue('is_free', course.is_free !== false);
+    setValue('price', course.price || 0);
+    setValue('max_students', course.max_students || 50);
+    setValue('thumbnail_file', course.thumbnail_url || course.thumbnail || null);
     setIsEditModalOpen(true);
   };
 
@@ -207,11 +236,22 @@ export default function AdminCoursesPage() {
                       className="hover:bg-[var(--color-primary)]/[0.03] transition-colors group"
                     >
                       <td className="px-8 py-6">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-[var(--color-text-primary)] group-hover:text-[var(--color-primary)] transition-colors">{course.title || course.name}</span>
-                          <span className="text-[10px] text-[var(--color-text-secondary)] font-medium line-clamp-1 max-w-xs">
-                            {course.short_description || course.description || 'No description provided.'}
-                          </span>
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-xl overflow-hidden bg-[var(--color-bg-secondary)] border border-[var(--color-border)] flex-shrink-0">
+                            {course.thumbnail_url || course.thumbnail ? (
+                              <img src={course.thumbnail_url || course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-[var(--color-text-secondary)]">
+                                <BookOpen size={20} />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="font-bold text-[var(--color-text-primary)] group-hover:text-[var(--color-primary)] transition-colors">{course.title || course.name}</span>
+                            <span className="text-[10px] text-[var(--color-text-secondary)] font-medium line-clamp-1 max-w-xs">
+                              {course.short_description || course.description || 'No description provided.'}
+                            </span>
+                          </div>
                         </div>
                       </td>
                       <td className="px-8 py-6">
@@ -252,10 +292,22 @@ export default function AdminCoursesPage() {
 
       {/* Create Course Modal */}
       <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)} title="Create New Course">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 pt-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 pt-4 max-h-[80vh] overflow-y-auto px-1 scrollbar-hide">
+          <Controller
+            name="thumbnail_file"
+            control={control}
+            render={({ field }) => (
+              <ImageUpload 
+                label="Course Thumbnail" 
+                value={field.value} 
+                onChange={field.onChange} 
+              />
+            )}
+          />
           <Input label="Course Title" placeholder="e.g. Full Stack Development" {...register('title', { required: true })} />
           <Input label="Description" placeholder="Brief overview of the course content..." {...register('description')} />
-          <div className="grid grid-cols-2 gap-4">
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Select 
               label="Category" 
               options={categories} 
@@ -267,28 +319,86 @@ export default function AdminCoursesPage() {
               {...register('instructor')} 
             />
           </div>
-          <Select 
-            label="Initial Status" 
-            options={[
-              { value: 'draft', label: 'Draft' },
-              { value: 'active', label: 'Active' },
-              { value: 'published', label: 'Published' },
-            ]} 
-            {...register('status')} 
-          />
-          <div className="pt-4 flex gap-4">
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Select 
+              label="Course Type" 
+              options={[
+                { value: 'self_paced', label: 'Self-Paced (Pre-recorded)' },
+                { value: 'live', label: 'Live Sessions' },
+              ]} 
+              {...register('course_type')} 
+            />
+            <Select 
+              label="Initial Status" 
+              options={[
+                { value: 'draft', label: 'Draft' },
+                { value: 'active', label: 'Active' },
+                { value: 'published', label: 'Published' },
+              ]} 
+              {...register('status')} 
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input label="Max Students" type="number" {...register('max_students')} />
+          </div>
+
+          <div className="space-y-4 p-4 rounded-2xl bg-[var(--color-bg-secondary)] border border-[var(--color-border)]">
+            <div className="flex items-center justify-between">
+              <label htmlFor="is_free" className="text-sm font-bold text-[var(--color-text-primary)] cursor-pointer">
+                Is this course free?
+              </label>
+              <input 
+                type="checkbox" 
+                id="is_free" 
+                {...register('is_free')}
+                className="w-5 h-5 text-[var(--color-primary)] rounded-lg border-gray-300 focus:ring-[var(--color-primary)] transition-all cursor-pointer"
+              />
+            </div>
+            {!isFree && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                className="pt-2"
+              >
+                <Input 
+                  label="Course Price (NPR)" 
+                  type="number" 
+                  step="0.01" 
+                  min="0"
+                  placeholder="e.g. 4999.00" 
+                  {...register('price', { required: !isFree })} 
+                />
+              </motion.div>
+            )}
+          </div>
+
+          <div className="pt-4 flex gap-4 sticky bottom-0 bg-[var(--color-bg-card)] pb-2">
             <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} className="flex-1 rounded-xl">Cancel</Button>
-            <Button type="submit" loading={isCreating} className="flex-1 rounded-xl">Create Course</Button>
+            <Button type="submit" loading={isCreating} className="flex-1 rounded-xl shadow-lg shadow-[var(--color-primary)]/20">Create Course</Button>
           </div>
         </form>
       </Modal>
 
       {/* Edit Course Modal */}
       <Modal open={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Update Course Details">
-        <form onSubmit={handleSubmit(onUpdate)} className="space-y-6 pt-4">
+        <form onSubmit={handleSubmit(onUpdate)} className="space-y-6 pt-4 max-h-[80vh] overflow-y-auto px-1 scrollbar-hide">
+          <Controller
+            name="thumbnail_file"
+            control={control}
+            render={({ field }) => (
+              <ImageUpload 
+                label="Course Thumbnail" 
+                value={field.value} 
+                onChange={field.onChange} 
+              />
+            )}
+          />
           <Input label="Course Title" {...register('title', { required: true })} />
           <Input label="Description" {...register('description')} />
-          <div className="grid grid-cols-2 gap-4">
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Select 
               label="Category" 
               options={categories} 
@@ -300,18 +410,63 @@ export default function AdminCoursesPage() {
               {...register('instructor')} 
             />
           </div>
-          <Select 
-            label="Course Status" 
-            options={[
-              { value: 'draft', label: 'Draft' },
-              { value: 'active', label: 'Active' },
-              { value: 'published', label: 'Published' },
-            ]} 
-            {...register('status')} 
-          />
-          <div className="pt-4 flex gap-4">
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Select 
+              label="Course Type" 
+              options={[
+                { value: 'self_paced', label: 'Self-Paced (Pre-recorded)' },
+                { value: 'live', label: 'Live Sessions' },
+              ]} 
+              {...register('course_type')} 
+            />
+            <Select 
+              label="Course Status" 
+              options={[
+                { value: 'draft', label: 'Draft' },
+                { value: 'active', label: 'Active' },
+                { value: 'published', label: 'Published' },
+              ]} 
+              {...register('status')} 
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input label="Max Students" type="number" {...register('max_students')} />
+          </div>
+
+          <div className="space-y-4 p-4 rounded-2xl bg-[var(--color-bg-secondary)] border border-[var(--color-border)]">
+            <div className="flex items-center justify-between">
+              <label htmlFor="edit_is_free" className="text-sm font-bold text-[var(--color-text-primary)] cursor-pointer">
+                Is this course free?
+              </label>
+              <input 
+                type="checkbox" 
+                id="edit_is_free" 
+                {...register('is_free')}
+                className="w-5 h-5 text-[var(--color-primary)] rounded-lg border-gray-300 focus:ring-[var(--color-primary)] transition-all cursor-pointer"
+              />
+            </div>
+            {!isFree && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                className="pt-2"
+              >
+                <Input 
+                  label="Course Price (NPR)" 
+                  type="number" 
+                  step="0.01" 
+                  min="0"
+                  {...register('price', { required: !isFree })} 
+                />
+              </motion.div>
+            )}
+          </div>
+
+          <div className="pt-4 flex gap-4 sticky bottom-0 bg-[var(--color-bg-card)] pb-2">
             <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)} className="flex-1 rounded-xl">Cancel</Button>
-            <Button type="submit" loading={isUpdating} className="flex-1 rounded-xl">Save Changes</Button>
+            <Button type="submit" loading={isUpdating} className="flex-1 rounded-xl shadow-lg shadow-[var(--color-primary)]/20">Save Changes</Button>
           </div>
         </form>
       </Modal>

@@ -1,6 +1,6 @@
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { User } from '@/lib/types/auth';
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import { User } from "@/lib/types/auth";
 
 interface AuthState {
   user: User | null;
@@ -13,6 +13,7 @@ interface AuthState {
   // Actions
   setAuth: (user: User, accessToken: string, refreshToken: string) => void;
   setAccessToken: (token: string) => void;
+  setRefreshToken: (token: string) => void;
   setUser: (user: User) => void;
   setLoading: (loading: boolean) => void;
   setHasHydrated: (state: boolean) => void;
@@ -31,9 +32,9 @@ export const useAuthStore = create<AuthState>()(
 
       setAuth: (user, accessToken, refreshToken) => {
         // Mirror to localStorage so api.ts interceptor can also read them
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('access_token', accessToken);
-          localStorage.setItem('refresh_token', refreshToken);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("access_token", accessToken);
+          localStorage.setItem("refresh_token", refreshToken);
         }
         set({
           user,
@@ -46,10 +47,17 @@ export const useAuthStore = create<AuthState>()(
       },
 
       setAccessToken: (token) => {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('access_token', token);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("access_token", token);
         }
         set({ accessToken: token });
+      },
+
+      setRefreshToken: (token) => {
+        if (typeof window !== "undefined") {
+          localStorage.setItem("refresh_token", token);
+        }
+        set({ refreshToken: token });
       },
 
       setUser: (user) => {
@@ -65,9 +73,9 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("access_token");
+          localStorage.removeItem("refresh_token");
         }
         set({
           user: null,
@@ -80,9 +88,9 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: 'leapfrog-auth',
+      name: "leapfrog-auth",
       storage: createJSONStorage(() => {
-        if (typeof window !== 'undefined') return localStorage;
+        if (typeof window !== "undefined") return localStorage;
         return {
           getItem: () => null,
           setItem: () => {},
@@ -98,6 +106,6 @@ export const useAuthStore = create<AuthState>()(
         refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
       }),
-    }
-  )
+    },
+  ),
 );
