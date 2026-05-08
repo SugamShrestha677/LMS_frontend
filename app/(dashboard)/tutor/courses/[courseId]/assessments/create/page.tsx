@@ -3,7 +3,8 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { useState, useCallback } from 'react';
-import { useCreateAssessment, useModules } from '@/lib/hooks/useCourses';
+import { useCreateAssessment, useModules, useCourse } from '@/lib/hooks/useCourses';
+import { useLiveSessions } from '@/lib/hooks/useLiveSessions';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -59,8 +60,15 @@ export default function CreateAssessmentPage() {
   const router = useRouter();
   const courseId = Number(params.courseId);
   
+  const { data: courseData } = useCourse(courseId);
+  const course = Array.isArray(courseData) ? courseData[0] : courseData;
+  const isLive = course?.course_type === 'live';
+  
   const { data: modulesData } = useModules(courseId);
   const modules = Array.isArray(modulesData) ? modulesData : (modulesData as any)?.data || [];
+  
+  const { data: liveSessionsData } = useLiveSessions(courseId);
+  const liveSessions = Array.isArray(liveSessionsData) ? liveSessionsData : (liveSessionsData as any)?.data || [];
   
   const { mutate: createAssessment, isPending } = useCreateAssessment();
   const [selectedType, setSelectedType] = useState('quiz');
@@ -147,6 +155,12 @@ export default function CreateAssessmentPage() {
         ? new Date(data.late_submission_deadline).toISOString() 
         : null,
     };
+    
+    // Switch payload keys for live vs self-paced
+    if (isLive && data.module) {
+      payload.live_session = data.module; // we temporarily used the 'module' field in react-hook-form
+      delete payload.module;
+    }
 
     createAssessment(
       { courseId, data: payload },
@@ -213,12 +227,18 @@ export default function CreateAssessmentPage() {
               placeholder="e.g., Final Examination"
             />
             <div className="space-y-1">
-              <label className="block text-sm font-semibold">Module (Optional)</label>
+              <label className="block text-sm font-semibold">{isLive ? 'Live Session' : 'Module'} (Optional)</label>
               <select {...register('module')} className="w-full px-4 py-3 rounded-lg border border-gray-300 bg-white">
-                <option value="">No specific module</option>
-                {modules.map((m: any) => (
-                  <option key={m.id} value={m.id}>{m.title}</option>
-                ))}
+                <option value="">No specific {isLive ? 'session' : 'module'}</option>
+                {isLive ? (
+                  liveSessions.map((s: any) => (
+                    <option key={s.id} value={s.id}>Day {s.day_number}: {s.title}</option>
+                  ))
+                ) : (
+                  modules.map((m: any) => (
+                    <option key={m.id} value={m.id}>{m.title}</option>
+                  ))
+                )}
               </select>
             </div>
           </div>

@@ -11,8 +11,10 @@ import {
   Play, CheckCircle2, ChevronLeft, ChevronRight, 
   FileText, Download, MessageSquare, Star,
   Menu, X, Lock, Clock, ExternalLink, FolderOpen,
-  BookOpen, Video, Megaphone, User, Calendar, Award
+  BookOpen, Video, Megaphone, User, Calendar, Award,
+  Wifi, WifiOff, Radio, Eye
 } from 'lucide-react';
+import { Modal } from '@/components/ui/Modal';
 import { cn } from '@/lib/utils';
 import {
   useEnrollCourse,
@@ -24,22 +26,26 @@ import {
   useCourseAnnouncements,
 } from '@/lib/hooks/useStudentData';
 import { usePayments } from '@/lib/hooks/useCourses';
+import { useLiveSessions } from '@/lib/hooks/useLiveSessions';
 import { CoursePaymentModal } from '@/components/student/CoursePaymentModal';
-import { format, isPast } from 'date-fns';
+import { format, formatDistanceToNow, isPast, isFuture } from 'date-fns';
 
 export default function CoursePlayer() {
   const params = useParams();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<'content' | 'resources' | 'assignments' | 'announcements'>('content');
+  const [activeTab, setActiveTab] = useState<'content' | 'resources' | 'assignments' | 'announcements' | 'live'>('content');
   const courseId = Number(params.id);
 
   const { data: course, isLoading } = useStudentCourse(courseId);
+
   const { data: enrolledCourses } = useEnrolledCourses();
   const { mutate: enrollCourse, isPending: enrolling } = useEnrollCourse();
   const { data: resources } = useCourseResources(courseId);
   const { data: announcementsData } = useCourseAnnouncements(courseId);
   const { mutate: completeContent, isPending: completing } = useCompleteContent();
+  const { data: liveSessionsData } = useLiveSessions(courseId);
+  const liveSessions: any[] = Array.isArray(liveSessionsData) ? liveSessionsData : (liveSessionsData as any)?.data || [];
   const enrollment = enrolledCourses?.find((item) => item.course?.id === courseId);
   const isEnrolled = !!enrollment;
   const {
@@ -50,7 +56,37 @@ export default function CoursePlayer() {
 
   const { data: payments } = usePayments();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [viewingResource, setViewingResource] = useState<{ url: string, title: string } | null>(null);
+
+  const handleDownload = async (url: string, filename: string, resourceId: number) => {
+    if (!url) return;
+    setDownloadingId(resourceId);
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Network response was not ok');
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.setAttribute('download', filename || 'download');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Download error:', error);
+      // Fallback for cross-origin or other issues
+      const link = document.createElement('a');
+      link.href = url;
+      link.target = '_blank';
+      link.download = filename || '';
+      link.click();
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   const paymentList = useMemo(() => {
     return Array.isArray(payments) ? payments : (payments as any)?.data || [];
   }, [payments]);
@@ -77,6 +113,22 @@ export default function CoursePlayer() {
   }, [announcementsData]);
 
   const curriculum = useMemo(() => {
+    if (course?.course_type === 'live') {
+      return [{
+        id: 'live_sessions',
+        title: 'Live Sessions',
+        description: 'Scheduled classes',
+        lessons: liveSessions.map((session: any) => ({
+          id: session.id,
+          title: `Day ${session.day_number}: ${session.title}`,
+          duration: `${session.start_time?.slice(0, 5)} - ${session.end_time?.slice(0, 5)}`,
+          locked: !isEnrolled,
+          contentType: 'video',
+          isLiveSession: true,
+          sessionData: session
+        }))
+      }];
+    }
     if (!course?.modules) return [];
     return course.modules.map((module: any) => ({
       id: module.id,
@@ -104,10 +156,33 @@ export default function CoursePlayer() {
   const [launchingContent, setLaunchingContent] = useState(false);
 
   useEffect(() => {
-    if (!activeLessonId && allLessons.length > 0) {
-      setActiveLessonId(allLessons[0].id);
+    if (allLessons.length > 0) {
+      // If we have an active lesson but it's not in the current curriculum (e.g. after a type switch or reload)
+      const currentLessonExists = allLessons.some(l => l.id === activeLessonId);
+      
+      if (!activeLessonId || !currentLessonExists) {
+        // Find the best session to start with: 
+        // 1. Ongoing session
+        // 2. Next upcoming session
+        // 3. First session
+        if (course?.course_type === 'live') {
+          const ongoing = allLessons.find(l => l.sessionData?.status === 'active');
+          if (ongoing) {
+            setActiveLessonId(ongoing.id);
+            return;
+          }
+          
+          const upcoming = allLessons.find(l => l.sessionData?.status === 'upcoming');
+          if (upcoming) {
+            setActiveLessonId(upcoming.id);
+            return;
+          }
+        }
+        
+        setActiveLessonId(allLessons[0].id);
+      }
     }
-  }, [activeLessonId, allLessons]);
+  }, [activeLessonId, allLessons, course?.course_type]);
 
   const activeModule = useMemo(() => {
     if (!activeLessonId) return null;
@@ -154,12 +229,17 @@ export default function CoursePlayer() {
 
   const filteredResources = useMemo(() => {
     if (!activeModule) {
-      return resourceList.filter((r: any) => !r.module_id);
+      return resourceList.filter((r: any) => !r.module_id && !r.live_session_id);
+    }
+    if (course?.course_type === 'live') {
+      return resourceList.filter((r: any) => 
+        !r.live_session_id || String(r.live_session_id) === String(activeModule.id)
+      );
     }
     return resourceList.filter((r: any) => 
       !r.module_id || String(r.module_id) === String(activeModule.id)
     );
-  }, [resourceList, activeModule]);
+  }, [resourceList, activeModule, course?.course_type]);
 
   const assessments = useMemo(() => {
     const list = Array.isArray(course?.assessments) ? course.assessments : [];
@@ -168,12 +248,17 @@ export default function CoursePlayer() {
 
   const filteredAssessments = useMemo(() => {
     if (!activeModule) {
-      return assessments.filter((a: any) => !a.module);
+      return assessments.filter((a: any) => !a.module && !a.live_session);
+    }
+    if (course?.course_type === 'live') {
+      return assessments.filter((a: any) => 
+        !a.live_session || String(a.live_session) === String(activeModule.id)
+      );
     }
     return assessments.filter((a: any) => 
       !a.module || String(a.module) === String(activeModule.id)
     );
-  }, [assessments, activeModule]);
+  }, [assessments, activeModule, course?.course_type]);
 
   const generalResources = useMemo(() => 
     filteredResources.filter((r: any) => !r.module_id),
@@ -291,14 +376,25 @@ export default function CoursePlayer() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className={cn(
-                          'text-sm font-bold truncate',
+                          'text-sm font-bold truncate flex items-center gap-2',
                           lesson.id === activeLessonId ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-primary)]'
                         )}>
                           {lesson.title}
+                          {(lesson as any).isLiveSession && (lesson as any).sessionData?.status === 'active' && (
+                            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-sm shadow-red-500/50" />
+                          )}
                         </p>
-                        <p className="text-[10px] font-medium text-[var(--color-text-secondary)] flex items-center gap-1">
-                          <Clock size={10} /> {lesson.duration}
-                        </p>
+                        <div className="flex items-center justify-between mt-0.5">
+                          <p className="text-[10px] font-medium text-[var(--color-text-secondary)] flex items-center gap-1">
+                            <Clock size={10} /> {lesson.duration}
+                          </p>
+                          {(lesson as any).isLiveSession && (lesson as any).sessionData?.status === 'completed' && (
+                            <span className="text-[8px] font-black uppercase tracking-tighter text-green-600 bg-green-50 px-1 rounded">Done</span>
+                          )}
+                          {(lesson as any).isLiveSession && (lesson as any).sessionData?.status === 'active' && (
+                            <span className="text-[8px] font-black uppercase tracking-tighter text-red-600 bg-red-50 px-1 rounded">Ongoing</span>
+                          )}
+                        </div>
                       </div>
                     </button>
                   ))}
@@ -344,7 +440,95 @@ export default function CoursePlayer() {
         <div className="flex-1 overflow-y-auto">
           {activeTab === 'content' && (
             <>
-              {course.is_scorm ? (
+              {(activeLesson as any)?.isLiveSession ? (
+                <div className="p-8 bg-white border-b border-[var(--color-border)]">
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                      <Badge variant={
+                        activeLesson.sessionData.status === 'active' ? 'danger' :
+                        activeLesson.sessionData.status === 'completed' ? 'success' : 'secondary'
+                      } className="mb-3 uppercase">
+                        {activeLesson.sessionData.status === 'active' ? 'Ongoing' : activeLesson.sessionData.status}
+                      </Badge>
+                      <h2 className="text-2xl font-black text-[var(--color-text-primary)]">{activeLesson.sessionData.title}</h2>
+                      <p className="text-[var(--color-text-secondary)] mt-2 font-medium">
+                        {format(new Date(activeLesson.sessionData.date), 'MMMM d, yyyy')} • {activeLesson.sessionData.start_time?.slice(0, 5)} - {activeLesson.sessionData.end_time?.slice(0, 5)}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {activeLesson.sessionData.status === 'active' && activeLesson.sessionData.meet_link ? (
+                    <div className="bg-red-50 border border-red-100 rounded-2xl p-6 text-center">
+                      <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                        <Radio size={32} className="text-red-500" />
+                      </div>
+                      <h3 className="font-bold text-red-900 mb-2">Class is ongoing!</h3>
+                      <p className="text-red-700 text-sm mb-6 max-w-md mx-auto">Join the session now to participate in the live discussion.</p>
+                      <a 
+                        href={activeLesson.sessionData.meet_link} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center h-10 px-8 rounded-full bg-red-500 text-white font-bold hover:bg-red-600 transition-colors"
+                      >
+                        Join Class
+                      </a>
+                    </div>
+                  ) : activeLesson.sessionData.status === 'completed' ? (
+                    <div className="bg-green-50 border border-green-100 rounded-2xl p-6">
+                      <h3 className="font-bold text-green-900 mb-4 flex items-center gap-2">
+                        <CheckCircle2 className="text-green-500" /> Class Completed
+                      </h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="bg-white p-4 rounded-xl border border-green-100">
+                          <p className="text-xs text-green-700 font-bold mb-1 uppercase tracking-wider">Your Attendance</p>
+                          <p className="font-medium text-green-900 capitalize">
+                            {activeLesson.sessionData.student_attendance?.status || 'Not Marked'}
+                          </p>
+                        </div>
+                        {activeLesson.sessionData.recording_link && (
+                          <div className="bg-white p-4 rounded-xl border border-green-100">
+                            <p className="text-xs text-green-700 font-bold mb-1 uppercase tracking-wider">Recording</p>
+                            <a href={activeLesson.sessionData.recording_link} target="_blank" rel="noopener noreferrer" className="text-[var(--color-primary)] font-medium hover:underline inline-flex items-center gap-1">
+                              Watch Recording <ExternalLink size={14} />
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-[var(--color-bg-secondary)] rounded-2xl p-6 text-center border border-[var(--color-border)]">
+                      <Clock size={32} className="mx-auto text-[var(--color-text-secondary)] mb-3" />
+                      <h3 className="font-bold text-[var(--color-text-primary)]">Upcoming Session</h3>
+                      <p className="text-sm text-[var(--color-text-secondary)] mt-1">The join link will appear here when the class starts.</p>
+                    </div>
+                  )}
+
+                  {activeLesson.sessionData.summary && (
+                    <div className="mt-8">
+                      <h3 className="font-bold text-lg mb-3">Tutor Notes & Summary</h3>
+                      <div className="prose max-w-none text-sm text-[var(--color-text-secondary)] bg-[var(--color-bg-card)] p-6 rounded-2xl border border-[var(--color-border)] whitespace-pre-wrap">
+                        {activeLesson.sessionData.summary}
+                      </div>
+                    </div>
+                  )}
+                  {activeLesson.sessionData.topics_covered && (
+                    <div className="mt-6">
+                      <h3 className="font-bold text-lg mb-3">Topics Covered</h3>
+                      <div className="prose max-w-none text-sm text-[var(--color-text-secondary)] bg-[var(--color-bg-card)] p-6 rounded-2xl border border-[var(--color-border)] whitespace-pre-wrap">
+                        {activeLesson.sessionData.topics_covered}
+                      </div>
+                    </div>
+                  )}
+                  {activeLesson.sessionData.homework && (
+                    <div className="mt-6">
+                      <h3 className="font-bold text-lg mb-3">Homework / Assignments</h3>
+                      <div className="prose max-w-none text-sm text-[var(--color-text-secondary)] bg-[var(--color-bg-card)] p-6 rounded-2xl border border-[var(--color-border)] whitespace-pre-wrap">
+                        {activeLesson.sessionData.homework}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : course.is_scorm ? (
                 <div className="aspect-video bg-black relative overflow-hidden">
                   {scormLaunchUrl ? (
                     <iframe
@@ -451,7 +635,7 @@ export default function CoursePlayer() {
           )}
 
           {/* Lesson Details (only show for content tab) */}
-          {activeTab === 'content' && (
+          {activeTab === 'content' && !(activeLesson as any)?.isLiveSession && (
             <div className="p-8 max-w-4xl mx-auto">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
                 <div>
@@ -470,34 +654,6 @@ export default function CoursePlayer() {
                     </div>
                   )}
                 </div>
-                {/* 
-                {isEnrolled ? (
-                  course.is_scorm ? (
-                    <Button
-                      size="lg"
-                      className="h-12 px-8 shadow-primary"
-                      onClick={() => refetchScormProgress()}
-                      loading={fetchingScormProgress}
-                    >
-                      <CheckCircle2 size={18} className="mr-2" /> Sync Progress
-                    </Button>
-                  ) : (
-                    <Button
-                      size="lg"
-                      className="h-12 px-8 shadow-primary"
-                      onClick={handleLessonCompleted}
-                      disabled={!activeLessonId}
-                      loading={completing}
-                    >
-                      <CheckCircle2 size={18} className="mr-2" /> Mark as Completed
-                    </Button>
-                  )
-                ) : (
-                  <Button size="lg" className="h-12 px-8" loading={enrolling} onClick={() => enrollCourse(course.id)}>
-                    {course.is_free ? 'Enroll Free' : `Unlock for ${course.price}`}
-                  </Button>
-                )}
-                */}
               </div>
 
               {!canAccessContent && (
@@ -578,7 +734,7 @@ export default function CoursePlayer() {
                 { key: 'resources', label: 'Resources', icon: FolderOpen, count: filteredResources.length },
                 { key: 'assignments', label: 'Assignments', icon: FileText, count: filteredAssessments.length },
                 { key: 'announcements', label: 'Announcements', icon: Megaphone, count: announcements.length },
-              ] as const).map((tab) => (
+              ] as { key: 'content' | 'resources' | 'assignments' | 'announcements'; label: string; icon: any; count?: number }[]).map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
@@ -603,7 +759,7 @@ export default function CoursePlayer() {
           </div>
 
           {/* Tab Panels */}
-          <div className="px-8 pb-8 max-w-4xl mx-auto min-h-[200px]">
+          <div className="px-8 pb-8 max-w-4xl mx-auto min-h-[200px] mt-8">
             <AnimatePresence mode="wait">
               {/* Content Tab */}
               {activeTab === 'content' && (
@@ -663,34 +819,67 @@ export default function CoursePlayer() {
                     </div>
                   ) : (
                     <div className="grid gap-3">
-                      {filteredResources.map((resource: any) => (
-                        <div
-                          key={resource.id}
-                          className="group p-4 rounded-xl border border-[var(--color-border)] bg-white hover:border-[var(--color-primary)] transition-all flex items-center justify-between"
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-lg bg-[var(--color-primary)]/5 flex items-center justify-center text-[var(--color-primary)]">
-                              {resource.file_name?.endsWith('.pdf') ? <FileText size={20} /> : <Download size={20} />}
-                            </div>
-                            <div>
-                              <h4 className="font-bold text-[var(--color-text-primary)] text-sm group-hover:text-[var(--color-primary)] transition-colors">
-                                {resource.title}
-                              </h4>
-                              <p className="text-[var(--color-text-secondary)] text-xs">
-                                {resource.file_size ? `${(resource.file_size / 1024 / 1024).toFixed(2)} MB` : 'External Link'}
-                              </p>
-                            </div>
-                          </div>
-                          <a
-                            href={resource.file || resource.external_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-2 rounded-lg hover:bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-all"
+                      {filteredResources.map((resource: any) => {
+                          const href = resource.file || resource.file_url || resource.external_link;
+                          const isExternal = !!resource.external_link && !resource.file && !resource.file_url;
+                          return (
+                          <div
+                            key={resource.id}
+                            className="group p-4 rounded-xl border border-[var(--color-border)] bg-white hover:border-[var(--color-primary)] transition-all flex items-center justify-between"
                           >
-                            <ExternalLink size={18} />
-                          </a>
-                        </div>
-                      ))}
+                            <div className="flex items-center gap-4">
+                              <div className="w-10 h-10 rounded-lg bg-[var(--color-primary)]/5 flex items-center justify-center text-[var(--color-primary)]">
+                                {isExternal ? <ExternalLink size={20} /> : resource.file_name?.endsWith('.pdf') ? <FileText size={20} /> : <Download size={20} />}
+                              </div>
+                              <div>
+                                <h4 className="font-bold text-[var(--color-text-primary)] text-sm group-hover:text-[var(--color-primary)] transition-colors">
+                                  {resource.title}
+                                </h4>
+                                <p className="text-[var(--color-text-secondary)] text-xs">
+                                  {resource.file_size ? `${(resource.file_size / 1024 / 1024).toFixed(2)} MB` : isExternal ? 'External Link' : 'File'}
+                                </p>
+                              </div>
+                            </div>
+                            {href && (
+                              <div className="flex items-center gap-1">
+                                {!isExternal && (
+                                  <button
+                                    onClick={() => window.open(href, '_blank')}
+                                    className="p-2 rounded-lg hover:bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-all"
+                                    title="Open in new tab"
+                                  >
+                                    <Eye size={18} />
+                                  </button>
+                                )}
+                                {isExternal ? (
+                                  <a
+                                    href={href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-2 rounded-lg hover:bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-all"
+                                    title="Open in new tab"
+                                  >
+                                    <ExternalLink size={18} />
+                                  </a>
+                                ) : (
+                                  <button
+                                    onClick={() => handleDownload(href, resource.title || 'download', resource.id)}
+                                    disabled={downloadingId === resource.id}
+                                    className="p-2 rounded-lg hover:bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-all disabled:opacity-50"
+                                    title="Download"
+                                  >
+                                    {downloadingId === resource.id ? (
+                                      <div className="w-4 h-4 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
+                                    ) : (
+                                      <Download size={18} />
+                                    )}
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          );
+                        })}
                     </div>
                   )}
                 </motion.div>
@@ -893,66 +1082,52 @@ export default function CoursePlayer() {
           </div>
           )}
         </main>
+      
+      {/* Resource Viewer Modal */}
+      <Modal 
+        open={!!viewingResource} 
+        onClose={() => setViewingResource(null)} 
+        title={viewingResource?.title || 'Resource Viewer'}
+      >
+        <div className="w-full h-[70vh] bg-gray-100 rounded-xl overflow-hidden mt-4 relative">
+          {viewingResource?.url && (
+            viewingResource.url.toLowerCase().endsWith('.pdf') ? (
+              <iframe 
+                src={`${viewingResource.url}#toolbar=0`} 
+                className="w-full h-full border-none"
+                title="PDF Viewer"
+              />
+            ) : viewingResource.url.toLowerCase().match(/\.(docx|doc|pptx|ppt|xlsx|xls)$/) ? (
+              <iframe 
+                src={`https://docs.google.com/viewer?url=${encodeURIComponent(viewingResource.url)}&embedded=true`} 
+                className="w-full h-full border-none"
+                title="Document Viewer"
+              />
+            ) : viewingResource.url.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/) ? (
+              <div className="w-full h-full flex items-center justify-center p-4">
+                <img src={viewingResource.url} alt="Resource" className="max-w-full max-h-full object-contain" />
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-[var(--color-text-secondary)]">
+                <FileText size={48} className="mb-4 opacity-20" />
+                <p className="font-bold">Preview not available for this file type</p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-4"
+                  onClick={() => {
+                    handleDownload(viewingResource.url, viewingResource.title, 0);
+                    setViewingResource(null);
+                  }}
+                >
+                  Download to View
+                </Button>
+              </div>
+            )
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }
 
-// Resource Card Component
-function ResourceCard({ resource, isGeneral = false }: { resource: any; isGeneral?: boolean }) {
-  const href = resource.external_link || resource.file_url || resource.file;
-  const isExternal = !!resource.external_link;
-  const label = resource.title || resource.file_name || resource.external_link || 'Resource';
-  const fileExt = (resource.file_name || resource.file_url || '').split('.').pop()?.toLowerCase();
-
-  const getFileIcon = (ext?: string) => {
-    switch (ext) {
-      case 'pdf': return <FileText size={18} />;
-      case 'mp4':
-      case 'webm': return <Video size={18} />;
-      case 'mp3':
-      case 'wav': return <Star size={18} />;
-      default: return <Download size={18} />;
-    }
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 5 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="flex items-center justify-between p-4 rounded-2xl border border-[var(--color-border)] hover:bg-[var(--color-muted)] transition-colors group"
-    >
-      <div className="flex items-center gap-3 min-w-0 flex-1">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-          isGeneral 
-            ? 'bg-blue-100 text-blue-600' 
-            : 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
-        }`}>
-          {isExternal ? <ExternalLink size={18} /> : getFileIcon(fileExt)}
-        </div>
-        <div className="min-w-0">
-          <p className="text-sm font-bold text-[var(--color-text-primary)] truncate">{label}</p>
-          {resource.description && (
-            <p className="text-xs text-[var(--color-text-secondary)] line-clamp-1">
-              {resource.description}
-            </p>
-          )}
-          {(resource.file_size && resource.file_size > 0) && (
-            <p className="text-[10px] text-[#5A5A6E]">
-              {(resource.file_size / 1024 / 1024).toFixed(2)} MB
-            </p>
-          )}
-        </div>
-      </div>
-      {href ? (
-        <a
-          href={href}
-          target="_blank"
-          rel="noreferrer"
-          className="px-4 py-2 rounded-lg text-sm font-bold text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
-        >
-          {isExternal ? 'Open' : 'Download'}
-        </a>
-      ) : null}
-    </motion.div>
-  );
-}

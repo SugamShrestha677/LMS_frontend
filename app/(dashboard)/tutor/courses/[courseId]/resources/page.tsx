@@ -6,6 +6,7 @@ import {
   useCourse, useCourseResources, useCreateCourseResource, 
   useDeleteCourseResource, useModules 
 } from '@/lib/hooks/useCourses';
+import { useLiveSessions } from '@/lib/hooks/useLiveSessions';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -24,6 +25,7 @@ export default function CourseResourcesPage() {
 
   const { data: courseData } = useCourse(courseId);
   const { data: modulesData } = useModules(courseId);
+  const { data: liveSessionsData } = useLiveSessions(courseId);
   const { data: resources } = useCourseResources(courseId);
   const { mutate: createResource, isPending: creating } = useCreateCourseResource();
   const { mutate: deleteResource, isPending: deleting } = useDeleteCourseResource();
@@ -32,23 +34,28 @@ export default function CourseResourcesPage() {
   const [description, setDescription] = useState('');
   const [externalLink, setExternalLink] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [resourceType, setResourceType] = useState<'file' | 'link'>('file');
+  const [assignTo, setAssignTo] = useState<string>('none');
   const [selectedModuleFilter, setSelectedModuleFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
   const course = Array.isArray(courseData) ? courseData[0] : courseData;
+  const isLive = course?.course_type === 'live';
   const modules = Array.isArray(modulesData) ? modulesData : (modulesData as any)?.data || [];
+  const liveSessions = Array.isArray(liveSessionsData) ? liveSessionsData : (liveSessionsData as any)?.data || [];
   
   const resourceList = useMemo(() => {
     const list = Array.isArray(resources) ? resources : (resources as any)?.data || [];
     return list;
   }, [resources]);
 
-  // Filter resources by module and search
+  // Filter resources by module/session and search
   const filteredResources = useMemo(() => {
     return resourceList.filter((resource: any) => {
+      const matchId = isLive ? resource.live_session_id : resource.module_id;
       const matchesModule = selectedModuleFilter === 'all' || 
-        String(resource.module_id) === selectedModuleFilter ||
-        (selectedModuleFilter === 'none' && !resource.module_id);
+        String(matchId) === selectedModuleFilter ||
+        (selectedModuleFilter === 'none' && !matchId);
       
       const matchesSearch = !searchTerm || 
         (resource.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -56,13 +63,18 @@ export default function CourseResourcesPage() {
       
       return matchesModule && matchesSearch;
     });
-  }, [resourceList, selectedModuleFilter, searchTerm]);
+  }, [resourceList, selectedModuleFilter, searchTerm, isLive]);
 
   const resetForm = () => {
     setTitle('');
     setDescription('');
     setExternalLink('');
     setFile(null);
+    setResourceType('file');
+    setAssignTo('none');
+    // Reset file input
+    const fileInput = document.getElementById('resource-file-input') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -73,27 +85,35 @@ export default function CourseResourcesPage() {
       return;
     }
 
-    if (!file && !externalLink.trim()) {
-      toast.error('Add a file or external link');
+    if (resourceType === 'file' && !file) {
+      toast.error('Please select a file to upload');
       return;
     }
 
-    // Create JSON payload instead of FormData
+    if (resourceType === 'link' && !externalLink.trim()) {
+      toast.error('Please enter an external link URL');
+      return;
+    }
+
     const payload: any = {
       title: title.trim(),
       description: description.trim() || '',
     };
 
-    if (externalLink.trim()) {
+    if (resourceType === 'link' && externalLink.trim()) {
       payload.external_link = externalLink.trim();
     }
 
-    if (file) {
+    if (resourceType === 'file' && file) {
       payload.file_upload = file;
     }
 
-    if (selectedModuleFilter !== 'all' && selectedModuleFilter !== 'none') {
-      payload.module_id = parseInt(selectedModuleFilter);
+    if (assignTo !== 'none') {
+      if (isLive) {
+        payload.live_session_id = parseInt(assignTo);
+      } else {
+        payload.module_id = parseInt(assignTo);
+      }
     }
 
     // Use the mutation
@@ -142,7 +162,7 @@ export default function CourseResourcesPage() {
               {course?.title || 'Course'} - Resources
             </h1>
             <p className="text-[var(--color-text-secondary)] mt-2 font-medium">
-              Upload files or add links organized by module
+              Upload files or add links organized by {isLive ? 'live session' : 'module'}
             </p>
           </div>
           <Badge variant="primary" className="text-sm">
@@ -162,13 +182,21 @@ export default function CourseResourcesPage() {
           onChange={(e) => setSelectedModuleFilter(e.target.value)}
           className="px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold min-w-[200px]"
         >
-          <option value="all">All Modules</option>
-          <option value="none">No Module (General)</option>
-          {modules.map((module: any) => (
-            <option key={module.id} value={String(module.id)}>
-              {module.order_number}. {module.title}
-            </option>
-          ))}
+          <option value="all">All {isLive ? 'Sessions' : 'Modules'}</option>
+          <option value="none">No {isLive ? 'Session' : 'Module'} (General)</option>
+          {isLive ? (
+            liveSessions.map((session: any) => (
+              <option key={session.id} value={String(session.id)}>
+                Day {session.day_number}: {session.title}
+              </option>
+            ))
+          ) : (
+            modules.map((module: any) => (
+              <option key={module.id} value={String(module.id)}>
+                {module.order_number}. {module.title}
+              </option>
+            ))
+          )}
         </select>
 
         <div className="flex-1 relative">
@@ -188,42 +216,130 @@ export default function CourseResourcesPage() {
         <h2 className="text-xl font-black text-[var(--color-text-primary)] mb-6 flex items-center gap-2">
           <Plus size={20} /> Add Resource
         </h2>
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Input
-            label="Title"
-            placeholder="Resource title"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            required
-          />
-          <Input
-            label="External Link"
-            placeholder="https://..."
-            value={externalLink}
-            onChange={(event) => setExternalLink(event.target.value)}
-          />
-          <div className="md:col-span-2">
+        <form onSubmit={handleSubmit} className="space-y-6">
+
+          {/* Resource Type Toggle */}
+          <div>
+            <label className="block text-xs font-black text-[var(--color-text-secondary)] uppercase tracking-widest mb-3">Resource Type</label>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setResourceType('file')}
+                className={`flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-sm border-2 transition-all ${
+                  resourceType === 'file'
+                    ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5 text-[var(--color-primary)]'
+                    : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-primary)]/40'
+                }`}
+              >
+                <Upload size={16} /> Upload File
+              </button>
+              <button
+                type="button"
+                onClick={() => setResourceType('link')}
+                className={`flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-sm border-2 transition-all ${
+                  resourceType === 'link'
+                    ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5 text-[var(--color-primary)]'
+                    : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-primary)]/40'
+                }`}
+              >
+                <ExternalLink size={16} /> External Link
+              </button>
+            </div>
+          </div>
+
+          {/* Title + Assign To */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Input
-              label="Description"
-              placeholder="Optional description"
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
+              label="Title *"
+              placeholder="e.g. Week 1 Slides, Reference Article"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
             />
+            <div>
+              <label className="block text-sm font-bold text-[var(--color-text-primary)] mb-2">
+                Assign to {isLive ? 'Session' : 'Module'}
+              </label>
+              <select
+                value={assignTo}
+                onChange={(e) => setAssignTo(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg)] text-sm font-semibold outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)]/40"
+              >
+                <option value="none">General (no {isLive ? 'session' : 'module'})</option>
+                {isLive ? (
+                  liveSessions.map((s: any) => (
+                    <option key={s.id} value={String(s.id)}>Day {s.day_number}: {s.title}</option>
+                  ))
+                ) : (
+                  modules.map((m: any) => (
+                    <option key={m.id} value={String(m.id)}>{m.order_number}. {m.title}</option>
+                  ))
+                )}
+              </select>
+            </div>
           </div>
-          <div className="md:col-span-2">
-            <label className="block text-sm font-bold text-[var(--color-text-primary)] mb-2">Upload File</label>
-            <input
-              type="file"
-              onChange={(event) => setFile(event.target.files?.[0] || null)}
-              className="w-full border border-[var(--color-border)] rounded-xl p-3 bg-[var(--color-bg)] cursor-pointer"
-            />
-            {file && (
-              <p className="text-xs text-[var(--color-text-secondary)] mt-1">
-                Selected: {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+
+          {/* Description */}
+          <Input
+            label="Description"
+            placeholder="Optional description (shown to students)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+
+          {/* File Upload or External Link */}
+          {resourceType === 'file' ? (
+            <div>
+              <label className="block text-sm font-bold text-[var(--color-text-primary)] mb-2">Upload File *</label>
+              <label
+                htmlFor="resource-file-input"
+                className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-2xl cursor-pointer transition-all ${
+                  file
+                    ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5'
+                    : 'border-[var(--color-border)] hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-primary)]/5'
+                }`}
+              >
+                {file ? (
+                  <>
+                    <FileText size={28} className="text-[var(--color-primary)] mb-2" />
+                    <p className="text-sm font-bold text-[var(--color-primary)]">{file.name}</p>
+                    <p className="text-xs text-[var(--color-text-secondary)] mt-1">{(file.size / 1024 / 1024).toFixed(2)} MB · Click to change</p>
+                  </>
+                ) : (
+                  <>
+                    <Upload size={28} className="text-[var(--color-text-secondary)] mb-2" />
+                    <p className="text-sm font-semibold text-[var(--color-text-secondary)]">Click to select a file</p>
+                    <p className="text-xs text-[var(--color-text-secondary)] mt-1">PDF, Video, Image, ZIP, and more</p>
+                  </>
+                )}
+                <input
+                  id="resource-file-input"
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                />
+              </label>
+              <p className="text-xs text-[var(--color-text-secondary)] mt-2 flex items-center gap-1">
+                <FileText size={11} /> Uploaded files will open directly in the student view (no new tab).
               </p>
-            )}
-          </div>
-          <div className="md:col-span-2 flex gap-4">
+            </div>
+          ) : (
+            <div>
+              <Input
+                label="External URL *"
+                placeholder="https://docs.google.com/..."
+                value={externalLink}
+                onChange={(e) => setExternalLink(e.target.value)}
+                type="url"
+              />
+              <p className="text-xs text-[var(--color-text-secondary)] mt-2 flex items-center gap-1">
+                <ExternalLink size={11} /> External links will open in a new tab for students.
+              </p>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex gap-4 pt-2">
             <Button type="submit" size="lg" loading={creating} className="rounded-xl">
               <Upload size={16} className="mr-2" /> Add Resource
             </Button>
@@ -262,7 +378,7 @@ export default function CourseResourcesPage() {
                     </h3>
                     <div className="space-y-3">
                       {filteredResources
-                        .filter((r: any) => !r.module_id)
+                        .filter((r: any) => !(isLive ? r.live_session_id : r.module_id))
                         .map((resource: any) => (
                           <ResourceItem 
                             key={resource.id} 
@@ -276,34 +392,64 @@ export default function CourseResourcesPage() {
                   </div>
                 )}
                 
-                {/* Grouped by module */}
-                {modules.map((module: any) => {
-                  const moduleResources = filteredResources.filter(
-                    (r: any) => String(r.module_id) === String(module.id)
-                  );
-                  if (moduleResources.length === 0) return null;
-                  
-                  return (
-                    <div key={module.id}>
-                      <h3 className="text-sm font-black text-[#5A5A6E] uppercase tracking-widest mb-3 flex items-center gap-2">
-                        <BookOpen size={14} />
-                        Module {module.order_number}: {module.title}
-                        <Badge variant="outline" className="text-xs">{moduleResources.length}</Badge>
-                      </h3>
-                      <div className="space-y-3">
-                        {moduleResources.map((resource: any) => (
-                          <ResourceItem 
-                            key={resource.id} 
-                            resource={resource} 
-                            courseId={courseId}
-                            onDelete={deleteResource}
-                            isDeleting={deleting}
-                          />
-                        ))}
+                {/* Grouped by module/session */}
+                {isLive ? (
+                  liveSessions.map((session: any) => {
+                    const sessionResources = filteredResources.filter(
+                      (r: any) => String(r.live_session_id) === String(session.id)
+                    );
+                    if (sessionResources.length === 0) return null;
+                    
+                    return (
+                      <div key={session.id}>
+                        <h3 className="text-sm font-black text-[#5A5A6E] uppercase tracking-widest mb-3 flex items-center gap-2">
+                          <BookOpen size={14} />
+                          Day {session.day_number}: {session.title}
+                          <Badge variant="outline" className="text-xs">{sessionResources.length}</Badge>
+                        </h3>
+                        <div className="space-y-3">
+                          {sessionResources.map((resource: any) => (
+                            <ResourceItem 
+                              key={resource.id} 
+                              resource={resource} 
+                              courseId={courseId}
+                              onDelete={deleteResource}
+                              isDeleting={deleting}
+                            />
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                ) : (
+                  modules.map((module: any) => {
+                    const moduleResources = filteredResources.filter(
+                      (r: any) => String(r.module_id) === String(module.id)
+                    );
+                    if (moduleResources.length === 0) return null;
+                    
+                    return (
+                      <div key={module.id}>
+                        <h3 className="text-sm font-black text-[#5A5A6E] uppercase tracking-widest mb-3 flex items-center gap-2">
+                          <BookOpen size={14} />
+                          Module {module.order_number}: {module.title}
+                          <Badge variant="outline" className="text-xs">{moduleResources.length}</Badge>
+                        </h3>
+                        <div className="space-y-3">
+                          {moduleResources.map((resource: any) => (
+                            <ResourceItem 
+                              key={resource.id} 
+                              resource={resource} 
+                              courseId={courseId}
+                              onDelete={deleteResource}
+                              isDeleting={deleting}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </>
             ) : (
               // Flat list when filtering
@@ -381,14 +527,25 @@ function ResourceItem({ resource, courseId, onDelete, isDeleting }: {
       </div>
       <div className="flex items-center gap-3 flex-shrink-0">
         {href ? (
-          <a
-            href={href}
-            target="_blank"
-            rel="noreferrer"
-            className="px-3 py-2 rounded-lg text-sm font-bold text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 transition-colors"
-          >
-            {isExternal ? 'Open' : 'Download'}
-          </a>
+          isExternal ? (
+            <a
+              href={href}
+              target="_blank"
+              rel="noreferrer"
+              className="px-3 py-2 rounded-lg text-sm font-bold text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 transition-colors flex items-center gap-1"
+            >
+              <ExternalLink size={14} /> Open
+            </a>
+          ) : (
+            <a
+              href={href}
+              target="_blank"
+              rel="noreferrer"
+              className="px-3 py-2 rounded-lg text-sm font-bold text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 transition-colors flex items-center gap-1"
+            >
+              <Download size={14} /> Download/View
+            </a>
+          )
         ) : null}
         <Button
           variant="ghost"

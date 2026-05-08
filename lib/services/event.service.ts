@@ -36,8 +36,13 @@ export const eventService = {
     return data;
   },
 
-  getRegistrations: async () => {
-    const { data } = await api.get('/registrations/');
+  getRegistrations: async (eventId?: number) => {
+    const { data } = await api.get('/registrations/', { params: eventId ? { event: eventId } : {} });
+    return data;
+  },
+
+  deleteRegistration: async (id: number) => {
+    const { data } = await api.delete(`/registrations/${id}/`);
     return data;
   },
 };

@@ -20,6 +20,7 @@ import { useEffect, useState } from 'react';
 const studentLinks = [
   { href: '/student/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/student/courses', label: 'My Courses', icon: BookOpen },
+  { href: '/student/events', label: 'Events', icon: Calendar },
   { href: '/student/progress', label: 'Progress', icon: TrendingUp },
   { href: '/student/badges', label: 'Badges', icon: Award },
   { href: '/student/assessments', label: 'Assessments', icon: ClipboardList },

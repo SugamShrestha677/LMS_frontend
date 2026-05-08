@@ -36,6 +36,7 @@ export default function TutorCourseEditPage() {
       description: '',
       short_description: '',
       category: '',
+      course_type: 'self_paced',
       status: 'draft',
       level: 'beginner',
       duration_weeks: 4,
@@ -57,6 +58,7 @@ export default function TutorCourseEditPage() {
       setValue('description', course.description || course.short_description || '');
       setValue('short_description', course.short_description || '');
       setValue('category', course.category || '');
+      setValue('course_type', course.course_type || 'self_paced');
       setValue('status', getStatus(course));
       setValue('level', course.level || 'beginner');
       setValue('duration_weeks', course.duration_weeks || 4);
@@ -74,6 +76,7 @@ export default function TutorCourseEditPage() {
     formData.append('title', data.title);
     formData.append('description', data.description || course.description || course.short_description || '');
     formData.append('short_description', data.short_description || course.short_description || '');
+    formData.append('course_type', data.course_type);
     if (data.category) formData.append('category', String(parseInt(data.category)));
     formData.append('status', data.status);
     formData.append('level', data.level);
@@ -189,6 +192,17 @@ export default function TutorCourseEditPage() {
               {...register('category')} 
               disabled={true}
               helper="Category is fixed after creation."
+            />
+
+            <Select 
+              label="Course Type" 
+              options={[
+                { value: 'self_paced', label: 'Self-Paced (Pre-recorded)' },
+                { value: 'live', label: 'Live Sessions' },
+              ]} 
+              {...register('course_type')} 
+              disabled={true}
+              helper="Course format is set by administrators."
             />
 
             <Select 
