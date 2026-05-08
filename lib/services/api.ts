@@ -40,7 +40,16 @@ api.interceptors.request.use(
 
 // ── Response interceptor — silent token refresh on 401 ────────────────────────
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Globally unwrap the 'data' field from api_success responses
+    if (response.data && typeof response.data === 'object' && 'success' in response.data && 'data' in response.data) {
+      return {
+        ...response,
+        data: response.data.data
+      };
+    }
+    return response;
+  },
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & {
       _retry?: boolean;

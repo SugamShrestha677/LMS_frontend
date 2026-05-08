@@ -1,10 +1,11 @@
-import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
+import { useAuthStore } from "@/lib/store/auth-store";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
 
 export const api = axios.create({
   baseURL: API_URL,
-  headers: { 'Content-Type': 'application/json' },
+  headers: { "Content-Type": "application/json" },
   timeout: 15000,
 });
 
@@ -25,8 +26,8 @@ const processQueue = (error: unknown, token: string | null = null) => {
 // Request interceptor — attach Bearer token
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('access_token');
+    if (typeof window !== "undefined") {
+      const token = localStorage.getItem("access_token");
       if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -60,28 +61,47 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const refreshToken = localStorage.getItem('refresh_token');
-        if (!refreshToken) throw new Error('No refresh token');
+        const refreshToken = localStorage.getItem("refresh_token");
+        if (!refreshToken) throw new Error("No refresh token");
 
-        const { data } = await axios.post(`${API_URL}/auth/token/refresh/`, {
-          refresh: refreshToken,
-        });
+        const { data } = await axios.post(
+          `${API_URL}/accounts/auth/token/refresh`,
+          {
+            refresh: refreshToken,
+          },
+        );
 
         const newAccess: string = data.access;
-        localStorage.setItem('access_token', newAccess);
+        const newRefresh: string = data.refresh ?? refreshToken;
+
+        if (typeof window !== "undefined") {
+          localStorage.setItem("access_token", newAccess);
+          localStorage.setItem("refresh_token", newRefresh);
+        }
+
+        // Update zustand store if available
+        try {
+          const store = useAuthStore.getState();
+          if (store?.setAccessToken) store.setAccessToken(newAccess);
+          if (store?.setRefreshToken) store.setRefreshToken(newRefresh);
+        } catch (e) {
+          // ignore store update errors
+        }
+
         api.defaults.headers.common.Authorization = `Bearer ${newAccess}`;
         processQueue(null, newAccess);
 
+        originalRequest.headers = originalRequest.headers || {};
         originalRequest.headers.Authorization = `Bearer ${newAccess}`;
         return api(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
         // Auto logout
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('user');
-        if (typeof window !== 'undefined') {
-          window.location.href = '/login';
+        localStorage.removeItem("access_token");
+        localStorage.removeItem("refresh_token");
+        localStorage.removeItem("user");
+        if (typeof window !== "undefined") {
+          window.location.href = "/login";
         }
         return Promise.reject(refreshError);
       } finally {
