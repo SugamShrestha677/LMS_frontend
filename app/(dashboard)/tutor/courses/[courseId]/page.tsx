@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { 
   BookOpen, Edit2, PlayCircle, Users, Clock, 
   BarChart3, FolderOpen, UploadCloud, FileText,
-  GraduationCap, ChevronRight, Plus
+  GraduationCap, ChevronRight, Plus, Radio
 } from 'lucide-react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
@@ -39,11 +39,15 @@ export default function CourseDetailPage() {
   }
 
   const quickLinks = [
-    { label: 'Modules', href: `/tutor/courses/${courseId}/modules`, icon: FolderOpen, count: course.total_modules || 0 },
+    ...(course.course_type === 'live' 
+      ? [{ label: 'Live Sessions', href: `/tutor/courses/${courseId}/live-sessions`, icon: Radio, count: 'Sessions' }]
+      : [
+          { label: 'Modules', href: `/tutor/courses/${courseId}/modules`, icon: FolderOpen, count: course.total_modules || 0 },
+          { label: 'SCORM', href: `/tutor/courses/${courseId}/scorm`, icon: UploadCloud, count: course.is_scorm ? 'Active' : 'Setup' }
+        ]),
     { label: 'Resources', href: `/tutor/courses/${courseId}/resources`, icon: FileText, count: 'Files' },
     { label: 'Assessments', href: `/tutor/courses/${courseId}/assessments`, icon: GraduationCap, count: course.total_quizzes || 0 },
     { label: 'Announcements', href: `/tutor/courses/${courseId}/announcements`, icon: BookOpen, count: 'Posts' },
-    { label: 'SCORM', href: `/tutor/courses/${courseId}/scorm`, icon: UploadCloud, count: course.is_scorm ? 'Active' : 'Setup' },
   ];
 
   return (
@@ -70,9 +74,11 @@ export default function CourseDetailPage() {
           <Button variant="outline" onClick={() => router.push(`/tutor/courses/${courseId}/edit`)}>
             <Edit2 size={16} className="mr-2" /> Edit
           </Button>
-          <Button onClick={() => router.push(`/tutor/courses/${courseId}/modules/create`)}>
-            <Plus size={16} className="mr-2" /> Add Module
-          </Button>
+          {course.course_type !== 'live' && (
+            <Button onClick={() => router.push(`/tutor/courses/${courseId}/modules/create`)}>
+              <Plus size={16} className="mr-2" /> Add Module
+            </Button>
+          )}
         </div>
       </div>
 

@@ -30,6 +30,7 @@ export default function AdminCoursesPage() {
 
   const { register, handleSubmit, reset, setValue, watch, control } = useForm({
     defaultValues: {
+      course_type: 'self_paced',
       is_free: true,
       price: 0,
       max_students: 50,
@@ -91,6 +92,7 @@ export default function AdminCoursesPage() {
     formData.append('title', data.title);
     formData.append('description', data.description || data.title);
     formData.append('short_description', data.description || data.title);
+    formData.append('course_type', data.course_type);
     if (data.instructor) formData.append('instructor', String(data.instructor));
     if (data.category) formData.append('category', String(data.category));
     formData.append('status', data.status);
@@ -117,6 +119,7 @@ export default function AdminCoursesPage() {
     formData.append('title', data.title);
     formData.append('description', data.description || selectedCourse.description || selectedCourse.short_description || '');
     formData.append('short_description', data.description || selectedCourse.short_description || '');
+    formData.append('course_type', data.course_type);
     if (data.instructor) formData.append('instructor', String(data.instructor));
     if (data.category) formData.append('category', String(data.category));
     formData.append('status', data.status);
@@ -141,6 +144,7 @@ export default function AdminCoursesPage() {
     setValue('title', course.title || course.name || '');
     setValue('description', course.description || course.short_description || '');
     setValue('category', course.category || '');
+    setValue('course_type', course.course_type || 'self_paced');
     
     const instructorId = typeof course.instructor === 'object' ? course.instructor?.id : (course.instructor || course.instructor_id || course.tutor);
     setValue('instructor', instructorId || '');
@@ -318,6 +322,14 @@ export default function AdminCoursesPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Select 
+              label="Course Type" 
+              options={[
+                { value: 'self_paced', label: 'Self-Paced (Pre-recorded)' },
+                { value: 'live', label: 'Live Sessions' },
+              ]} 
+              {...register('course_type')} 
+            />
+            <Select 
               label="Initial Status" 
               options={[
                 { value: 'draft', label: 'Draft' },
@@ -326,6 +338,9 @@ export default function AdminCoursesPage() {
               ]} 
               {...register('status')} 
             />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input label="Max Students" type="number" {...register('max_students')} />
           </div>
 
@@ -398,6 +413,14 @@ export default function AdminCoursesPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Select 
+              label="Course Type" 
+              options={[
+                { value: 'self_paced', label: 'Self-Paced (Pre-recorded)' },
+                { value: 'live', label: 'Live Sessions' },
+              ]} 
+              {...register('course_type')} 
+            />
+            <Select 
               label="Course Status" 
               options={[
                 { value: 'draft', label: 'Draft' },
@@ -406,6 +429,9 @@ export default function AdminCoursesPage() {
               ]} 
               {...register('status')} 
             />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input label="Max Students" type="number" {...register('max_students')} />
           </div>
 

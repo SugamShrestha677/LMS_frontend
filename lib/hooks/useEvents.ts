@@ -78,7 +78,48 @@ export const useRegisterForEvent = () => {
     onSuccess: (data, id) => {
       queryClient.invalidateQueries({ queryKey: ['events'] });
       queryClient.invalidateQueries({ queryKey: ['events', id] });
-      toast.success('Registered for event');
+      toast.success('Successfully registered for event!');
     },
+    onError: (error: any) => {
+      const msg = error?.response?.data?.message || 'Failed to register';
+      toast.error(msg);
+    },
+  });
+};
+
+export const useUnregisterFromEvent = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => eventService.unregisterFromEvent(id),
+    onSuccess: (data, id) => {
+      queryClient.invalidateQueries({ queryKey: ['events'] });
+      queryClient.invalidateQueries({ queryKey: ['events', id] });
+      toast.success('Registration cancelled');
+    },
+    onError: (error: any) => {
+      const msg = error?.response?.data?.message || 'Failed to cancel registration';
+      toast.error(msg);
+    },
+  });
+};
+
+export const useDeleteRegistration = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => eventService.deleteRegistration(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['registrations'] });
+      toast.success('Attendee removed from event');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to remove attendee');
+    },
+  });
+};
+
+export const useEventRegistrations = (eventId?: number) => {
+  return useQuery({
+    queryKey: ['registrations', eventId],
+    queryFn: () => eventService.getRegistrations(eventId),
   });
 };

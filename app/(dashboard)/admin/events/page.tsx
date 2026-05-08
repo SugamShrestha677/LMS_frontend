@@ -13,12 +13,14 @@ import { useForm } from 'react-hook-form';
 import { useEvents, useCreateEvent, useUpdateEvent, useDeleteEvent } from '@/lib/hooks/useEvents';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { useRouter } from 'next/navigation';
 
 export default function AdminEventsPage() {
   const { data: eventsData, isLoading } = useEvents();
   const { mutate: createEvent, isPending: isCreating } = useCreateEvent();
   const { mutate: updateEvent, isPending: isUpdating } = useUpdateEvent();
   const { mutate: deleteEvent } = useDeleteEvent();
+  const router = useRouter();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -180,20 +182,31 @@ export default function AdminEventsPage() {
                     </div>
                   </div>
 
-                  <div className="mt-auto flex gap-4">
+                  <div className="mt-auto space-y-3">
                     <Button 
-                      variant="outline" 
-                      onClick={() => openEditModal(event)}
-                      className="flex-1 rounded-2xl h-12 border-2 font-black text-xs uppercase tracking-widest hover:bg-[var(--color-primary)]/5"
+                      variant="primary" 
+                      onClick={() => router.push(`/admin/events/${event.id}/registrations`)}
+                      className="w-full rounded-2xl h-12 font-black text-xs uppercase tracking-widest shadow-lg shadow-[var(--color-primary)]/20"
                     >
-                      <Edit2 size={16} className="mr-2" /> Edit
+                      <Users size={16} className="mr-2" /> View Registrations
                     </Button>
-                    <button 
-                      onClick={() => handleDelete(event.id)}
-                      className="w-12 h-12 rounded-2xl border-2 border-red-500/20 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"
-                    >
-                      <Trash2 size={18} />
-                    </button>
+                    {event.actual_status !== 'completed' && event.status !== 'completed' && (
+                      <div className="flex gap-4">
+                        <Button 
+                          variant="outline" 
+                          onClick={() => openEditModal(event)}
+                          className="flex-1 rounded-2xl h-12 border-2 font-black text-xs uppercase tracking-widest hover:bg-[var(--color-primary)]/5"
+                        >
+                          <Edit2 size={16} className="mr-2" /> Edit
+                        </Button>
+                        <button 
+                          onClick={() => handleDelete(event.id)}
+                          className="w-12 h-12 rounded-2xl border-2 border-red-500/20 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </Card>
               </motion.div>

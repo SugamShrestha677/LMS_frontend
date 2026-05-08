@@ -322,8 +322,6 @@ export const useCreateCourseResource = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ courseId, data }: { courseId: number; data: any }) => {
-      const isFormData = data instanceof FormData;
-      
       // If file is present, use FormData
       if (data.file_upload || data instanceof FormData) {
         const formData = data instanceof FormData ? data : new FormData();
@@ -333,6 +331,7 @@ export const useCreateCourseResource = () => {
           if (data.description) formData.append('description', data.description);
           if (data.external_link) formData.append('external_link', data.external_link);
           if (data.module_id) formData.append('module_id', String(data.module_id));
+          if (data.live_session_id) formData.append('live_session_id', String(data.live_session_id));
           if (data.file_upload) formData.append('file_upload', data.file_upload);
         }
         

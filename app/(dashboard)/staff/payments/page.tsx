@@ -182,7 +182,7 @@ export default function StaffPaymentsPage() {
                     <td className="px-6 py-5">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-[var(--color-primary)]/10 text-[var(--color-primary)] flex items-center justify-center font-black text-xs">
-                          {payment.student_name?.toUpperCase()}
+                          {payment.student_name?.slice(0, 2).toUpperCase()}
                         </div>
                         <div>
                           <p className="text-sm font-black text-[var(--color-text-primary)] group-hover:text-[var(--color-primary)] transition-colors tracking-tight">{payment.student_name}</p>

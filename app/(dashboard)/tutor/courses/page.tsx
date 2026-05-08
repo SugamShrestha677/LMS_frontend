@@ -12,7 +12,7 @@ import { TableSkeleton } from '@/components/ui/Skeleton';
 import { 
   BookOpen, Plus, Search, Edit2, PlayCircle, Clock, 
   UploadCloud, FolderOpen, Eye, MoreHorizontal, 
-  Users, BarChart3, Trash2, Copy, ExternalLink 
+  Users, BarChart3, Trash2, Copy, ExternalLink, Radio
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useForm, Controller } from 'react-hook-form';
@@ -249,7 +249,6 @@ export default function TutorCoursesPage() {
                     </div>
                   </div>
 
-                  {/* Actions */}
                   <div className="flex items-center gap-2 pt-4 border-t border-[var(--color-border)]">
                     <Button
                       variant="ghost"
@@ -262,17 +261,32 @@ export default function TutorCoursesPage() {
                     >
                       <Eye size={14} className="mr-1" /> View
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="flex-1"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/tutor/courses/${course.id}/modules`);
-                      }}
-                    >
-                      <FolderOpen size={14} className="mr-1" /> Modules
-                    </Button>
+                    {course.course_type !== 'live' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="flex-1"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/tutor/courses/${course.id}/modules`);
+                        }}
+                      >
+                        <FolderOpen size={14} className="mr-1" /> Modules
+                      </Button>
+                    )}
+                    {course.course_type === 'live' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="flex-1 text-red-500 hover:text-red-600 hover:bg-red-50"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/tutor/courses/${course.id}/live-sessions`);
+                        }}
+                      >
+                        <Radio size={14} className="mr-1" /> Live
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"
