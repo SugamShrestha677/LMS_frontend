@@ -55,6 +55,21 @@ const fileTypeOptions = [
   { value: 'png', label: 'PNG' },
 ];
 
+type AssessmentQuestion =
+  | {
+      type: 'mcq';
+      question: string;
+      options: string[];
+      correct: number;
+      points: number;
+    }
+  | {
+      type: 'long_answer';
+      question: string;
+      points: number;
+      word_limit?: number;
+    };
+
 export default function CreateAssessmentPage() {
   const params = useParams();
   const router = useRouter();
@@ -74,7 +89,7 @@ export default function CreateAssessmentPage() {
   const [selectedType, setSelectedType] = useState('quiz');
   const [allowedFileTypes, setAllowedFileTypes] = useState<string[]>(['pdf']);
   
-  const { register, handleSubmit, control, watch, setValue, formState: { errors } } = useForm({
+  const { register, handleSubmit, control, watch, setValue, formState: { errors } } = useForm<{ questions: AssessmentQuestion[]; assessment_type: string } & Record<string, any>>({
     defaultValues: {
       assessment_type: 'quiz',
       max_score: 100,
@@ -223,7 +238,7 @@ export default function CreateAssessmentPage() {
             <Input 
               label="Title" 
               {...register('title', { required: 'Title is required' })} 
-              error={errors.title?.message}
+              error={errors.title?.message as string | undefined}
               placeholder="e.g., Final Examination"
             />
             <div className="space-y-1">

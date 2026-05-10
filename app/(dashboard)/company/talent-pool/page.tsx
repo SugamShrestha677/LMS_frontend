@@ -20,8 +20,19 @@ export default function TalentPool() {
   const { data: candidates, isLoading } = useTalentPool(filters);
   const [searchQuery, setSearchQuery] = useState('');
 
+  type Candidate = {
+    id: number;
+    name: string;
+    role: string;
+    location: string;
+    match_score: number;
+    badges: string[];
+    education: string;
+    experience: string;
+  };
+
   // Mock data for demonstration
-  const displayCandidates = candidates ?? [
+  const displayCandidates: Candidate[] = candidates ?? [
     { 
       id: 1, 
       name: 'Prabhat Gurung', 
@@ -119,7 +130,7 @@ export default function TalentPool() {
         <AnimatePresence>
           {isLoading ? (
             [...Array(4)].map((_, i) => <Skeleton key={i} className="h-64 w-full" rounded="lg" />)
-          ) : displayCandidates.map((candidate, idx) => (
+          ) : displayCandidates.map((candidate: Candidate, idx: number) => (
             <motion.div
               key={candidate.id}
               initial={{ opacity: 0, y: 20 }}
@@ -175,7 +186,7 @@ export default function TalentPool() {
                     <div>
                       <p className="text-[10px] font-black text-[#5A5A6E] uppercase tracking-wider mb-2">Verified Badges</p>
                       <div className="flex flex-wrap gap-2">
-                        {candidate.badges.map(badge => (
+                        {candidate.badges.map((badge: string) => (
                           <Badge key={badge} variant="primary" size="sm">{badge}</Badge>
                         ))}
                       </div>

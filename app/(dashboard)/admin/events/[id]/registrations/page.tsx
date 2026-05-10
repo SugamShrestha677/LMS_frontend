@@ -1,6 +1,7 @@
 'use client';
 
 import { useEvent, useEventRegistrations } from '@/lib/hooks/useEvents';
+import { useDeleteRegistration } from '@/lib/hooks/useEvents';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { TableSkeleton } from '@/components/ui/Skeleton';

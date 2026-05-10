@@ -9,6 +9,7 @@ import {
   CheckCircle2, AlertCircle, Calendar, Shield
 } from 'lucide-react';
 import Link from 'next/link';
+import type { StaffPermission } from '@/lib/types/auth';
 
 const container = {
   hidden: { opacity: 0 },
@@ -21,7 +22,17 @@ const item = {
 
 export default function StaffDashboard() {
   const { user } = useAuthStore();
-  const permissions = user?.permissions || {};
+  const permissions: StaffPermission = user?.permissions ?? {
+    can_create_users: false,
+    can_manage_courses: false,
+    can_manage_students: false,
+    can_manage_tutors: false,
+    can_manage_companies: false,
+    can_manage_payments: false,
+    can_manage_settings: false,
+    can_view_analytics: false,
+    course_scope: 'all',
+  };
 
   const filteredStatCards = [
     {

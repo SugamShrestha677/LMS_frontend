@@ -209,4 +209,50 @@ export function useResetPassword() {
       toast.error(message);
     },
   });
-}
+}
+
+
+export function useVerifyEmail() {
+  const router = useRouter();
+
+  return useMutation({
+    mutationFn: (data: { email: string; otp: string }) =>
+      authService.verifyEmail(data),
+
+    onSuccess: (response: any) => {
+      toast.success(response.message || 'Email verified successfully!');
+      router.push('/login');
+    },
+
+    onError: (error: any) => {
+      const message =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.response?.data?.detail ||
+        'Verification failed';
+
+      toast.error(message);
+    },
+  });
+}
+
+export function useResendOtp() {
+  return useMutation({
+    mutationFn: (data: { email: string }) =>
+      authService.resendOtp(data),
+
+    onSuccess: (response: any) => {
+      toast.success(response.message || 'OTP resent successfully!');
+    },
+
+    onError: (error: any) => {
+      const message =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.response?.data?.detail ||
+        'Failed to resend OTP';
+
+      toast.error(message);
+    },
+  });
+}

@@ -15,11 +15,26 @@ import { useState } from 'react';
 import { formatDate } from '@/lib/utils';
 
 export default function StudentJobs() {
-  const { data: jobs, isLoading } = useStudentJobs();
+  type JobItem = {
+    id: number;
+    title: string;
+    company: string;
+    location: string;
+    salary: string;
+    type: string;
+    match: number;
+    posted: string;
+    required_badges: string[];
+  };
+
+  const { data: jobs, isLoading } = useStudentJobs() as {
+    data: JobItem[] | undefined;
+    isLoading: boolean;
+  };
   const [filterMode, setFilterMode] = useState<'all' | 'matched'>('matched');
 
   // Mock matched jobs logic for demonstration
-  const displayJobs = jobs ?? [
+  const displayJobs: JobItem[] = jobs ?? [
     { 
       id: 1, 
       title: 'Senior Frontend Engineer', 
@@ -55,8 +70,8 @@ export default function StudentJobs() {
     }
   ];
 
-  const filteredJobs = filterMode === 'matched' 
-    ? displayJobs.filter(j => j.match >= 70) 
+  const filteredJobs: JobItem[] = filterMode === 'matched' 
+    ? displayJobs.filter((j: JobItem) => j.match >= 70) 
     : displayJobs;
 
   return (

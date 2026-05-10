@@ -21,14 +21,53 @@ import { formatDate } from '@/lib/utils';
 import Link from 'next/link';
 
 export default function StudentDashboard() {
+  type ActivityPoint = {
+    name: string;
+    hours: number;
+  };
+
+  type OngoingCourse = {
+    id: number;
+    title: string;
+    progress: number | string;
+    next_lesson?: string;
+  };
+
+  type RecentBadge = {
+    id: number;
+    name: string;
+    date: string;
+  };
+
+  type StudentDashboardData = {
+    activity_data?: ActivityPoint[];
+    recent_badges?: RecentBadge[];
+    ongoing_courses?: OngoingCourse[];
+    stats?: {
+      credits_xp?: number | string;
+      total_courses?: number | string;
+      total_badges?: number | string;
+      avg_score?: number | string;
+      study_hours?: number | string;
+    };
+    notice?: {
+      message?: string;
+    };
+    job_matches_count?: number;
+  };
+
   const { user } = useAuthStore();
-  const { data: dashboard, isLoading } = useStudentDashboard();
+  const { data: dashboard, isLoading } = useStudentDashboard() as {
+    data: StudentDashboardData | undefined;
+    isLoading: boolean;
+  };
 
   if (isLoading) return <DashboardSkeleton />;
 
-  const chartData = dashboard?.activity_data ?? [];
-  const recentBadges = dashboard?.recent_badges ?? [];
-  const ongoingCourses = dashboard?.ongoing_courses ?? [];
+  const chartData: ActivityPoint[] = dashboard?.activity_data ?? [];
+  const recentBadges: RecentBadge[] = dashboard?.recent_badges ?? [];
+  const ongoingCourses: OngoingCourse[] = dashboard?.ongoing_courses ?? [];
+  const jobMatchesCount = dashboard?.job_matches_count ?? 0;
 
   return (
     <div className="space-y-8 pb-12">
@@ -184,7 +223,7 @@ export default function StudentDashboard() {
               </Card>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {ongoingCourses.map((course) => (
+                {ongoingCourses.map((course: OngoingCourse) => (
                   <Card key={course.id} hover className="p-6">
                     <div className="flex justify-between items-start mb-6">
                       <Badge variant="primary" size="sm" dot pulse>In Progress</Badge>
@@ -194,7 +233,7 @@ export default function StudentDashboard() {
                     <p className="text-[10px] font-bold text-[var(--color-text-secondary)] mb-6 flex items-center gap-1.5 uppercase tracking-widest">
                       <Calendar size={12} className="text-[var(--color-primary)]" /> Next: {course.next_lesson}
                     </p>
-                    <ProgressBar value={course.progress} className="mb-6" color="var(--color-primary)" />
+                    <ProgressBar value={Number(course.progress)} className="mb-6" color="var(--color-primary)" />
                     <Button variant="primary" size="md" fullWidth>
                       Continue Journey
                     </Button>
@@ -262,7 +301,7 @@ export default function StudentDashboard() {
             </Card>
           )}
 
-          {(dashboard?.job_matches_count ?? 0) > 0 && (
+          {jobMatchesCount > 0 && (
             <Card className="p-8 border-dashed border-2 border-[var(--color-primary)]/20 bg-[var(--color-primary)]/5">
               <div className="flex items-center gap-4 mb-6">
                 <div className="w-12 h-12 rounded-2xl bg-[var(--color-primary)] flex items-center justify-center text-white shadow-lg shadow-[var(--color-primary)]/20">
@@ -274,7 +313,7 @@ export default function StudentDashboard() {
                 </div>
               </div>
               <p className="text-sm text-[var(--color-text-secondary)] font-medium mb-8 leading-relaxed">
-                Our algorithm identified <span className="font-black text-[var(--color-primary)]">{dashboard.job_matches_count} exclusive job openings</span> that perfectly align with your verified skill set.
+                Our algorithm identified <span className="font-black text-[var(--color-primary)]">{jobMatchesCount} exclusive job openings</span> that perfectly align with your verified skill set.
               </p>
               <Link href="/student/jobs" className="group">
                 <Button variant="primary" fullWidth size="md">

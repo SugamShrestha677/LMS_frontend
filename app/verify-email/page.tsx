@@ -54,7 +54,7 @@ function VerifyEmailContent() {
 
   const handleResend = () => {
     if (email) {
-      resend(email, {
+      resend({ email }, {
         onSuccess: () => {
           setTimer(60);
           setCanResend(false);

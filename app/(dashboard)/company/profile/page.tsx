@@ -10,7 +10,7 @@ import { motion } from 'framer-motion';
 import { 
   Building2, Mail, Globe, MapPin, 
   Users, Briefcase, Star, Edit, 
-  Camera, PlusCircle, ExternalLink, ShieldCheck
+  Camera, PlusCircle, ExternalLink, ShieldCheck, ChevronRight
 } from 'lucide-react';
 import { getInitials } from '@/lib/utils';
 
