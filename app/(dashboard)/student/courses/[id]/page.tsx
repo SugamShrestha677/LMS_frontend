@@ -37,7 +37,79 @@ export default function CoursePlayer() {
   const [activeTab, setActiveTab] = useState<'content' | 'resources' | 'assignments' | 'announcements' | 'live'>('content');
   const courseId = Number(params.id);
 
-  const { data: course, isLoading } = useStudentCourse(courseId);
+  type CourseData = {
+    id: number;
+    title?: string;
+    description?: string;
+    short_description?: string;
+    price?: number | string;
+    is_free?: boolean;
+    is_scorm?: boolean;
+    course_type?: 'live' | 'self_paced';
+    scorm_launch_url?: string;
+    scorm_launch_error?: string;
+    modules?: Array<{
+      id: number;
+      title: string;
+      description?: string;
+      contents?: Array<{
+        id: number;
+        title: string;
+        duration_minutes?: number;
+        content_type: string;
+        video_url?: string;
+        file_url?: string;
+        audio_url?: string;
+        external_link?: string;
+        body_text?: string;
+        description?: string;
+        scorm_course_id?: number;
+        scorm_status?: string;
+      }>;
+    }>;
+    assessments?: unknown[];
+  };
+
+  type LessonItem = {
+    id: number;
+    title: string;
+    duration: string;
+    locked: boolean;
+    contentType: string;
+    videoUrl?: string | null;
+    externalLink?: string | null;
+    bodyText?: string | null;
+    description?: string | null;
+    scormCourseId?: number;
+    scormStatus?: string;
+    isLiveSession?: boolean;
+    sessionData?: any;
+  };
+
+  type CurriculumSection = {
+    id: string | number;
+    title: string;
+    description?: string;
+    lessons: LessonItem[];
+  };
+
+  type ScormProgress = {
+    completion_amount?: number;
+  };
+
+  type Enrollment = {
+    id?: number;
+    course?: {
+      id?: number;
+    };
+    progress_percentage?: number | string;
+    completed_contents?: number[];
+  };
+
+  const { data: course, isLoading } = useStudentCourse(courseId) as {
+    data: CourseData | undefined;
+    isLoading: boolean;
+  };
 
   const { data: enrolledCourses } = useEnrolledCourses();
   const { mutate: enrollCourse, isPending: enrolling } = useEnrollCourse();
@@ -46,13 +118,20 @@ export default function CoursePlayer() {
   const { mutate: completeContent, isPending: completing } = useCompleteContent();
   const { data: liveSessionsData } = useLiveSessions(courseId);
   const liveSessions: any[] = Array.isArray(liveSessionsData) ? liveSessionsData : (liveSessionsData as any)?.data || [];
-  const enrollment = enrolledCourses?.find((item) => item.course?.id === courseId);
+  const enrolledCourseList: Enrollment[] = Array.isArray(enrolledCourses)
+    ? enrolledCourses
+    : (enrolledCourses as any)?.data || [];
+  const enrollment = enrolledCourseList.find((item: Enrollment) => item.course?.id === courseId);
   const isEnrolled = !!enrollment;
   const {
     data: scormProgress,
     refetch: refetchScormProgress,
     isFetching: fetchingScormProgress,
-  } = useScormProgress(courseId, isEnrolled && !!course?.is_scorm);
+  } = useScormProgress(courseId, isEnrolled && !!course?.is_scorm) as {
+    data: ScormProgress | undefined;
+    refetch: () => void;
+    isFetching: boolean;
+  };
 
   const { data: payments } = usePayments();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -112,7 +191,7 @@ export default function CoursePlayer() {
     return list;
   }, [announcementsData]);
 
-  const curriculum = useMemo(() => {
+  const curriculum: CurriculumSection[] = useMemo(() => {
     if (course?.course_type === 'live') {
       return [{
         id: 'live_sessions',
@@ -150,7 +229,7 @@ export default function CoursePlayer() {
     }));
   }, [course, isEnrolled]);
 
-  const allLessons = curriculum.flatMap((section) => section.lessons);
+  const allLessons: LessonItem[] = curriculum.flatMap((section) => section.lessons);
   const [activeLessonId, setActiveLessonId] = useState<number | null>(null);
   const [contentLaunchUrl, setContentLaunchUrl] = useState<string | null>(null);
   const [launchingContent, setLaunchingContent] = useState(false);
@@ -186,12 +265,14 @@ export default function CoursePlayer() {
 
   const activeModule = useMemo(() => {
     if (!activeLessonId) return null;
-    return curriculum.find(section => 
-      section.lessons.some(lesson => lesson.id === activeLessonId)
+    return curriculum.find((section: CurriculumSection) => 
+      section.lessons.some((lesson: LessonItem) => lesson.id === activeLessonId)
     );
   }, [curriculum, activeLessonId]);
 
-  const activeLesson = allLessons.find((lesson) => lesson.id === activeLessonId);
+  const activeLesson = allLessons.find((lesson: LessonItem) => lesson.id === activeLessonId);
+  const liveSession = activeLesson?.sessionData as any;
+  const currentModuleId = typeof activeModule?.id === 'number' ? activeModule.id : null;
 
   useEffect(() => {
     if (activeLesson?.scormCourseId && activeLesson?.scormStatus === 'finished') {
@@ -199,7 +280,10 @@ export default function CoursePlayer() {
         setLaunchingContent(true);
         try {
           const { courseService } = await import('@/lib/services/course.service');
-          const response = await courseService.launchContentScorm(courseId, activeModule?.id, activeLesson.id);
+          if (currentModuleId == null) {
+            return;
+          }
+          const response = await courseService.launchContentScorm(courseId, currentModuleId, activeLesson.id);
           if (response.success) {
             setContentLaunchUrl(response.data.launch_url);
           }
@@ -445,19 +529,19 @@ export default function CoursePlayer() {
                   <div className="flex justify-between items-start mb-6">
                     <div>
                       <Badge variant={
-                        activeLesson.sessionData.status === 'active' ? 'danger' :
-                        activeLesson.sessionData.status === 'completed' ? 'success' : 'secondary'
+                        liveSession.status === 'active' ? 'danger' :
+                        liveSession.status === 'completed' ? 'success' : 'secondary'
                       } className="mb-3 uppercase">
-                        {activeLesson.sessionData.status === 'active' ? 'Ongoing' : activeLesson.sessionData.status}
+                        {liveSession.status === 'active' ? 'Ongoing' : liveSession.status}
                       </Badge>
-                      <h2 className="text-2xl font-black text-[var(--color-text-primary)]">{activeLesson.sessionData.title}</h2>
+                      <h2 className="text-2xl font-black text-[var(--color-text-primary)]">{liveSession.title}</h2>
                       <p className="text-[var(--color-text-secondary)] mt-2 font-medium">
-                        {format(new Date(activeLesson.sessionData.date), 'MMMM d, yyyy')} • {activeLesson.sessionData.start_time?.slice(0, 5)} - {activeLesson.sessionData.end_time?.slice(0, 5)}
+                        {format(new Date(liveSession.date), 'MMMM d, yyyy')} • {liveSession.start_time?.slice(0, 5)} - {liveSession.end_time?.slice(0, 5)}
                       </p>
                     </div>
                   </div>
                   
-                  {activeLesson.sessionData.status === 'active' && activeLesson.sessionData.meet_link ? (
+                  {liveSession.status === 'active' && liveSession.meet_link ? (
                     <div className="bg-red-50 border border-red-100 rounded-2xl p-6 text-center">
                       <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
                         <Radio size={32} className="text-red-500" />
@@ -465,7 +549,7 @@ export default function CoursePlayer() {
                       <h3 className="font-bold text-red-900 mb-2">Class is ongoing!</h3>
                       <p className="text-red-700 text-sm mb-6 max-w-md mx-auto">Join the session now to participate in the live discussion.</p>
                       <a 
-                        href={activeLesson.sessionData.meet_link} 
+                        href={liveSession.meet_link} 
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="inline-flex items-center justify-center h-10 px-8 rounded-full bg-red-500 text-white font-bold hover:bg-red-600 transition-colors"
@@ -473,7 +557,7 @@ export default function CoursePlayer() {
                         Join Class
                       </a>
                     </div>
-                  ) : activeLesson.sessionData.status === 'completed' ? (
+                  ) : liveSession.status === 'completed' ? (
                     <div className="bg-green-50 border border-green-100 rounded-2xl p-6">
                       <h3 className="font-bold text-green-900 mb-4 flex items-center gap-2">
                         <CheckCircle2 className="text-green-500" /> Class Completed
@@ -482,13 +566,13 @@ export default function CoursePlayer() {
                         <div className="bg-white p-4 rounded-xl border border-green-100">
                           <p className="text-xs text-green-700 font-bold mb-1 uppercase tracking-wider">Your Attendance</p>
                           <p className="font-medium text-green-900 capitalize">
-                            {activeLesson.sessionData.student_attendance?.status || 'Not Marked'}
+                            {liveSession.student_attendance?.status || 'Not Marked'}
                           </p>
                         </div>
-                        {activeLesson.sessionData.recording_link && (
+                        {liveSession.recording_link && (
                           <div className="bg-white p-4 rounded-xl border border-green-100">
                             <p className="text-xs text-green-700 font-bold mb-1 uppercase tracking-wider">Recording</p>
-                            <a href={activeLesson.sessionData.recording_link} target="_blank" rel="noopener noreferrer" className="text-[var(--color-primary)] font-medium hover:underline inline-flex items-center gap-1">
+                            <a href={liveSession.recording_link} target="_blank" rel="noopener noreferrer" className="text-[var(--color-primary)] font-medium hover:underline inline-flex items-center gap-1">
                               Watch Recording <ExternalLink size={14} />
                             </a>
                           </div>
@@ -503,27 +587,27 @@ export default function CoursePlayer() {
                     </div>
                   )}
 
-                  {activeLesson.sessionData.summary && (
+                  {liveSession.summary && (
                     <div className="mt-8">
                       <h3 className="font-bold text-lg mb-3">Tutor Notes & Summary</h3>
                       <div className="prose max-w-none text-sm text-[var(--color-text-secondary)] bg-[var(--color-bg-card)] p-6 rounded-2xl border border-[var(--color-border)] whitespace-pre-wrap">
-                        {activeLesson.sessionData.summary}
+                        {liveSession.summary}
                       </div>
                     </div>
                   )}
-                  {activeLesson.sessionData.topics_covered && (
+                  {liveSession.topics_covered && (
                     <div className="mt-6">
                       <h3 className="font-bold text-lg mb-3">Topics Covered</h3>
                       <div className="prose max-w-none text-sm text-[var(--color-text-secondary)] bg-[var(--color-bg-card)] p-6 rounded-2xl border border-[var(--color-border)] whitespace-pre-wrap">
-                        {activeLesson.sessionData.topics_covered}
+                        {liveSession.topics_covered}
                       </div>
                     </div>
                   )}
-                  {activeLesson.sessionData.homework && (
+                  {liveSession.homework && (
                     <div className="mt-6">
                       <h3 className="font-bold text-lg mb-3">Homework / Assignments</h3>
                       <div className="prose max-w-none text-sm text-[var(--color-text-secondary)] bg-[var(--color-bg-card)] p-6 rounded-2xl border border-[var(--color-border)] whitespace-pre-wrap">
-                        {activeLesson.sessionData.homework}
+                        {liveSession.homework}
                       </div>
                     </div>
                   )}
@@ -576,7 +660,10 @@ export default function CoursePlayer() {
                             onClick={async () => {
                               try {
                                 const { courseService } = await import('@/lib/services/course.service');
-                                await courseService.getContentScormStatus(courseId, activeModule?.id, activeLesson.id);
+                                if (currentModuleId == null) {
+                                  return;
+                                }
+                                await courseService.getContentScormStatus(courseId, currentModuleId, activeLesson.id);
                                 router.refresh(); // Or better, refetch the course data if possible
                               } catch (e) {
                                 console.error(e);

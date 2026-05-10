@@ -15,7 +15,8 @@ import {
   CheckCircle2, XCircle, ArrowRight,
   Edit2, Trash2, RotateCcw, AlertCircle,
   Eye, EyeOff, Settings as SettingsIcon,
-  Check, X, Filter
+  Check, X, Filter,
+  Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -253,7 +254,7 @@ export function UserManagement({ roleFilter, title, subtitle }: UserManagementPr
         </div>
         <div className="flex flex-wrap gap-3 relative z-10 w-full md:w-auto">
           <Button
-            variant={showDeleted ? "default" : "outline"}
+            variant={showDeleted ? "primary" : "outline"}
             onClick={() => setShowDeleted(!showDeleted)}
             className="flex-1 md:flex-none rounded-2xl h-12 md:h-14 px-4 md:px-6 border-2 font-black uppercase tracking-widest text-[9px] md:text-[10px]"
           >

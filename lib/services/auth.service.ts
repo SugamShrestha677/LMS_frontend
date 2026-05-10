@@ -24,6 +24,10 @@ export const authService = {
     return response.data;
   },
 
+  async getCurrentUser() {
+    return this.getProfile();
+  },
+
   async updateProfile(data: any) {
     const response = await api.patch("/accounts/users/me", data);
     return response.data;
@@ -51,6 +55,22 @@ export const authService = {
     confirm_password: string;
   }) {
     const response = await api.post("/accounts/auth/reset-password", data);
+    return response.data;
+  },
+
+  async verifyEmail(data: { email: string; otp: string }) {
+    const response = await api.post(
+      "/accounts/auth/verify-email",
+      data,
+    );
+    return response.data;
+  },
+
+  async resendOtp(data: { email: string }) {
+    const response = await api.post(
+      "/accounts/auth/resend-otp",
+      data,
+    );
     return response.data;
   },
 

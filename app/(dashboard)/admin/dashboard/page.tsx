@@ -36,7 +36,14 @@ export default function AdminDashboard() {
     { name: 'Other', value: 10, color: '#7C3AED' },
   ];
 
-  const pendingApprovals = dashboard?.pending_approvals ?? [
+  type PendingApproval = {
+    id: number;
+    name: string;
+    type: string;
+    date: string;
+  };
+
+  const pendingApprovals: PendingApproval[] = dashboard?.pending_approvals ?? [
     { id: 1, name: 'Meta Nepal', type: 'Company', date: '2024-04-29' },
     { id: 2, name: 'Everest Tech', type: 'Company', date: '2024-04-28' },
     { id: 3, name: 'Dr. Rabin KC', type: 'Tutor', date: '2024-04-27' },
@@ -269,7 +276,7 @@ export default function AdminDashboard() {
           </div>
 
           <div className="space-y-4">
-            {pendingApprovals.map((item) => (
+            {pendingApprovals.map((item: PendingApproval) => (
               <div key={item.id} className="flex items-center justify-between p-4 rounded-[1.5rem] bg-[var(--color-bg-card)]/50 border border-[var(--color-border)] hover:border-[var(--color-primary)]/20 transition-all hover:shadow-lg hover:shadow-[var(--color-primary)]/5 group">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-2xl bg-[var(--color-muted)] flex items-center justify-center text-[var(--color-text-secondary)] group-hover:bg-[var(--color-primary)]/10 group-hover:text-[var(--color-primary)] transition-colors">

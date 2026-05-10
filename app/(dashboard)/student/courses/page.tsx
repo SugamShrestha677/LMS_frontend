@@ -18,8 +18,35 @@ import { CoursePaymentModal } from '@/components/student/CoursePaymentModal';
 import { format } from 'date-fns';
 
 export default function StudentCourses() {
-  const { data: allCourses, isLoading: loadingAll } = useStudentCourses();
-  const { data: enrolledCourses, isLoading: loadingEnrolled } = useEnrolledCourses();
+  type CourseCard = {
+    id: number;
+    title: string;
+    instructor_name?: string;
+    is_free?: boolean;
+    price?: number | string;
+    category_name?: string;
+    total_hours?: number | string;
+    duration_weeks?: number | string;
+    rating?: number | string;
+    progress?: number | string;
+    thumbnail_url?: string | { url?: string; secure_url?: string; path?: string } | null;
+    thumbnail?: string | { url?: string; secure_url?: string; path?: string } | null;
+  };
+
+  type EnrolledCourse = CourseCard & {
+    course?: CourseCard;
+    progress_percentage?: number | string;
+    progress?: number | string;
+  };
+
+  const { data: allCourses, isLoading: loadingAll } = useStudentCourses() as {
+    data: CourseCard[] | undefined;
+    isLoading: boolean;
+  };
+  const { data: enrolledCourses, isLoading: loadingEnrolled } = useEnrolledCourses() as {
+    data: EnrolledCourse[] | undefined;
+    isLoading: boolean;
+  };
   const { mutate: enrollCourse, isPending: enrolling } = useEnrollCourse();
   const { data: eventsData, isLoading: loadingEvents } = useEvents();
   const { mutate: registerForEvent, isPending: registering } = useRegisterForEvent();
@@ -35,7 +62,7 @@ export default function StudentCourses() {
 
   const { data: paymentsData } = usePayments();
 
-  const enrolledList = (enrolledCourses ?? []).map((enrollment) => {
+  const enrolledList: CourseCard[] = (enrolledCourses ?? []).map((enrollment: EnrolledCourse) => {
     const course = enrollment.course ?? enrollment;
     return {
       ...course,
@@ -258,7 +285,7 @@ export default function StudentCourses() {
                           <span className="font-bold text-[var(--color-primary)]">Progress</span>
                           <span className="font-black">{course.progress ?? 45}%</span>
                         </div>
-                        <ProgressBar value={course.progress ?? 45} color="var(--color-primary)" />
+                        <ProgressBar value={Number(course.progress ?? 45)} color="var(--color-primary)" />
                         <Button fullWidth size="md" className="h-10" onClick={() => router.push(`/student/courses/${course.id}`)}>
                           <Play size={14} className="mr-2 fill-current" /> Continue
                         </Button>

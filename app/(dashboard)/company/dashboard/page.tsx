@@ -21,13 +21,30 @@ export default function CompanyDashboard() {
 
   if (isLoading) return <DashboardSkeleton />;
 
-  const topCandidates = dashboard?.top_candidates ?? [
+  type TopCandidate = {
+    id: number;
+    name: string;
+    role: string;
+    score: number;
+    location: string;
+    badges: number;
+  };
+
+  type RecentApplication = {
+    id: number;
+    candidate: string;
+    job: string;
+    date: string;
+    status: string;
+  };
+
+  const topCandidates: TopCandidate[] = dashboard?.top_candidates ?? [
     { id: 1, name: 'Sita Sharma', role: 'Fullstack Developer', score: 94, location: 'Kathmandu', badges: 8 },
     { id: 2, name: 'Ram Bahadur', role: 'Python Engineer', score: 88, location: 'Lalitpur', badges: 6 },
     { id: 3, name: 'Maya Tamang', role: 'UI/UX Designer', score: 85, location: 'Pokhara', badges: 5 },
   ];
 
-  const recentApps = dashboard?.recent_applications ?? [
+  const recentApps: RecentApplication[] = dashboard?.recent_applications ?? [
     { id: 10, candidate: 'Hari Prasad', job: 'Senior React Dev', date: '2024-04-28', status: 'Pending' },
     { id: 11, candidate: 'Anita Rai', job: 'Backend Intern', date: '2024-04-27', status: 'Shortlisted' },
   ];
@@ -109,7 +126,7 @@ export default function CompanyDashboard() {
           </div>
 
           <div className="grid grid-cols-1 gap-4">
-            {topCandidates.map((candidate, idx) => (
+            {topCandidates.map((candidate: TopCandidate, idx: number) => (
               <motion.div
                 key={candidate.id}
                 initial={{ opacity: 0, y: 10 }}
@@ -174,7 +191,7 @@ export default function CompanyDashboard() {
           
           <Card className="p-0 overflow-hidden">
             <div className="divide-y divide-[#e5e7eb]">
-              {recentApps.map((app) => (
+              {recentApps.map((app: RecentApplication) => (
                 <div key={app.id} className="p-4 hover:bg-gray-50 transition-colors">
                   <div className="flex justify-between items-start mb-1">
                     <p className="font-bold text-[#1E1E2A] text-sm">{app.candidate}</p>

@@ -16,12 +16,27 @@ import {
 import { getInitials } from '@/lib/utils';
 
 export default function StudentProfile() {
+  type BadgeItem = {
+    id: number;
+    name: string;
+    date: string;
+    icon: string;
+    rarity: 'Gold' | 'Silver' | 'Bronze';
+  };
+
+  type StudentProfileData = {
+    badges?: BadgeItem[];
+  };
+
   const { user } = useAuthStore();
-  const { data: profile, isLoading } = useStudentProfile();
+  const { data: profile, isLoading } = useStudentProfile() as {
+    data: StudentProfileData | undefined;
+    isLoading: boolean;
+  };
 
   if (isLoading) return <div className="p-8"><Skeleton className="h-96 w-full" rounded="lg" /></div>;
 
-  const badges = profile?.badges ?? [
+  const badges: BadgeItem[] = profile?.badges ?? [
     { id: 1, name: 'React Expert', date: '2024-03-12', icon: 'React', rarity: 'Gold' },
     { id: 2, name: 'Django Master', date: '2024-02-28', icon: 'Python', rarity: 'Gold' },
     { id: 3, name: 'TypeScript Pro', date: '2024-03-25', icon: 'TS', rarity: 'Silver' },

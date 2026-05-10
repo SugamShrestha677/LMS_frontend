@@ -65,7 +65,7 @@ export default function AssignmentSubmissionPage() {
     return true;
   };
 
-  const getAllowedFileTypes = () => {
+  const getAllowedFileTypes = (): string[] => {
     if (!assessment?.allowed_file_types) return [];
     return assessment.allowed_file_types.split(',').map((t: string) => t.trim());
   };
@@ -380,13 +380,16 @@ export default function AssignmentSubmissionPage() {
         </div>
 
         {/* Allowed file types */}
-        {getAllowedFileTypes().length > 0 && (
-          <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-800">
-              Allowed file types: {getAllowedFileTypes().join(', ')}
-            </p>
-          </div>
-        )}
+        {(() => {
+          const allowedFileTypes = getAllowedFileTypes();
+          return allowedFileTypes.length > 0 && (
+            <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-800">
+                Allowed file types: {allowedFileTypes.join(', ')}
+              </p>
+            </div>
+          );
+        })()}
 
         {/* File upload */}
         {(assessment?.submission_type === 'file' || assessment?.submission_type === 'multiple') && (
@@ -417,7 +420,7 @@ export default function AssignmentSubmissionPage() {
                     onChange={handleFileChange}
                     className="hidden"
                     id="file-upload"
-                    accept={getAllowedFileTypes().map(t => `.${t}`).join(',')}
+                    accept={getAllowedFileTypes().map((t: string) => `.${t}`).join(',')}
                   />
                   <label htmlFor="file-upload">
                     <Button type="button" variant="outline" className="cursor-pointer">

@@ -4,10 +4,11 @@ import { cn } from '@/lib/utils';
 
 interface BadgeProps {
   children: React.ReactNode;
-  variant?: 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'info' | 'default';
+  variant?: 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'info' | 'default' | 'outline';
   size?: 'sm' | 'md';
   dot?: boolean;
   pulse?: boolean;
+  className?: string;
 }
 
 const variantClasses = {
@@ -18,6 +19,7 @@ const variantClasses = {
   danger: 'bg-red-500/10 text-red-500 border border-red-500/20',
   info: 'bg-blue-500/10 text-blue-500 border border-blue-500/20',
   default: 'bg-[var(--color-muted)] text-[var(--color-text-secondary)] border border-[var(--color-border)]',
+  outline: 'bg-transparent text-[var(--color-text-primary)] border border-[var(--color-border)]',
 };
 
 const dotColors = {
@@ -28,6 +30,7 @@ const dotColors = {
   danger: 'bg-red-500',
   info: 'bg-blue-500',
   default: 'bg-[var(--color-text-secondary)]',
+  outline: 'bg-[var(--color-text-secondary)]',
 };
 
 const sizeClasses = {
@@ -41,6 +44,7 @@ export function Badge({
   size = 'md',
   dot = false,
   pulse = false,
+  className,
 }: BadgeProps) {
   return (
     <span
@@ -48,6 +52,7 @@ export function Badge({
         'inline-flex items-center gap-1.5 font-bold tracking-tight uppercase',
         variantClasses[variant],
         sizeClasses[size],
+        className,
       )}
     >
       {dot && (

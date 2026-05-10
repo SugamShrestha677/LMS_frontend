@@ -16,6 +16,19 @@ import { useForm, Controller } from 'react-hook-form';
 import { toast } from 'sonner';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 
+type CourseFormValues = {
+  title: string;
+  description: string;
+  category: string;
+  instructor: string;
+  course_type: 'self_paced' | 'live';
+  status: 'draft' | 'active' | 'published';
+  is_free: boolean;
+  price: number | string;
+  max_students: number | string;
+  thumbnail_file: File | string | null;
+};
+
 export default function AdminCoursesPage() {
   const { data: courses, isLoading: isLoadingCourses } = useCourses();
   const { data: categoriesData } = useCategories();
@@ -28,9 +41,14 @@ export default function AdminCoursesPage() {
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { register, handleSubmit, reset, setValue, watch, control } = useForm({
+  const { register, handleSubmit, reset, setValue, watch, control } = useForm<CourseFormValues>({
     defaultValues: {
+      title: '',
+      description: '',
+      category: '',
+      instructor: '',
       course_type: 'self_paced',
+      status: 'draft',
       is_free: true,
       price: 0,
       max_students: 50,
@@ -76,7 +94,7 @@ export default function AdminCoursesPage() {
 
     const instructorId = course.instructor_id || course.instructor || course.tutor || course.tutor_id;
     if (instructorId) {
-      const tutor = tutors.find(t => t.value === instructorId || t.value === parseInt(instructorId));
+      const tutor = tutors.find((t: any) => t.value === instructorId || t.value === parseInt(instructorId));
       return tutor ? tutor.label : `ID: ${instructorId}`;
     }
 
@@ -255,7 +273,7 @@ export default function AdminCoursesPage() {
                         </div>
                       </td>
                       <td className="px-8 py-6">
-                        <Badge variant="outline" className="font-bold border-[var(--color-border)] text-[var(--color-text-primary)]">
+                        <Badge variant="default">
                           {course.category_name || course.category || 'Uncategorized'}
                         </Badge>
                       </td>
