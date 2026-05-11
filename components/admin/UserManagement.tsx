@@ -241,7 +241,7 @@ export function UserManagement({ roleFilter, title, subtitle }: UserManagementPr
   return (
     <div className="space-y-8">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-8 rounded-[2rem] border-2 border-[var(--color-border)] shadow-xl relative overflow-hidden group">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-[var(--color-bg-card)] p-8 rounded-[2rem] border-2 border-[var(--color-border)] shadow-xl relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--color-primary)]/5 rounded-bl-full -mr-10 -mt-10 group-hover:scale-110 transition-transform duration-700" />
         <div className="relative z-10 max-w-full overflow-hidden">
           <h1 className="text-2xl md:text-4xl font-black text-[var(--color-text-primary)] tracking-tight uppercase truncate">
@@ -275,7 +275,7 @@ export function UserManagement({ roleFilter, title, subtitle }: UserManagementPr
 
       {/* Stats and Search */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="flex items-center gap-5 p-6 bg-white border-2 border-[var(--color-border)] shadow-sm hover:shadow-md transition-shadow">
+        <Card className="flex items-center gap-5 p-6 bg-[var(--color-bg-card)] border-2 border-[var(--color-border)] shadow-sm hover:shadow-md transition-shadow">
           <div className="w-14 h-14 rounded-2xl bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)] shadow-lg shadow-[var(--color-primary)]/10">
             <Users size={28} />
           </div>
@@ -296,7 +296,7 @@ export function UserManagement({ roleFilter, title, subtitle }: UserManagementPr
             placeholder={showDeleted ? "Search archived records..." : "Search by name, email, or role..."}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full h-full min-h-[80px] bg-white border-2 border-[var(--color-border)] rounded-[2rem] pl-16 pr-8 outline-none focus:border-[var(--color-primary)] transition-all font-bold text-lg text-[var(--color-text-primary)] shadow-sm focus:shadow-xl focus:shadow-[var(--color-primary)]/5"
+            className="w-full h-full min-h-[80px] bg-[var(--color-bg-card)] border-2 border-[var(--color-border)] rounded-[2rem] pl-16 pr-8 outline-none focus:border-[var(--color-primary)] transition-all font-bold text-lg text-[var(--color-text-primary)] shadow-sm focus:shadow-xl focus:shadow-[var(--color-primary)]/5"
           />
           <div className="absolute right-6 top-1/2 -translate-y-1/2 flex items-center gap-2">
              <div className="h-8 w-px bg-[var(--color-border)] mr-2" />
@@ -306,7 +306,7 @@ export function UserManagement({ roleFilter, title, subtitle }: UserManagementPr
       </div>
 
       {/* Main Content Table */}
-      <Card padding="none" className="overflow-hidden border-2 border-[var(--color-border)] shadow-2xl bg-white/80 backdrop-blur-xl rounded-[2.5rem]">
+      <Card padding="none" className="overflow-hidden border-2 border-[var(--color-border)] shadow-2xl bg-[var(--color-bg-card)]/80 backdrop-blur-xl rounded-[2.5rem]">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -499,7 +499,7 @@ export function UserManagement({ roleFilter, title, subtitle }: UserManagementPr
                         "flex items-center justify-between p-5 rounded-2xl border-2 transition-all group text-left relative overflow-hidden",
                         hasPerm
                           ? "border-[var(--color-primary)] bg-[var(--color-primary)]/[0.03] shadow-md"
-                          : "border-[var(--color-border)] bg-white hover:border-[var(--color-primary)]/30 hover:shadow-lg"
+                          : "border-[var(--color-border)] bg-[var(--color-bg-card)] hover:border-[var(--color-primary)]/30 hover:shadow-lg"
                       )}
                     >
                       {hasPerm && <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-[var(--color-primary)]" />}
@@ -621,7 +621,7 @@ export function UserManagement({ roleFilter, title, subtitle }: UserManagementPr
                     "flex items-center justify-between p-5 rounded-2xl border-2 transition-all group text-left",
                     selectedUser?.role === role.value
                       ? "border-blue-500 bg-blue-500/[0.03] shadow-md"
-                      : "border-[var(--color-border)] bg-white hover:border-blue-500/30"
+                      : "border-[var(--color-border)] bg-[var(--color-bg-card)] hover:border-blue-500/30"
                   )}
                 >
                   <div>
@@ -681,7 +681,7 @@ export function UserManagement({ roleFilter, title, subtitle }: UserManagementPr
               placeholder="Provide a mandatory reason for archiving this identity..."
               value={deleteReason}
               onChange={(e) => setDeleteReason(e.target.value)}
-              className="w-full min-h-[120px] p-6 rounded-[2rem] border-2 border-[var(--color-border)] bg-white outline-none focus:border-red-500 transition-all font-bold text-sm resize-none"
+              className="w-full min-h-[120px] p-6 rounded-[2rem] border-2 border-[var(--color-border)] bg-[var(--color-bg-card)] outline-none focus:border-red-500 transition-all font-bold text-sm resize-none text-[var(--color-text-primary)]"
             />
           </div>
 

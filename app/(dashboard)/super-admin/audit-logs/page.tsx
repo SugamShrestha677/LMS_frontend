@@ -63,7 +63,7 @@ export default function AuditLogsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const { data: logsData, isLoading } = useAuditLogs();
 
-  const logs = logsData?.data || [];
+  const logs = logsData || [];
 
   const filteredLogs = logs.filter((log: any) => {
     const action = log.action_display ?? "";
