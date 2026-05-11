@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Course Finished</title>
+    <style>
+        body { 
+            font-family: system-ui, -apple-system, sans-serif; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0; 
+            background: #0f172a; 
+            color: white;
+            text-align: center;
+        }
+        .loader {
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div>
+        <div class="loader"></div>
+        <h1>Course Session Finished</h1>
+        <p>Syncing your progress and closing window...</p>
+    </div>
+    <script>
+        // Try to close the window immediately
+        setTimeout(() => {
+            window.close();
+            // Fallback for browsers that block script-initiated closing
+            document.body.innerHTML = '<h1>Session Complete</h1><p>You can now safely close this window and return to your dashboard.</p>';
+        }, 1500);
+    </script>
+</body>
+</html>
