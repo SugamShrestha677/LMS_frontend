@@ -1,14 +1,15 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { ProgressBar } from '@/components/ui/Badge';
-import { 
-  Play, CheckCircle2, ChevronLeft, ChevronRight, 
+import { PlayCircle } from "lucide-react";
+import {
+  Play, CheckCircle2, ChevronLeft, ChevronRight,
   FileText, Download, MessageSquare, Star,
   Menu, X, Lock, Clock, ExternalLink, FolderOpen,
   BookOpen, Video, Megaphone, User, Calendar, Award,
@@ -33,9 +34,34 @@ import { format, formatDistanceToNow, isPast, isFuture } from 'date-fns';
 export default function CoursePlayer() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<'content' | 'resources' | 'assignments' | 'announcements' | 'live'>('content');
   const courseId = Number(params.id);
+
+  const { data: course, isLoading, refetch: refetchCourse } = useStudentCourse(courseId) as {
+    data: CourseData | undefined;
+    isLoading: boolean;
+    refetch: () => void;
+  };
+
+  useEffect(() => {
+    // Handle SCORM exit - refresh data and clean URL
+    if (searchParams.get('scorm_exit') === 'true') {
+      console.log("SCORM exit detected, refreshing data...");
+      
+      // Remove the parameter from URL without refreshing the page
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+      
+      // Trigger a refresh of the course data and progress
+      refetchCourse();
+      // Wait a bit for the backend to sync before refetching progress
+      setTimeout(() => {
+        refetchScormProgress();
+      }, 1000);
+    }
+  }, [searchParams, refetchCourse]);
 
   type CourseData = {
     id: number;
@@ -106,11 +132,6 @@ export default function CoursePlayer() {
     completed_contents?: number[];
   };
 
-  const { data: course, isLoading } = useStudentCourse(courseId) as {
-    data: CourseData | undefined;
-    isLoading: boolean;
-  };
-
   const { data: enrolledCourses } = useEnrolledCourses();
   const { mutate: enrollCourse, isPending: enrolling } = useEnrollCourse();
   const { data: resources } = useCourseResources(courseId);
@@ -177,7 +198,7 @@ export default function CoursePlayer() {
   const confirmedPayment = useMemo(() => {
     return paymentList.find((p: any) => p.course === courseId && p.status === 'confirmed');
   }, [paymentList, courseId]);
-  
+
   const hasPendingPayment = !!pendingPayment;
   const isPaid = !!confirmedPayment || course?.is_free;
   const canAccessContent = isEnrolled && isPaid;
@@ -185,8 +206,8 @@ export default function CoursePlayer() {
 
   // Announcements
   const announcements = useMemo(() => {
-    const list = Array.isArray(announcementsData) 
-      ? announcementsData 
+    const list = Array.isArray(announcementsData)
+      ? announcementsData
       : (announcementsData as any)?.data || [];
     return list;
   }, [announcementsData]);
@@ -238,7 +259,7 @@ export default function CoursePlayer() {
     if (allLessons.length > 0) {
       // If we have an active lesson but it's not in the current curriculum (e.g. after a type switch or reload)
       const currentLessonExists = allLessons.some(l => l.id === activeLessonId);
-      
+
       if (!activeLessonId || !currentLessonExists) {
         // Find the best session to start with: 
         // 1. Ongoing session
@@ -250,14 +271,14 @@ export default function CoursePlayer() {
             setActiveLessonId(ongoing.id);
             return;
           }
-          
+
           const upcoming = allLessons.find(l => l.sessionData?.status === 'upcoming');
           if (upcoming) {
             setActiveLessonId(upcoming.id);
             return;
           }
         }
-        
+
         setActiveLessonId(allLessons[0].id);
       }
     }
@@ -265,7 +286,7 @@ export default function CoursePlayer() {
 
   const activeModule = useMemo(() => {
     if (!activeLessonId) return null;
-    return curriculum.find((section: CurriculumSection) => 
+    return curriculum.find((section: CurriculumSection) =>
       section.lessons.some((lesson: LessonItem) => lesson.id === activeLessonId)
     );
   }, [curriculum, activeLessonId]);
@@ -298,14 +319,14 @@ export default function CoursePlayer() {
       setContentLaunchUrl(null);
     }
   }, [activeLesson, courseId, activeModule]);
-  
+
   const scormCompletion = typeof scormProgress?.completion_amount === 'number'
     ? scormProgress.completion_amount
     : null;
   const progress = scormCompletion ?? (enrollment ? Number(enrollment.progress_percentage ?? 0) : 0);
   const scormLaunchUrl = course?.scorm_launch_url as string | undefined;
   const scormLaunchError = course?.scorm_launch_error as string | undefined;
-  
+
   const resourceList = useMemo(() => {
     const list = Array.isArray(resources) ? resources : (resources as any)?.data || [];
     return list;
@@ -316,11 +337,11 @@ export default function CoursePlayer() {
       return resourceList.filter((r: any) => !r.module_id && !r.live_session_id);
     }
     if (course?.course_type === 'live') {
-      return resourceList.filter((r: any) => 
+      return resourceList.filter((r: any) =>
         !r.live_session_id || String(r.live_session_id) === String(activeModule.id)
       );
     }
-    return resourceList.filter((r: any) => 
+    return resourceList.filter((r: any) =>
       !r.module_id || String(r.module_id) === String(activeModule.id)
     );
   }, [resourceList, activeModule, course?.course_type]);
@@ -335,21 +356,21 @@ export default function CoursePlayer() {
       return assessments.filter((a: any) => !a.module && !a.live_session);
     }
     if (course?.course_type === 'live') {
-      return assessments.filter((a: any) => 
+      return assessments.filter((a: any) =>
         !a.live_session || String(a.live_session) === String(activeModule.id)
       );
     }
-    return assessments.filter((a: any) => 
+    return assessments.filter((a: any) =>
       !a.module || String(a.module) === String(activeModule.id)
     );
   }, [assessments, activeModule, course?.course_type]);
 
-  const generalResources = useMemo(() => 
+  const generalResources = useMemo(() =>
     filteredResources.filter((r: any) => !r.module_id),
     [filteredResources]
   );
-  
-  const moduleResources = useMemo(() => 
+
+  const moduleResources = useMemo(() =>
     filteredResources.filter((r: any) => r.module_id),
     [filteredResources]
   );
@@ -401,7 +422,7 @@ export default function CoursePlayer() {
 
   return (
     <div className="flex h-[calc(100vh-64px)] -m-4 md:-m-6 lg:-m-8 bg-[var(--color-bg)] overflow-hidden">
-      
+
       {/* Sidebar - Curriculum */}
       <AnimatePresence mode="wait">
         {sidebarOpen && (
@@ -530,7 +551,7 @@ export default function CoursePlayer() {
                     <div>
                       <Badge variant={
                         liveSession.status === 'active' ? 'danger' :
-                        liveSession.status === 'completed' ? 'success' : 'secondary'
+                          liveSession.status === 'completed' ? 'success' : 'secondary'
                       } className="mb-3 uppercase">
                         {liveSession.status === 'active' ? 'Ongoing' : liveSession.status}
                       </Badge>
@@ -540,7 +561,7 @@ export default function CoursePlayer() {
                       </p>
                     </div>
                   </div>
-                  
+
                   {liveSession.status === 'active' && liveSession.meet_link ? (
                     <div className="bg-red-50 border border-red-100 rounded-2xl p-6 text-center">
                       <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
@@ -548,9 +569,9 @@ export default function CoursePlayer() {
                       </div>
                       <h3 className="font-bold text-red-900 mb-2">Class is ongoing!</h3>
                       <p className="text-red-700 text-sm mb-6 max-w-md mx-auto">Join the session now to participate in the live discussion.</p>
-                      <a 
-                        href={liveSession.meet_link} 
-                        target="_blank" 
+                      <a
+                        href={liveSession.meet_link}
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center justify-center h-10 px-8 rounded-full bg-red-500 text-white font-bold hover:bg-red-600 transition-colors"
                       >
@@ -613,67 +634,153 @@ export default function CoursePlayer() {
                   )}
                 </div>
               ) : course.is_scorm ? (
-                <div className="aspect-video bg-black relative overflow-hidden">
-                  {scormLaunchUrl ? (
-                    <iframe
-                      src={scormLaunchUrl}
-                      title="SCORM Player"
-                      className="w-full h-full"
-                      allow="autoplay; fullscreen"
-                    />
-                  ) : (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-white gap-3">
-                      <span className="text-sm font-bold">SCORM content not ready</span>
-                      {scormLaunchError && (
-                        <span className="text-xs text-white/70">{scormLaunchError}</span>
-                      )}
+                <div className="aspect-video bg-black relative overflow-hidden flex flex-col items-center justify-center text-white p-8 text-center bg-gradient-to-br from-slate-900 to-black">
+                  <div className="w-24 h-24 bg-[var(--color-primary)]/10 rounded-full flex items-center justify-center mb-8 animate-pulse">
+                    <PlayCircle className="w-12 h-12 text-[var(--color-primary)]" />
+                  </div>
+                  <h3 className="text-3xl font-black mb-4">SCORM Interactive Course</h3>
+                  <p className="text-slate-400 mb-10 max-w-md text-lg leading-relaxed">
+                    This course will open in a secure dedicated window to ensure your progress is saved perfectly.
+                  </p>
+                  
+                  <div className="flex flex-col gap-4 items-center">
+                    {!scormLaunchUrl && !scormLaunchError ? (
+                      <div className="flex flex-col items-center gap-4">
+                        <div className="w-12 h-12 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
+                        <p className="text-slate-400 font-bold">Preparing secure session...</p>
+                      </div>
+                    ) : (
+                      <Button
+                        size="lg"
+                        disabled={!scormLaunchUrl}
+                        className={cn(
+                          "px-12 h-16 rounded-2xl font-black uppercase tracking-widest shadow-2xl transition-all",
+                          scormLaunchUrl 
+                            ? "shadow-[var(--color-primary)]/40 hover:scale-105 bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-dark)]"
+                            : "bg-slate-800 text-slate-500 cursor-not-allowed"
+                        )}
+                        onClick={() => {
+                          if (scormLaunchUrl) {
+                            console.log("Launching SCORM window:", scormLaunchUrl);
+                            const width = Math.min(1400, window.screen.availWidth * 0.95);
+                            const height = Math.min(900, window.screen.availHeight * 0.95);
+                            const left = (window.screen.availWidth - width) / 2;
+                            const top = (window.screen.availHeight - height) / 2;
+                            
+                            window.open(
+                              scormLaunchUrl,
+                              'SCORMPlayer',
+                              `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=yes,menubar=no`
+                            );
+                            
+                            // Start polling for progress
+                            const interval = setInterval(() => {
+                              refetchCourse();
+                              refetchScormProgress();
+                            }, 5000);
+                            
+                            setTimeout(() => clearInterval(interval), 1800000);
+                          }
+                        }}
+                      >
+                        <Play className="mr-3 fill-current" /> {scormLaunchUrl ? "Start Learning Now" : "Session Initializing..."}
+                      </Button>
+                    )}
+                    
+                    <button 
+                      onClick={() => {
+                        refetchCourse();
+                        refetchScormProgress();
+                      }}
+                      className="text-slate-500 hover:text-white text-sm font-bold transition-colors flex items-center gap-2"
+                    >
+                      <Award size={16} /> Already finished? Sync Progress
+                    </button>
+                  </div>
+                  
+                  {scormLaunchError && (
+                    <div className="mt-8 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
+                      <strong>Launch Error:</strong> {scormLaunchError}
                     </div>
                   )}
                 </div>
               ) : activeLesson?.scormCourseId ? (
-                <div className="aspect-video bg-black relative overflow-hidden">
+                <div className="aspect-video bg-black relative overflow-hidden flex flex-col items-center justify-center text-white p-8 text-center bg-gradient-to-br from-slate-900 to-black">
+                  <div className="w-16 h-16 bg-[var(--color-primary)]/10 rounded-full flex items-center justify-center mb-6">
+                    <Play className="w-8 h-8 text-[var(--color-primary)]" />
+                  </div>
+                  <h3 className="text-xl font-bold mb-2">{activeLesson?.title}</h3>
+                  <p className="text-slate-400 mb-8 max-w-xs text-sm">
+                    This lesson will open in a separate window to track your progress.
+                  </p>
+                  
                   {contentLaunchUrl ? (
-                    <iframe
-                      src={contentLaunchUrl}
-                      title="SCORM Content Player"
-                      className="w-full h-full"
-                      allow="autoplay; fullscreen"
-                    />
+                    <div className="flex flex-col gap-4 items-center">
+                      <Button
+                        size="lg"
+                        className="px-8 h-12 rounded-xl font-bold transition-all hover:scale-105 shadow-xl shadow-[var(--color-primary)]/20"
+                        onClick={() => {
+                          if (contentLaunchUrl) {
+                            const width = Math.min(1400, window.screen.availWidth * 0.9);
+                            const height = Math.min(900, window.screen.availHeight * 0.9);
+                            const left = (window.screen.availWidth - width) / 2;
+                            const top = (window.screen.availHeight - height) / 2;
+                            
+                            window.open(
+                              contentLaunchUrl,
+                              'SCORMContentPlayer',
+                              `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=yes`
+                            );
+                            
+                            const interval = setInterval(() => {
+                              refetchCourse();
+                              refetchScormProgress();
+                            }, 5000);
+                            
+                            setTimeout(() => clearInterval(interval), 1800000);
+                          }
+                        }}
+                      >
+                        <Play size={16} className="mr-2 fill-current" /> Launch Lesson
+                      </Button>
+                      
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-white border-white/20 hover:bg-white/10"
+                        onClick={async () => {
+                          try {
+                            const { courseService } = await import('@/lib/services/course.service');
+                            if (currentModuleId == null) {
+                              return;
+                            }
+                            await courseService.getContentScormStatus(courseId, currentModuleId, activeLesson.id);
+                            refetchCourse();
+                          } catch (e) {
+                            console.error(e);
+                          }
+                        }}
+                      >
+                        Refresh Status
+                      </Button>
+                    </div>
+                  ) : launchingContent ? (
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-10 h-10 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
+                      <span className="text-sm font-bold">Initializing session...</span>
+                    </div>
                   ) : (
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-white gap-3 text-center p-4">
-                      {launchingContent ? (
-                        <>
-                          <div className="w-8 h-8 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
-                          <span className="text-sm font-bold">Launching secure content...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Lock size={32} className="text-white/50 mb-2" />
-                          <span className="text-sm font-bold">SCORM Cloud content not ready</span>
-                          <p className="text-xs text-white/70 max-w-xs mb-4">
-                            This content is being processed by SCORM Cloud. Status: {activeLesson.scormStatus}
-                          </p>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="text-white border-white/20 hover:bg-white/10"
-                            onClick={async () => {
-                              try {
-                                const { courseService } = await import('@/lib/services/course.service');
-                                if (currentModuleId == null) {
-                                  return;
-                                }
-                                await courseService.getContentScormStatus(courseId, currentModuleId, activeLesson.id);
-                                router.refresh(); // Or better, refetch the course data if possible
-                              } catch (e) {
-                                console.error(e);
-                              }
-                            }}
-                          >
-                            Refresh Status
-                          </Button>
-                        </>
-                      )}
+                      <Lock size={32} className="text-white/50 mb-2" />
+                      <span className="text-sm font-bold">Content not ready</span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-slate-400 hover:text-white"
+                        onClick={() => refetchCourse()}
+                      >
+                        Retry Connection
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -758,12 +865,12 @@ export default function CoursePlayer() {
                           {hasPendingPayment ? 'Verification in Progress' : isEnrolled ? 'Payment Required' : 'Start Your Learning Journey'}
                         </p>
                         <p className="text-xs text-[var(--color-text-secondary)] font-medium">
-                          {hasPendingPayment 
-                            ? 'Our staff is verifying your payment. You will gain access shortly.' 
-                            : isEnrolled 
+                          {hasPendingPayment
+                            ? 'Our staff is verifying your payment. You will gain access shortly.'
+                            : isEnrolled
                               ? `This is a premium course. Please complete payment of NPR ${course.price} to unlock content.`
-                              : course.is_free 
-                                ? 'This course is free. Enroll now to get instant access!' 
+                              : course.is_free
+                                ? 'This course is free. Enroll now to get instant access!'
                                 : `This is a premium course. Pay NPR ${course.price} to unlock.`}
                         </p>
                       </div>
@@ -775,17 +882,17 @@ export default function CoursePlayer() {
                           <p className="text-xl font-black text-[var(--color-text-primary)] tracking-tighter">NPR {course.price}</p>
                         </div>
                       )}
-                      
+
                       {hasPendingPayment ? (
                         <div className="flex items-center gap-2 px-6 py-3 bg-orange-500/10 text-orange-600 rounded-2xl font-black text-xs uppercase tracking-widest border border-orange-500/20">
                           <Clock size={16} className="animate-pulse" />
                           Pending Verification
                         </div>
                       ) : (
-                        <Button 
-                          size="lg" 
+                        <Button
+                          size="lg"
                           className="px-10 h-14 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-[var(--color-primary)]/30 hover:scale-105 transition-transform"
-                          loading={enrolling} 
+                          loading={enrolling}
                           onClick={() => {
                             if (course.is_free) {
                               enrollCourse(course.id);
@@ -804,352 +911,352 @@ export default function CoursePlayer() {
             </div>
           )}
 
-          <CoursePaymentModal 
-            course={course} 
-            isOpen={showPaymentModal} 
-            onClose={() => setShowPaymentModal(false)} 
+          <CoursePaymentModal
+            course={course}
+            isOpen={showPaymentModal}
+            onClose={() => setShowPaymentModal(false)}
           />
 
 
           {canAccessContent && (
             <>
               {/* Tabs */}
-          <div className="px-8 max-w-4xl mx-auto">
-            <div className="flex border-b border-[var(--color-border)] mb-6">
-              {([
-                { key: 'content', label: 'Content', icon: Play },
-                { key: 'resources', label: 'Resources', icon: FolderOpen, count: filteredResources.length },
-                { key: 'assignments', label: 'Assignments', icon: FileText, count: filteredAssessments.length },
-                { key: 'announcements', label: 'Announcements', icon: Megaphone, count: announcements.length },
-              ] as { key: 'content' | 'resources' | 'assignments' | 'announcements'; label: string; icon: any; count?: number }[]).map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  className={cn(
-                    'px-5 py-3 text-sm font-bold capitalize transition-all relative flex items-center gap-2',
-                    activeTab === tab.key ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
-                  )}
-                >
-                  <tab.icon size={14} />
-                  {tab.label}
-                  {tab.count !== undefined && tab.count > 0 && (
-                    <span className="bg-[var(--color-primary)]/10 text-[var(--color-primary)] text-xs rounded-full px-1.5 py-0.5 font-bold">
-                      {tab.count}
-                    </span>
-                  )}
-                  {activeTab === tab.key && (
-                    <motion.div layoutId="tabActive" className="absolute bottom-0 left-0 right-0 h-1 bg-[var(--color-primary)] rounded-t-full" />
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
+              <div className="px-8 max-w-4xl mx-auto">
+                <div className="flex border-b border-[var(--color-border)] mb-6">
+                  {([
+                    { key: 'content', label: 'Content', icon: Play },
+                    { key: 'resources', label: 'Resources', icon: FolderOpen, count: filteredResources.length },
+                    { key: 'assignments', label: 'Assignments', icon: FileText, count: filteredAssessments.length },
+                    { key: 'announcements', label: 'Announcements', icon: Megaphone, count: announcements.length },
+                  ] as { key: 'content' | 'resources' | 'assignments' | 'announcements'; label: string; icon: any; count?: number }[]).map((tab) => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setActiveTab(tab.key)}
+                      className={cn(
+                        'px-5 py-3 text-sm font-bold capitalize transition-all relative flex items-center gap-2',
+                        activeTab === tab.key ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                      )}
+                    >
+                      <tab.icon size={14} />
+                      {tab.label}
+                      {tab.count !== undefined && tab.count > 0 && (
+                        <span className="bg-[var(--color-primary)]/10 text-[var(--color-primary)] text-xs rounded-full px-1.5 py-0.5 font-bold">
+                          {tab.count}
+                        </span>
+                      )}
+                      {activeTab === tab.key && (
+                        <motion.div layoutId="tabActive" className="absolute bottom-0 left-0 right-0 h-1 bg-[var(--color-primary)] rounded-t-full" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          {/* Tab Panels */}
-          <div className="px-8 pb-8 max-w-4xl mx-auto min-h-[200px] mt-8">
-            <AnimatePresence mode="wait">
-              {/* Content Tab */}
-              {activeTab === 'content' && (
-                <motion.div
-                  key="content"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="space-y-4"
-                >
-                  {activeLesson?.bodyText ? (
-                    <div className="prose max-w-none">
-                      <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed whitespace-pre-wrap">
-                        {activeLesson.bodyText}
-                      </p>
-                    </div>
-                  ) : (
-                    <>
-                      <h3 className="font-bold text-[var(--color-text-primary)]">About this lesson</h3>
-                      <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
-                        {activeLesson?.description || course.description || 'Course details will appear here.'}
-                      </p>
-                    </>
-                  )}
-                  <div className="grid grid-cols-2 gap-4 mt-8">
-                    <div className="p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)]/50">
-                      <p className="text-[var(--color-text-secondary)] text-xs mb-1">Duration</p>
-                      <p className="font-bold text-[var(--color-text-primary)]">{activeLesson?.duration || 'N/A'}</p>
-                    </div>
-                    <div className="p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)]/50">
-                      <p className="text-[var(--color-text-secondary)] text-xs mb-1">Status</p>
-                      <p className="font-bold text-[var(--color-text-primary)] flex items-center gap-1">
-                        {activeLessonId && (enrollment?.completed_contents?.includes(activeLessonId) ? (
-                          <><CheckCircle2 size={14} className="text-green-500" /> Completed</>
-                        ) : (
-                          <><Clock size={14} className="text-orange-500" /> In Progress</>
-                        ))}
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Resources Tab */}
-              {activeTab === 'resources' && (
-                <motion.div
-                  key="resources"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="space-y-4"
-                >
-                  {filteredResources.length === 0 ? (
-                    <div className="text-center py-12 bg-[var(--color-bg-secondary)]/50 rounded-2xl border-2 border-dashed border-[var(--color-border)]">
-                      <FolderOpen className="mx-auto text-[var(--color-text-secondary)] mb-3" size={32} />
-                      <p className="text-[var(--color-text-secondary)]">No resources available for this section.</p>
-                    </div>
-                  ) : (
-                    <div className="grid gap-3">
-                      {filteredResources.map((resource: any) => {
-                          const href = resource.file || resource.file_url || resource.external_link;
-                          const isExternal = !!resource.external_link && !resource.file && !resource.file_url;
-                          return (
-                          <div
-                            key={resource.id}
-                            className="group p-4 rounded-xl border border-[var(--color-border)] bg-white hover:border-[var(--color-primary)] transition-all flex items-center justify-between"
-                          >
-                            <div className="flex items-center gap-4">
-                              <div className="w-10 h-10 rounded-lg bg-[var(--color-primary)]/5 flex items-center justify-center text-[var(--color-primary)]">
-                                {isExternal ? <ExternalLink size={20} /> : resource.file_name?.endsWith('.pdf') ? <FileText size={20} /> : <Download size={20} />}
-                              </div>
-                              <div>
-                                <h4 className="font-bold text-[var(--color-text-primary)] text-sm group-hover:text-[var(--color-primary)] transition-colors">
-                                  {resource.title}
-                                </h4>
-                                <p className="text-[var(--color-text-secondary)] text-xs">
-                                  {resource.file_size ? `${(resource.file_size / 1024 / 1024).toFixed(2)} MB` : isExternal ? 'External Link' : 'File'}
-                                </p>
-                              </div>
-                            </div>
-                            {href && (
-                              <div className="flex items-center gap-1">
-                                {!isExternal && (
-                                  <button
-                                    onClick={() => window.open(href, '_blank')}
-                                    className="p-2 rounded-lg hover:bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-all"
-                                    title="Open in new tab"
-                                  >
-                                    <Eye size={18} />
-                                  </button>
-                                )}
-                                {isExternal ? (
-                                  <a
-                                    href={href}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="p-2 rounded-lg hover:bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-all"
-                                    title="Open in new tab"
-                                  >
-                                    <ExternalLink size={18} />
-                                  </a>
-                                ) : (
-                                  <button
-                                    onClick={() => handleDownload(href, resource.title || 'download', resource.id)}
-                                    disabled={downloadingId === resource.id}
-                                    className="p-2 rounded-lg hover:bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-all disabled:opacity-50"
-                                    title="Download"
-                                  >
-                                    {downloadingId === resource.id ? (
-                                      <div className="w-4 h-4 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
-                                    ) : (
-                                      <Download size={18} />
-                                    )}
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                          );
-                        })}
-                    </div>
-                  )}
-                </motion.div>
-              )}
-
-              {/* Assignments Tab */}
-              {activeTab === 'assignments' && (
-                <motion.div
-                  key="assignments"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="space-y-4"
-                >
-                  {filteredAssessments.length === 0 ? (
-                    <div className="text-center py-12 bg-[var(--color-bg-secondary)]/50 rounded-2xl border-2 border-dashed border-[var(--color-border)]">
-                      <FileText className="mx-auto text-[var(--color-text-secondary)] mb-3" size={32} />
-                      <p className="text-[var(--color-text-secondary)]">No assignments or quizzes available for this section.</p>
-                    </div>
-                  ) : (
-                    <div className="grid gap-3">
-                      {filteredAssessments.map((assessment: any) => {
-                        const attempt = (course as any)?.student_attempts?.find((a: any) => a.assessment === assessment.id);
-                        const status = attempt?.status || 'not_started';
-                        const score = attempt?.score;
-                        const isDone = status === 'submitted' || status === 'graded';
-                        const deadline = assessment.end_datetime ? new Date(assessment.end_datetime) : null;
-                        const isPastDeadline = deadline && new Date() > deadline;
-
-                        return (
-                          <div
-                            key={assessment.id}
-                            className="group p-4 rounded-xl border border-[var(--color-border)] bg-white hover:border-[var(--color-primary)] transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                          >
-                            <div className="flex items-start gap-4">
-                              <div className={cn(
-                                "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-colors",
-                                isDone ? "bg-green-100 text-green-600" : "bg-[var(--color-primary)]/5 text-[var(--color-primary)]"
-                              )}>
-                                {isDone ? <CheckCircle2 size={24} /> : <BookOpen size={24} />}
-                              </div>
-                              <div>
-                                <div className="flex flex-wrap items-center gap-2 mb-1">
-                                  <h4 className="font-bold text-[var(--color-text-primary)] text-sm group-hover:text-[var(--color-primary)] transition-colors">
-                                    {assessment.title}
-                                  </h4>
-                                  <Badge className="text-[10px] h-4 capitalize" variant="secondary">
-                                    {assessment.assessment_type}
-                                  </Badge>
-                                  {status !== 'not_started' && (
-                                    <Badge 
-                                      className="text-[10px] h-4 capitalize" 
-                                      variant={status === 'graded' ? 'success' : 'warning'}
-                                    >
-                                      {status}
-                                    </Badge>
-                                  )}
-                                </div>
-                                <p className="text-[var(--color-text-secondary)] text-xs line-clamp-1 mb-2">
-                                  {assessment.description || `Complete this ${assessment.assessment_type} to test your knowledge.`}
-                                </p>
-                                <div className="flex flex-wrap items-center gap-4 text-[10px] text-[var(--color-text-secondary)]">
-                                  {deadline && (
-                                    <span className={cn(
-                                      "flex items-center gap-1 font-medium",
-                                      isPastDeadline && !isDone ? "text-red-500" : ""
-                                    )}>
-                                      <Clock size={12} /> 
-                                      Deadline: {format(deadline, 'MMM dd, HH:mm')}
-                                    </span>
-                                  )}
-                                  {score !== null && score !== undefined && (
-                                    <span className="flex items-center gap-1 font-bold text-[var(--color-primary)]">
-                                      <Award size={12} /> Score: {score}%
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                            <Button 
-                              variant={isDone ? "outline" : "primary"}
-                              size="sm" 
-                              className="rounded-xl h-9 px-6 sm:w-auto w-full font-bold shadow-sm"
-                              onClick={() => {
-                                const courseId = course.id;
-                                if (isDone) {
-                                  // View results
-                                  if (assessment.assessment_type === 'quiz' || assessment.assessment_type === 'exam') {
-                                    router.push(`/student/assessments/${assessment.id}/take?attempt=${attempt.id}&courseId=${courseId}`);
-                                  } else {
-                                    router.push(`/student/assessments/${assessment.id}/assignment?attempt=${attempt.id}&courseId=${courseId}`);
-                                  }
-                                } else {
-                                  // Start/Resume
-                                  if (assessment.assessment_type === 'quiz' || assessment.assessment_type === 'exam') {
-                                    router.push(`/student/assessments/${assessment.id}/take?courseId=${courseId}`);
-                                  } else {
-                                    router.push(`/student/assessments/${assessment.id}/assignment?courseId=${courseId}`);
-                                  }
-                                }
-                              }}
-                            >
-                              {status === 'graded' ? 'View Result' : 
-                               status === 'submitted' ? 'Submitted' :
-                               status === 'started' ? 'Resume' : 'Start'}
-                            </Button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </motion.div>
-              )}
-
-
-              {/* Announcements Tab */}
-              {activeTab === 'announcements' && (
-                <motion.div
-                  key="announcements"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="space-y-4"
-                >
-                  {announcements.length === 0 ? (
-                    <div className="text-center py-12">
-                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Megaphone size={32} className="text-[#5A5A6E] opacity-50" />
-                      </div>
-                      <h4 className="font-bold text-[var(--color-text-primary)]">No announcements yet</h4>
-                      <p className="text-sm text-[var(--color-text-secondary)] mt-1">
-                        Your instructor hasn't posted any announcements for this course yet.
-                      </p>
-                    </div>
-                  ) : (
-                    announcements.map((announcement: any, idx: number) => (
-                      <motion.div
-                        key={announcement.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: idx * 0.05 }}
-                      >
-                        <Card className="p-6 border-l-4 border-l-[var(--color-primary)] hover:shadow-md transition-shadow">
-                          <div className="flex items-start gap-3 mb-3">
-                            <div className="w-10 h-10 rounded-xl bg-[var(--color-primary)]/10 flex items-center justify-center flex-shrink-0">
-                              <Megaphone size={20} className="text-[var(--color-primary)]" />
-                            </div>
-                            <div className="flex-1">
-                              <h3 className="font-bold text-[var(--color-text-primary)] text-lg">
-                                {announcement.title}
-                              </h3>
-                              <div className="flex items-center gap-3 mt-1 text-xs text-[#5A5A6E]">
-                                <span className="flex items-center gap-1">
-                                  <User size={12} />
-                                  {announcement.created_by_name || 'Instructor'}
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <Calendar size={12} />
-                                  {announcement.created_at 
-                                    ? format(new Date(announcement.created_at), 'MMM dd, yyyy - h:mm a')
-                                    : 'Recently'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                          <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed whitespace-pre-wrap ml-13">
-                            {announcement.content}
+              {/* Tab Panels */}
+              <div className="px-8 pb-8 max-w-4xl mx-auto min-h-[200px] mt-8">
+                <AnimatePresence mode="wait">
+                  {/* Content Tab */}
+                  {activeTab === 'content' && (
+                    <motion.div
+                      key="content"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="space-y-4"
+                    >
+                      {activeLesson?.bodyText ? (
+                        <div className="prose max-w-none">
+                          <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed whitespace-pre-wrap">
+                            {activeLesson.bodyText}
                           </p>
-                        </Card>
-                      </motion.div>
-                    ))
+                        </div>
+                      ) : (
+                        <>
+                          <h3 className="font-bold text-[var(--color-text-primary)]">About this lesson</h3>
+                          <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed">
+                            {activeLesson?.description || course.description || 'Course details will appear here.'}
+                          </p>
+                        </>
+                      )}
+                      <div className="grid grid-cols-2 gap-4 mt-8">
+                        <div className="p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)]/50">
+                          <p className="text-[var(--color-text-secondary)] text-xs mb-1">Duration</p>
+                          <p className="font-bold text-[var(--color-text-primary)]">{activeLesson?.duration || 'N/A'}</p>
+                        </div>
+                        <div className="p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)]/50">
+                          <p className="text-[var(--color-text-secondary)] text-xs mb-1">Status</p>
+                          <p className="font-bold text-[var(--color-text-primary)] flex items-center gap-1">
+                            {activeLessonId && (enrollment?.completed_contents?.includes(activeLessonId) ? (
+                              <><CheckCircle2 size={14} className="text-green-500" /> Completed</>
+                            ) : (
+                              <><Clock size={14} className="text-orange-500" /> In Progress</>
+                            ))}
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
                   )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </>
-      )}
+
+                  {/* Resources Tab */}
+                  {activeTab === 'resources' && (
+                    <motion.div
+                      key="resources"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="space-y-4"
+                    >
+                      {filteredResources.length === 0 ? (
+                        <div className="text-center py-12 bg-[var(--color-bg-secondary)]/50 rounded-2xl border-2 border-dashed border-[var(--color-border)]">
+                          <FolderOpen className="mx-auto text-[var(--color-text-secondary)] mb-3" size={32} />
+                          <p className="text-[var(--color-text-secondary)]">No resources available for this section.</p>
+                        </div>
+                      ) : (
+                        <div className="grid gap-3">
+                          {filteredResources.map((resource: any) => {
+                            const href = resource.file || resource.file_url || resource.external_link;
+                            const isExternal = !!resource.external_link && !resource.file && !resource.file_url;
+                            return (
+                              <div
+                                key={resource.id}
+                                className="group p-4 rounded-xl border border-[var(--color-border)] bg-white hover:border-[var(--color-primary)] transition-all flex items-center justify-between"
+                              >
+                                <div className="flex items-center gap-4">
+                                  <div className="w-10 h-10 rounded-lg bg-[var(--color-primary)]/5 flex items-center justify-center text-[var(--color-primary)]">
+                                    {isExternal ? <ExternalLink size={20} /> : resource.file_name?.endsWith('.pdf') ? <FileText size={20} /> : <Download size={20} />}
+                                  </div>
+                                  <div>
+                                    <h4 className="font-bold text-[var(--color-text-primary)] text-sm group-hover:text-[var(--color-primary)] transition-colors">
+                                      {resource.title}
+                                    </h4>
+                                    <p className="text-[var(--color-text-secondary)] text-xs">
+                                      {resource.file_size ? `${(resource.file_size / 1024 / 1024).toFixed(2)} MB` : isExternal ? 'External Link' : 'File'}
+                                    </p>
+                                  </div>
+                                </div>
+                                {href && (
+                                  <div className="flex items-center gap-1">
+                                    {!isExternal && (
+                                      <button
+                                        onClick={() => window.open(href, '_blank')}
+                                        className="p-2 rounded-lg hover:bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-all"
+                                        title="Open in new tab"
+                                      >
+                                        <Eye size={18} />
+                                      </button>
+                                    )}
+                                    {isExternal ? (
+                                      <a
+                                        href={href}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="p-2 rounded-lg hover:bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-all"
+                                        title="Open in new tab"
+                                      >
+                                        <ExternalLink size={18} />
+                                      </a>
+                                    ) : (
+                                      <button
+                                        onClick={() => handleDownload(href, resource.title || 'download', resource.id)}
+                                        disabled={downloadingId === resource.id}
+                                        className="p-2 rounded-lg hover:bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-all disabled:opacity-50"
+                                        title="Download"
+                                      >
+                                        {downloadingId === resource.id ? (
+                                          <div className="w-4 h-4 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
+                                        ) : (
+                                          <Download size={18} />
+                                        )}
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+
+                  {/* Assignments Tab */}
+                  {activeTab === 'assignments' && (
+                    <motion.div
+                      key="assignments"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="space-y-4"
+                    >
+                      {filteredAssessments.length === 0 ? (
+                        <div className="text-center py-12 bg-[var(--color-bg-secondary)]/50 rounded-2xl border-2 border-dashed border-[var(--color-border)]">
+                          <FileText className="mx-auto text-[var(--color-text-secondary)] mb-3" size={32} />
+                          <p className="text-[var(--color-text-secondary)]">No assignments or quizzes available for this section.</p>
+                        </div>
+                      ) : (
+                        <div className="grid gap-3">
+                          {filteredAssessments.map((assessment: any) => {
+                            const attempt = (course as any)?.student_attempts?.find((a: any) => a.assessment === assessment.id);
+                            const status = attempt?.status || 'not_started';
+                            const score = attempt?.score;
+                            const isDone = status === 'submitted' || status === 'graded';
+                            const deadline = assessment.end_datetime ? new Date(assessment.end_datetime) : null;
+                            const isPastDeadline = deadline && new Date() > deadline;
+
+                            return (
+                              <div
+                                key={assessment.id}
+                                className="group p-4 rounded-xl border border-[var(--color-border)] bg-white hover:border-[var(--color-primary)] transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                              >
+                                <div className="flex items-start gap-4">
+                                  <div className={cn(
+                                    "w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-colors",
+                                    isDone ? "bg-green-100 text-green-600" : "bg-[var(--color-primary)]/5 text-[var(--color-primary)]"
+                                  )}>
+                                    {isDone ? <CheckCircle2 size={24} /> : <BookOpen size={24} />}
+                                  </div>
+                                  <div>
+                                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                                      <h4 className="font-bold text-[var(--color-text-primary)] text-sm group-hover:text-[var(--color-primary)] transition-colors">
+                                        {assessment.title}
+                                      </h4>
+                                      <Badge className="text-[10px] h-4 capitalize" variant="secondary">
+                                        {assessment.assessment_type}
+                                      </Badge>
+                                      {status !== 'not_started' && (
+                                        <Badge
+                                          className="text-[10px] h-4 capitalize"
+                                          variant={status === 'graded' ? 'success' : 'warning'}
+                                        >
+                                          {status}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <p className="text-[var(--color-text-secondary)] text-xs line-clamp-1 mb-2">
+                                      {assessment.description || `Complete this ${assessment.assessment_type} to test your knowledge.`}
+                                    </p>
+                                    <div className="flex flex-wrap items-center gap-4 text-[10px] text-[var(--color-text-secondary)]">
+                                      {deadline && (
+                                        <span className={cn(
+                                          "flex items-center gap-1 font-medium",
+                                          isPastDeadline && !isDone ? "text-red-500" : ""
+                                        )}>
+                                          <Clock size={12} />
+                                          Deadline: {format(deadline, 'MMM dd, HH:mm')}
+                                        </span>
+                                      )}
+                                      {score !== null && score !== undefined && (
+                                        <span className="flex items-center gap-1 font-bold text-[var(--color-primary)]">
+                                          <Award size={12} /> Score: {score}%
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                <Button
+                                  variant={isDone ? "outline" : "primary"}
+                                  size="sm"
+                                  className="rounded-xl h-9 px-6 sm:w-auto w-full font-bold shadow-sm"
+                                  onClick={() => {
+                                    const courseId = course.id;
+                                    if (isDone) {
+                                      // View results
+                                      if (assessment.assessment_type === 'quiz' || assessment.assessment_type === 'exam') {
+                                        router.push(`/student/assessments/${assessment.id}/take?attempt=${attempt.id}&courseId=${courseId}`);
+                                      } else {
+                                        router.push(`/student/assessments/${assessment.id}/assignment?attempt=${attempt.id}&courseId=${courseId}`);
+                                      }
+                                    } else {
+                                      // Start/Resume
+                                      if (assessment.assessment_type === 'quiz' || assessment.assessment_type === 'exam') {
+                                        router.push(`/student/assessments/${assessment.id}/take?courseId=${courseId}`);
+                                      } else {
+                                        router.push(`/student/assessments/${assessment.id}/assignment?courseId=${courseId}`);
+                                      }
+                                    }
+                                  }}
+                                >
+                                  {status === 'graded' ? 'View Result' :
+                                    status === 'submitted' ? 'Submitted' :
+                                      status === 'started' ? 'Resume' : 'Start'}
+                                </Button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+
+
+                  {/* Announcements Tab */}
+                  {activeTab === 'announcements' && (
+                    <motion.div
+                      key="announcements"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="space-y-4"
+                    >
+                      {announcements.length === 0 ? (
+                        <div className="text-center py-12">
+                          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Megaphone size={32} className="text-[#5A5A6E] opacity-50" />
+                          </div>
+                          <h4 className="font-bold text-[var(--color-text-primary)]">No announcements yet</h4>
+                          <p className="text-sm text-[var(--color-text-secondary)] mt-1">
+                            Your instructor hasn't posted any announcements for this course yet.
+                          </p>
+                        </div>
+                      ) : (
+                        announcements.map((announcement: any, idx: number) => (
+                          <motion.div
+                            key={announcement.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: idx * 0.05 }}
+                          >
+                            <Card className="p-6 border-l-4 border-l-[var(--color-primary)] hover:shadow-md transition-shadow">
+                              <div className="flex items-start gap-3 mb-3">
+                                <div className="w-10 h-10 rounded-xl bg-[var(--color-primary)]/10 flex items-center justify-center flex-shrink-0">
+                                  <Megaphone size={20} className="text-[var(--color-primary)]" />
+                                </div>
+                                <div className="flex-1">
+                                  <h3 className="font-bold text-[var(--color-text-primary)] text-lg">
+                                    {announcement.title}
+                                  </h3>
+                                  <div className="flex items-center gap-3 mt-1 text-xs text-[#5A5A6E]">
+                                    <span className="flex items-center gap-1">
+                                      <User size={12} />
+                                      {announcement.created_by_name || 'Instructor'}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                      <Calendar size={12} />
+                                      {announcement.created_at
+                                        ? format(new Date(announcement.created_at), 'MMM dd, yyyy - h:mm a')
+                                        : 'Recently'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              <p className="text-sm text-[var(--color-text-secondary)] leading-relaxed whitespace-pre-wrap ml-13">
+                                {announcement.content}
+                              </p>
+                            </Card>
+                          </motion.div>
+                        ))
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Footer Navigation - Only show on content tab */}
         {canAccessContent && activeTab === 'content' && (
           <div className="h-16 border-t border-[var(--color-border)] flex items-center justify-between px-8 bg-[var(--color-bg-card)] shrink-0">
-            <button 
+            <button
               onClick={goToPreviousLesson}
               disabled={allLessons.findIndex(l => l.id === activeLessonId) === 0}
               className="flex items-center gap-2 text-sm font-bold text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
@@ -1159,7 +1266,7 @@ export default function CoursePlayer() {
             <span className="text-xs text-[var(--color-text-secondary)] font-medium">
               {allLessons.findIndex(l => l.id === activeLessonId) + 1} / {allLessons.length}
             </span>
-            <button 
+            <button
               onClick={goToNextLesson}
               disabled={allLessons.findIndex(l => l.id === activeLessonId) === allLessons.length - 1}
               className="flex items-center gap-2 text-sm font-bold text-[var(--color-primary)] hover:opacity-80 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed"
@@ -1167,26 +1274,26 @@ export default function CoursePlayer() {
               Next Lesson <ChevronRight size={18} />
             </button>
           </div>
-          )}
-        </main>
-      
+        )}
+      </main>
+
       {/* Resource Viewer Modal */}
-      <Modal 
-        open={!!viewingResource} 
-        onClose={() => setViewingResource(null)} 
+      <Modal
+        open={!!viewingResource}
+        onClose={() => setViewingResource(null)}
         title={viewingResource?.title || 'Resource Viewer'}
       >
         <div className="w-full h-[70vh] bg-gray-100 rounded-xl overflow-hidden mt-4 relative">
           {viewingResource?.url && (
             viewingResource.url.toLowerCase().endsWith('.pdf') ? (
-              <iframe 
-                src={`${viewingResource.url}#toolbar=0`} 
+              <iframe
+                src={`${viewingResource.url}#toolbar=0`}
                 className="w-full h-full border-none"
                 title="PDF Viewer"
               />
             ) : viewingResource.url.toLowerCase().match(/\.(docx|doc|pptx|ppt|xlsx|xls)$/) ? (
-              <iframe 
-                src={`https://docs.google.com/viewer?url=${encodeURIComponent(viewingResource.url)}&embedded=true`} 
+              <iframe
+                src={`https://docs.google.com/viewer?url=${encodeURIComponent(viewingResource.url)}&embedded=true`}
                 className="w-full h-full border-none"
                 title="Document Viewer"
               />
@@ -1198,9 +1305,9 @@ export default function CoursePlayer() {
               <div className="flex flex-col items-center justify-center h-full text-[var(--color-text-secondary)]">
                 <FileText size={48} className="mb-4 opacity-20" />
                 <p className="font-bold">Preview not available for this file type</p>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="mt-4"
                   onClick={() => {
                     handleDownload(viewingResource.url, viewingResource.title, 0);
