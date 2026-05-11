@@ -56,11 +56,15 @@ export default function TutorCoursesPage() {
   const isFree = watch('is_free');
 
   const courseList = useMemo(() => {
-    return Array.isArray(courses) ? courses : (courses as any)?.data || [];
+    return Array.isArray(courses) 
+      ? courses 
+      : (courses as any)?.results || (courses as any)?.data || [];
   }, [courses]);
 
   const categories = useMemo(() => {
-    const list = Array.isArray(categoriesData) ? categoriesData : (categoriesData as any)?.data || [];
+    const list = Array.isArray(categoriesData) 
+      ? categoriesData 
+      : (categoriesData as any)?.results || (categoriesData as any)?.data || [];
     return list.map((c: any) => ({
       value: c.id,
       label: c.name

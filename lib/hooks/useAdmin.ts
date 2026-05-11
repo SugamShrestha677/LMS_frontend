@@ -145,13 +145,39 @@ export const useUpdateStaffPermission = () => {
   return useMutation({
     mutationFn: ({ id, data }: { id: number; data: any }) => 
       userService.updateStaffPermission(id, data),
+    // Optimistic Update
+    onMutate: async ({ id, data }) => {
+      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+      await queryClient.cancelQueries({ queryKey: ['staff-permissions', id] });
+
+      // Snapshot the previous value
+      const previousPermissions = queryClient.getQueryData(['staff-permissions', id]);
+
+      // Optimistically update to the new value
+      queryClient.setQueryData(['staff-permissions', id], (old: any) => ({
+        ...old,
+        ...data,
+      }));
+
+      // Return a context object with the snapshotted value
+      return { previousPermissions, id };
+    },
+    // If the mutation fails, use the context returned from onMutate to roll back
+    onError: (err, variables, context) => {
+      if (context?.previousPermissions) {
+        queryClient.setQueryData(
+          ['staff-permissions', context.id],
+          context.previousPermissions
+        );
+      }
+      toast.error('Failed to update permissions');
+    },
+    // Always refetch after error or success to guarantee we are in sync with the server
+    onSettled: (data, error, variables, context) => {
+      queryClient.invalidateQueries({ queryKey: ['staff-permissions', context?.id] });
+    },
     onSuccess: () => {
       toast.success('Permissions updated successfully');
-      queryClient.invalidateQueries({ queryKey: ['staff-permissions'] });
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to update permissions');
     },
   });
 };

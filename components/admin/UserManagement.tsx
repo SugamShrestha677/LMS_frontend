@@ -65,7 +65,7 @@ export function UserManagement({ roleFilter, title, subtitle }: UserManagementPr
   } = useForm<CreateUserInput>({
     resolver: zodResolver(createUserSchema),
     defaultValues: {
-      role: 'student',
+      role: (roleFilter as any) || 'student',
     },
   });
 
@@ -103,7 +103,6 @@ export function UserManagement({ roleFilter, title, subtitle }: UserManagementPr
           setIsDeleteModalOpen(false);
           setSelectedUser(null);
           setDeleteReason('');
-          refetch();
         },
       }
     );
@@ -112,7 +111,7 @@ export function UserManagement({ roleFilter, title, subtitle }: UserManagementPr
   const handleRestore = (user: any) => {
     restoreUser(user.id, {
       onSuccess: () => {
-        refetch();
+        // hook handles invalidation
       },
     });
   };
@@ -160,7 +159,10 @@ export function UserManagement({ roleFilter, title, subtitle }: UserManagementPr
   };
 
   const filteredUsers = useMemo(() => {
-    const userListFromApi = Array.isArray(users) ? users : users?.data || [];
+    // Handle paginated responses (results key) or direct arrays
+    const userListFromApi = Array.isArray(users) 
+      ? users 
+      : (users as any)?.results || users?.data || [];
     const isSuperAdmin = currentUser?.role === 'super_admin' || currentUser?.is_super_admin;
     const isAdmin = currentUser?.role === 'admin';
     
@@ -344,7 +346,7 @@ export function UserManagement({ roleFilter, title, subtitle }: UserManagementPr
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, scale: 0.95 }}
-                        transition={{ delay: idx * 0.04 }}
+                        transition={{ delay: Math.min(idx * 0.02, 0.4) }}
                         className={cn(
                           "hover:bg-[var(--color-primary)]/[0.02] transition-colors group",
                           u.is_deleted && "opacity-60 bg-red-500/[0.02]"
@@ -494,12 +496,12 @@ export function UserManagement({ roleFilter, title, subtitle }: UserManagementPr
                     <button
                       key={perm.key}
                       onClick={() => handleTogglePermission(perm.key)}
-                      disabled={isUpdatingPermissions}
                       className={cn(
                         "flex items-center justify-between p-5 rounded-2xl border-2 transition-all group text-left relative overflow-hidden",
                         hasPerm
                           ? "border-[var(--color-primary)] bg-[var(--color-primary)]/[0.03] shadow-md"
-                          : "border-[var(--color-border)] bg-[var(--color-bg-card)] hover:border-[var(--color-primary)]/30 hover:shadow-lg"
+                          : "border-[var(--color-border)] bg-[var(--color-bg-card)] hover:border-[var(--color-primary)]/30 hover:shadow-lg",
+                        isUpdatingPermissions && "opacity-80"
                       )}
                     >
                       {hasPerm && <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-[var(--color-primary)]" />}
@@ -518,7 +520,11 @@ export function UserManagement({ roleFilter, title, subtitle }: UserManagementPr
                           ? "bg-[var(--color-primary)] text-white border-[var(--color-primary)] scale-110" 
                           : "bg-[var(--color-muted)] text-[var(--color-text-secondary)] border-[var(--color-border)] group-hover:scale-105"
                       )}>
-                        {hasPerm ? <Check size={18} strokeWidth={4} /> : <X size={18} strokeWidth={4} />}
+                        {hasPerm ? (
+                          <Check size={18} strokeWidth={4} className={cn(isUpdatingPermissions && "animate-pulse")} />
+                        ) : (
+                          <X size={18} strokeWidth={4} />
+                        )}
                       </div>
                     </button>
                   );
