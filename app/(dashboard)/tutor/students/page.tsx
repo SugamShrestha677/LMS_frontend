@@ -13,7 +13,9 @@ export default function TutorStudentsPage() {
   const [searchTerm, setSearchTerm] = useState('');
 
   const enrollments = useMemo(() => {
-    return Array.isArray(enrollmentsData) ? enrollmentsData : (enrollmentsData as any)?.data || [];
+    return Array.isArray(enrollmentsData) 
+      ? enrollmentsData 
+      : (enrollmentsData as any)?.results || (enrollmentsData as any)?.data || [];
   }, [enrollmentsData]);
 
   // Extract unique students and their associated course data

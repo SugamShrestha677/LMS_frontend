@@ -60,7 +60,9 @@ export default function SuperAdminCoursesPage() {
   const isFree = watch('is_free');
 
   const tutors = useMemo(() => {
-    const userList = Array.isArray(usersData) ? usersData : (usersData as any)?.data || [];
+    const userList = Array.isArray(usersData) 
+      ? usersData 
+      : (usersData as any)?.results || (usersData as any)?.data || [];
     return userList
       .filter((u: any) => u.role === 'tutor')
       .map((u: any) => ({
@@ -70,11 +72,15 @@ export default function SuperAdminCoursesPage() {
   }, [usersData]);
 
   const courses = useMemo(() => {
-    return Array.isArray(coursesData) ? coursesData : (coursesData as any)?.data || [];
+    return Array.isArray(coursesData) 
+      ? coursesData 
+      : (coursesData as any)?.results || (coursesData as any)?.data || [];
   }, [coursesData]);
 
   const categories = useMemo(() => {
-    const list = Array.isArray(categoriesData) ? categoriesData : (categoriesData as any)?.data || [];
+    const list = Array.isArray(categoriesData) 
+      ? categoriesData 
+      : (categoriesData as any)?.results || (categoriesData as any)?.data || [];
     return list.map((c: any) => ({
       value: c.id,
       label: c.name
@@ -176,7 +182,7 @@ export default function SuperAdminCoursesPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {[
           { label: 'Total Courses', value: courses.length, icon: BookOpen },
-          { label: 'Published', value: courses.filter((c: any) => c.status === 'published').count || 0, icon: Star },
+          { label: 'Published', value: courses.filter((c: any) => c.status === 'published').length || 0, icon: Star },
           { label: 'Total Students', value: courses.reduce((acc: number, c: any) => acc + (c.enrolled_count || 0), 0), icon: Users },
           { label: 'Active Drafts', value: courses.filter((c: any) => c.status === 'draft').length, icon: Edit2 },
         ].map((stat, i) => (
