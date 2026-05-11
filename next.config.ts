@@ -12,11 +12,14 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   compress: true,
+  experimental: {
+    optimizePackageImports: ['recharts', 'lodash', 'lucide-react'],
+  },
   devIndicators: {
-    position: "bottom-right",   // only allowed property
+    position: "bottom-right",
   },
   images: {
-    domains: ['res.cloudinary.com'], // add your Cloudinary domain
+    domains: ['res.cloudinary.com'],
   },
 };
 

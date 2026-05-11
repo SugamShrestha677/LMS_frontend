@@ -45,6 +45,7 @@ const adminLinks = [
   { href: '/admin/courses', label: 'Courses', icon: GraduationCap },
   { href: '/admin/events', label: 'Events', icon: Calendar },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart2 },
+  { href: '/super-admin/audit-logs', label: 'Audit Logs', icon: FileText },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -110,7 +111,7 @@ function getLinks(user: any | null) {
         links.push({ href: '/staff/payments', label: 'Payments', icon: CreditCard });
       }
       
-      // Settings is always available for staff as requested
+      // Settings is always available for staff
       links.push({ href: '/staff/settings', label: 'Settings', icon: Settings });
       
       return links;

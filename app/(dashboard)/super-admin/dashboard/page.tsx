@@ -16,12 +16,12 @@ import { cn } from '@/lib/utils';
 import { useAdminStats } from '@/lib/hooks/useAdmin';
 
 const quickActions = [
-  { label: 'Create Admin', href: '/super-admin/admins/create', icon: Shield, color: 'hover:bg-purple-50 text-purple-600' },
-  { label: 'Create Course', href: '/super-admin/courses/create', icon: BookOpen, color: 'hover:bg-blue-50 text-blue-600' },
-  { label: 'View Analytics', href: '/super-admin/analytics', icon: BarChart3, color: 'hover:bg-green-50 text-green-600' },
-  { label: 'System Settings', href: '/super-admin/settings', icon: Settings, color: 'hover:bg-gray-50 text-gray-600' },
-  { label: 'Audit Logs', href: '/super-admin/audit-logs', icon: FileText, color: 'hover:bg-amber-50 text-amber-600' },
-  { label: 'Billing', href: '/super-admin/billing', icon: Star, color: 'hover:bg-indigo-50 text-indigo-600' },
+  { label: 'Manage Admins', href: '/super-admin/admins', icon: Shield, color: 'hover:bg-purple-500/10 text-purple-600' },
+  { label: 'Manage Courses', href: '/super-admin/courses', icon: BookOpen, color: 'hover:bg-blue-500/10 text-blue-600' },
+  { label: 'Analytics Lab', href: '/super-admin/analytics', icon: BarChart3, color: 'hover:bg-green-500/10 text-green-600' },
+  { label: 'System Config', href: '/super-admin/settings', icon: Settings, color: 'hover:bg-gray-500/10 text-gray-600' },
+  { label: 'Activity Logs', href: '/super-admin/audit-logs', icon: FileText, color: 'hover:bg-amber-500/10 text-amber-600' },
+  { label: 'Revenue Hub', href: '/super-admin/billing', icon: Star, color: 'hover:bg-indigo-500/10 text-indigo-600' },
 ];
 
 const container = {
@@ -37,7 +37,7 @@ export default function SuperAdminDashboard() {
   const { user } = useAuthStore();
   const { data: statsData, isLoading } = useAdminStats();
   
-  const stats = statsData?.data || {
+  const stats = statsData || {
     users: { total: 0, admins: 0, students: 0, tutors: 0, companies: 0 },
     courses: { total: 0 },
     enrollments: { total: 0 }

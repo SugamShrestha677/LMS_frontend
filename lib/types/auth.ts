@@ -15,6 +15,7 @@ export interface User {
   created_at?: string;
   updated_at?: string;
   permissions?: StaffPermission;
+  profile?: any;
 }
 
 export interface StaffPermission {
