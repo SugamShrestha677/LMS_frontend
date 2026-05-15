@@ -99,5 +99,9 @@ export const studentApi = {
   getAnnouncements: async (courseId: number) => {
     const { data } = await api.get(`/courses/${courseId}/announcements/`);
     return data;
-},
+  },
+  sendHeartbeat: async (enrollmentId: number, data: { content_id: number; current_time: number; duration: number }) => {
+    const res = await api.post(`/enrollments/${enrollmentId}/heartbeat/`, data);
+    return unwrapResponse(res.data);
+  },
 };

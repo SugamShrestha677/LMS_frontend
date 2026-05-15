@@ -3,10 +3,10 @@ import { courseService } from '@/lib/services/course.service';
 import { toast } from 'react-hot-toast';
 
 // ==================== COURSES ====================
-export const useCourses = () => {
+export const useCourses = (includeDeleted = false) => {
   return useQuery({
-    queryKey: ['courses'],
-    queryFn: () => courseService.getCourses(),
+    queryKey: ['courses', includeDeleted],
+    queryFn: () => courseService.getCourses(includeDeleted),
   });
 };
 
@@ -50,6 +50,34 @@ export const useUpdateCourse = () => {
     },
     onError: (error: any) => {
       toast.error('Failed to update course');
+    },
+  });
+};
+
+export const useDeleteCourse = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => courseService.deleteCourse(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
+      toast.success('Course moved to trash');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to delete course');
+    },
+  });
+};
+
+export const useRestoreCourse = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => courseService.restoreCourse(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
+      toast.success('Course restored successfully');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to restore course');
     },
   });
 };

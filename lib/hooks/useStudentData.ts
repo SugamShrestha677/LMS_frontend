@@ -160,7 +160,8 @@ export function useScormProgress(courseId?: number, enabled = true) {
     queryKey: ['student', 'courses', courseId, 'scorm-progress'],
     queryFn: () => studentApi.getScormProgress(courseId as number),
     enabled: !!courseId && enabled,
-    refetchInterval: enabled ? 10000 : false,
+    // Polling disabled in favor of real-time WebSockets
+    refetchInterval: false,
   });
 }
 
