@@ -1,7 +1,14 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useCourses, useCreateCourse, useUpdateCourse, useCategories } from '@/lib/hooks/useCourses';
+import { 
+  useCourses, 
+  useCreateCourse, 
+  useUpdateCourse, 
+  useCategories,
+  useDeleteCourse,
+  useRestoreCourse
+} from '@/lib/hooks/useCourses';
 import { useUsers } from '@/lib/hooks/useAdmin';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -37,16 +44,29 @@ export function CourseManagement({
   title = "Course Catalog", 
   subtitle = "Manage educational content and instructor assignments." 
 }: CourseManagementProps) {
-  const { data: courses, isLoading: isLoadingCourses } = useCourses();
+  const [showDeleted, setShowDeleted] = useState(false);
+  const { data: courses, isLoading: isLoadingCourses } = useCourses(showDeleted);
   const { data: categoriesData } = useCategories();
   const { data: users, isLoading: isLoadingUsers } = useUsers();
   const { mutate: createCourse, isPending: isCreating } = useCreateCourse();
   const { mutate: updateCourse, isPending: isUpdating } = useUpdateCourse();
+  const { mutate: deleteCourse } = useDeleteCourse();
+  const { mutate: restoreCourse } = useRestoreCourse();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  const handleDelete = (course: any) => {
+    if (window.confirm(`Are you sure you want to move "${course.title || course.name}" to trash?`)) {
+      deleteCourse(course.id);
+    }
+  };
+
+  const handleRestore = (courseId: number) => {
+    restoreCourse(courseId);
+  };
 
   const { register, handleSubmit, reset, setValue, watch, control } = useForm<CourseFormValues>({
     defaultValues: {
@@ -222,15 +242,24 @@ export function CourseManagement({
             <p className="text-2xl font-black text-[var(--color-text-primary)]">{courseList.length}</p>
           </div>
         </Card>
-        <div className="md:col-span-2 relative">
-          <Search size={20} className="absolute left-6 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]" />
-          <input 
-            type="text" 
-            placeholder="Search courses..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full h-full min-h-[72px] bg-[var(--color-bg-card)]/60 border border-[var(--color-border)] rounded-[2rem] pl-14 pr-6 outline-none focus:ring-4 focus:ring-[var(--color-primary)]/5 focus:border-[var(--color-primary)]/30 transition-all font-medium text-[var(--color-text-primary)] backdrop-blur-sm"
-          />
+        <div className="md:col-span-2 flex gap-4">
+          <div className="relative flex-1">
+            <Search size={20} className="absolute left-6 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)]" />
+            <input 
+              type="text" 
+              placeholder={showDeleted ? "Search deleted courses..." : "Search courses..."}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full h-full min-h-[72px] bg-[var(--color-bg-card)]/60 border border-[var(--color-border)] rounded-[2rem] pl-14 pr-6 outline-none focus:ring-4 focus:ring-[var(--color-primary)]/5 focus:border-[var(--color-primary)]/30 transition-all font-medium text-[var(--color-text-primary)] backdrop-blur-sm"
+            />
+          </div>
+          <Button
+            variant={showDeleted ? "primary" : "outline"}
+            onClick={() => setShowDeleted(!showDeleted)}
+            className="rounded-[2rem] px-8 h-[72px] shadow-xl whitespace-nowrap"
+          >
+            {showDeleted ? "View Active" : "View Trash"}
+          </Button>
         </div>
       </div>
 
@@ -300,16 +329,32 @@ export function CourseManagement({
                       </td>
                       <td className="px-8 py-6 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <button 
-                            onClick={() => openEditModal(course)}
-                            className="w-10 h-10 rounded-xl hover:bg-[var(--color-primary)]/10 text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-all flex items-center justify-center hover:scale-110"
-                            title="Edit Course"
-                          >
-                            <Edit2 size={18} />
-                          </button>
-                          <button className="w-10 h-10 rounded-xl hover:bg-red-500/10 text-[var(--color-text-secondary)] hover:text-red-500 transition-all flex items-center justify-center hover:scale-110">
-                            <Trash2 size={18} />
-                          </button>
+                          {showDeleted ? (
+                            <Button 
+                              onClick={() => handleRestore(course.id)}
+                              size="sm"
+                              className="rounded-xl shadow-lg shadow-[var(--color-primary)]/20"
+                            >
+                              Restore Course
+                            </Button>
+                          ) : (
+                            <>
+                              <button 
+                                onClick={() => openEditModal(course)}
+                                className="w-10 h-10 rounded-xl hover:bg-[var(--color-primary)]/10 text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-all flex items-center justify-center hover:scale-110"
+                                title="Edit Course"
+                              >
+                                <Edit2 size={18} />
+                              </button>
+                              <button 
+                                onClick={() => handleDelete(course)}
+                                className="w-10 h-10 rounded-xl hover:bg-red-500/10 text-[var(--color-text-secondary)] hover:text-red-500 transition-all flex items-center justify-center hover:scale-110"
+                                title="Delete Course"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </motion.tr>

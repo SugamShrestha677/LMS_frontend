@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -203,6 +203,45 @@ export default function CoursePlayer() {
   const isPaid = !!confirmedPayment || course?.is_free;
   const canAccessContent = isEnrolled && isPaid;
 
+  // Real-time Progress State
+  const [liveProgress, setLiveProgress] = useState<{ progress: number; status: string } | null>(null);
+
+  useEffect(() => {
+    if (!isEnrolled || !enrollment?.id) return;
+
+    // Construct WebSocket URL - Use 127.0.0.1 for local dev to be more stable
+    const host = window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname;
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${wsProtocol}//${host}:8000/ws/enrollment/${enrollment.id}/progress/`;
+    
+    console.log('Connecting to Progress WebSocket:', wsUrl);
+    const socket = new WebSocket(wsUrl);
+
+    socket.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('Live Progress Received:', data);
+        setLiveProgress({
+          progress: data.progress,
+          status: data.status
+        });
+        // We don't need to refetch the whole course here, 
+        // as setLiveProgress will update the progress bar.
+      } catch (err) {
+        console.error('Failed to parse WS message:', err);
+      }
+    };
+
+    socket.onerror = (err) => {
+      console.error('WebSocket Error:', err);
+    };
+
+    return () => {
+      console.log('Closing Progress WebSocket');
+      socket.close();
+    };
+  }, [enrollment?.id, isEnrolled, refetchCourse]);
+
 
   // Announcements
   const announcements = useMemo(() => {
@@ -295,6 +334,47 @@ export default function CoursePlayer() {
   const liveSession = activeLesson?.sessionData as any;
   const currentModuleId = typeof activeModule?.id === 'number' ? activeModule.id : null;
 
+  // Sync progress when window gains focus (useful for SCORM windows closing)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (course?.is_scorm || activeLesson?.scormCourseId) {
+        console.log('Window focused, syncing SCORM progress...');
+        refetchScormProgress();
+        refetchCourse();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [course?.is_scorm, activeLesson?.scormCourseId, refetchScormProgress, refetchCourse]);
+
+  // Video Heartbeat Tracking
+  const lastHeartbeatRef = useRef<number>(0);
+  const handleVideoProgress = async (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const video = e.currentTarget;
+    const currentTime = Math.floor(video.currentTime);
+    const duration = Math.floor(video.duration);
+    
+    // Heartbeat every 15 seconds
+    if (currentTime > 0 && currentTime % 15 === 0 && currentTime !== lastHeartbeatRef.current) {
+      lastHeartbeatRef.current = currentTime;
+      try {
+        const { studentApi } = await import('@/lib/api/student');
+        if (enrollment?.id && activeLessonId) {
+          // Send progress update to backend
+          await studentApi.sendHeartbeat(enrollment.id, {
+            content_id: activeLessonId,
+            current_time: currentTime,
+            duration: duration
+          });
+          console.log(`Video heartbeat at ${currentTime}s / ${duration}s for lesson ${activeLessonId}`);
+        }
+      } catch (err) {
+        console.error('Heartbeat failed:', err);
+      }
+    }
+  };
+
   useEffect(() => {
     if (activeLesson?.scormCourseId && activeLesson?.scormStatus === 'finished') {
       const fetchLaunchUrl = async () => {
@@ -323,7 +403,11 @@ export default function CoursePlayer() {
   const scormCompletion = typeof scormProgress?.completion_amount === 'number'
     ? scormProgress.completion_amount
     : null;
-  const progress = scormCompletion ?? (enrollment ? Number(enrollment.progress_percentage ?? 0) : 0);
+    
+  // Use liveProgress from WebSocket if available, otherwise fallback to REST/SCORM data
+  const progress = liveProgress?.progress 
+    ?? scormCompletion 
+    ?? (enrollment ? Number(enrollment.progress_percentage ?? 0) : 0);
   const scormLaunchUrl = course?.scorm_launch_url as string | undefined;
   const scormLaunchError = course?.scorm_launch_error as string | undefined;
 
@@ -673,13 +757,8 @@ export default function CoursePlayer() {
                               `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=yes,menubar=no`
                             );
                             
-                            // Start polling for progress
-                            const interval = setInterval(() => {
-                              refetchCourse();
-                              refetchScormProgress();
-                            }, 5000);
-                            
-                            setTimeout(() => clearInterval(interval), 1800000);
+                            // Real-time updates are now handled by WebSocket, no more polling!
+                            refetchScormProgress();
                           }
                         }}
                       >
@@ -732,12 +811,8 @@ export default function CoursePlayer() {
                               `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=yes`
                             );
                             
-                            const interval = setInterval(() => {
-                              refetchCourse();
-                              refetchScormProgress();
-                            }, 5000);
-                            
-                            setTimeout(() => clearInterval(interval), 1800000);
+                            // Real-time updates are now handled by WebSocket, no more polling!
+                            refetchScormProgress();
                           }
                         }}
                       >
@@ -810,6 +885,7 @@ export default function CoursePlayer() {
                       controls
                       className="w-full h-full"
                       onEnded={handleLessonCompleted}
+                      onTimeUpdate={handleVideoProgress}
                     />
                   </div>
                 ) : (

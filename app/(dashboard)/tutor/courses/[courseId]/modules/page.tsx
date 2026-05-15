@@ -19,7 +19,26 @@ export default function ModulesPage() {
   const { mutate: deleteModule, isPending: isDeleting } = useDeleteModule();
 
   const course = Array.isArray(courseData) ? courseData[0] : courseData;
-  const modules = Array.isArray(modulesData) ? modulesData : (modulesData as any)?.data || [];
+
+  // Support multiple backend shapes:
+  // - direct array: []
+  // - paginated DRF: { count, results: [...] }
+  // - wrapped api_success: { success, data: [...] }
+  let modules: any[] = [];
+  if (Array.isArray(modulesData)) {
+    modules = modulesData;
+  } else if ((modulesData as any)?.results && Array.isArray((modulesData as any).results)) {
+    modules = (modulesData as any).results;
+  } else if ((modulesData as any)?.data && Array.isArray((modulesData as any).data)) {
+    modules = (modulesData as any).data;
+  } else {
+    modules = [];
+  }
+  // Debugging helper: log response shapes in browser console
+  if (typeof window !== 'undefined') {
+    // eslint-disable-next-line no-console
+    console.log('useModules raw:', modulesData, 'resolvedModules:', modules);
+  }
 
   const handleDelete = (moduleId: number, moduleTitle: string) => {
     if (confirm(`Delete module "${moduleTitle}"? This will also delete all its contents.`)) {

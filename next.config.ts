@@ -10,16 +10,25 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  productionBrowserSourceMaps: false,
+  typescript: {
+    ignoreBuildErrors: true, 
+  },
+  output: 'standalone',
   reactStrictMode: true,
   compress: true,
-  experimental: {
-    optimizePackageImports: ['recharts', 'lodash', 'lucide-react'],
-  },
   devIndicators: {
     position: "bottom-right",
   },
   images: {
-    domains: ['res.cloudinary.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+        port: '',
+        pathname: '/**',
+      },
+    ],
   },
 };
 

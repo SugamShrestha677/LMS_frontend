@@ -2,8 +2,9 @@ import api from './api';
 
 export const courseService = {
   // Courses
-  getCourses: async () => {
-    const { data } = await api.get('/courses/');
+  getCourses: async (includeDeleted = false) => {
+    const url = includeDeleted ? '/courses/?include_deleted=true' : '/courses/';
+    const { data } = await api.get(url);
     return data;
   },
 
@@ -34,6 +35,11 @@ export const courseService = {
 
   deleteCourse: async (id: number) => {
     const { data } = await api.delete(`/courses/${id}/`);
+    return data;
+  },
+
+  restoreCourse: async (id: number) => {
+    const { data } = await api.post(`/courses/${id}/restore/`);
     return data;
   },
 

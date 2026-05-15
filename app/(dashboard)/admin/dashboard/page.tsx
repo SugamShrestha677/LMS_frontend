@@ -3,6 +3,7 @@
 import { useAdminDashboard } from '@/lib/hooks/useAdminData';
 import { StatCard, Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import type { Bar as BarType } from 'recharts';
 import { Button } from '@/components/ui/Button';
 import { DashboardSkeleton } from '@/components/ui/Skeleton';
 import { motion } from 'framer-motion';
@@ -17,7 +18,10 @@ import dynamic from 'next/dynamic';
 // Dynamically import Recharts with SSR disabled for performance
 const ResponsiveContainer = dynamic(() => import('recharts').then(mod => mod.ResponsiveContainer), { ssr: false });
 const BarChart = dynamic(() => import('recharts').then(mod => mod.BarChart), { ssr: false });
-const Bar = dynamic(() => import('recharts').then(mod => mod.Bar), { ssr: false });
+const Bar = dynamic(
+  () => import('recharts').then(mod => mod.Bar as any),
+  { ssr: false }
+);
 const XAxis = dynamic(() => import('recharts').then(mod => mod.XAxis), { ssr: false });
 const YAxis = dynamic(() => import('recharts').then(mod => mod.YAxis), { ssr: false });
 const CartesianGrid = dynamic(() => import('recharts').then(mod => mod.CartesianGrid), { ssr: false });
