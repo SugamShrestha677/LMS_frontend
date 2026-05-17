@@ -15,16 +15,10 @@ import {
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
-// Dynamically import Recharts with SSR disabled for performance
-const LineChart = dynamic(() => import('recharts').then(mod => mod.LineChart), { ssr: false });
-const Line = dynamic(() => import('recharts').then(mod => mod.Line), { ssr: false });
-const XAxis = dynamic(() => import('recharts').then(mod => mod.XAxis), { ssr: false });
-const YAxis = dynamic(() => import('recharts').then(mod => mod.YAxis), { ssr: false });
-const CartesianGrid = dynamic(() => import('recharts').then(mod => mod.CartesianGrid), { ssr: false });
-const Tooltip = dynamic(() => import('recharts').then(mod => mod.Tooltip), { ssr: false });
-const ResponsiveContainer = dynamic(() => import('recharts').then(mod => mod.ResponsiveContainer), { ssr: false });
-const AreaChart = dynamic(() => import('recharts').then(mod => mod.AreaChart), { ssr: false });
-const Area = dynamic(() => import('recharts').then(mod => mod.Area), { ssr: false });
+const StudentActivityChart = dynamic(() => import('./StudentActivityChart'), { 
+  ssr: false,
+  loading: () => <div className="w-full h-full bg-[var(--color-bg-card)]/50 animate-pulse rounded-md" />
+});
 import { formatDate } from '@/lib/utils';
 import Link from 'next/link';
 
@@ -171,50 +165,7 @@ export default function StudentDashboard() {
               </select>
             </div>
             <div className="h-[340px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="colorHours" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.2}/>
-                      <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="6 6" vertical={false} stroke="var(--color-border)" />
-                  <XAxis 
-                    dataKey="name" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fill: 'var(--color-text-secondary)', fontSize: 10, fontWeight: 700 }}
-                    dy={15}
-                  />
-                  <YAxis 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fill: 'var(--color-text-secondary)', fontSize: 10, fontWeight: 700 }}
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      borderRadius: 'var(--radius-md)', 
-                      border: '1px solid var(--color-border)', 
-                      backgroundColor: 'var(--color-bg-card)',
-                      color: 'var(--color-text-primary)',
-                      boxShadow: 'var(--shadow-lg)',
-                      padding: '12px'
-                    }}
-                    itemStyle={{ fontWeight: 800, fontSize: '12px' }}
-                    labelStyle={{ fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', marginBottom: '4px', opacity: 0.6 }}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="hours" 
-                    stroke="var(--color-primary)" 
-                    strokeWidth={4}
-                    fillOpacity={1} 
-                    fill="url(#colorHours)" 
-                    animationDuration={2000}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              <StudentActivityChart chartData={chartData} />
             </div>
           </Card>
 
