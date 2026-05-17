@@ -111,10 +111,13 @@ export function useUsers() {
 }
 
 export function useProfile() {
-  const { setUser, isAuthenticated } = useAuthStore();
+  const authUser = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const { setUser } = useAuthStore();
   
   return useQuery({
     queryKey: ['profile'],
+    initialData: authUser ?? undefined,
     queryFn: async () => {
       const response = await authService.getCurrentUser();
       const user = response.data || response;
@@ -125,6 +128,10 @@ export function useProfile() {
     },
     enabled: isAuthenticated,
     staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: 1,
   });
 }
 
