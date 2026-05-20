@@ -74,7 +74,7 @@ export function CoursePaymentModal({ course, isOpen, onClose }: CoursePaymentMod
                 <div className="space-y-2">
                   <h3 className="text-3xl font-black tracking-tight text-[var(--color-text-primary)]">Payment Submitted!</h3>
                   <p className="text-[var(--color-text-secondary)] font-medium">
-                    Your payment for <span className="font-bold text-[var(--color-primary)]">"{course.title}"</span> has been sent for verification.
+                    Your payment for <span className="font-bold text-[var(--color-primary)]">&quot;{course.title}&quot;</span> has been sent for verification.
                   </p>
                 </div>
                 <div className="p-6 rounded-2xl bg-[var(--color-muted)]/50 border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)] text-left flex gap-4">

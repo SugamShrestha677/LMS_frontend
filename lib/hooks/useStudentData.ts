@@ -204,4 +204,14 @@ export const useCourseAnnouncements = (courseId: number) => {
     queryFn: () => studentApi.getAnnouncements(courseId),
     enabled: !!courseId,
   });
-};
+}
+
+export function useStudentAttendance() {
+  return useQuery({
+    queryKey: ['student', 'attendance'],
+    queryFn: async () => {
+      return studentApi.getAttendance();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}

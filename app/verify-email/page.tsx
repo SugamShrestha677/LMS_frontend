@@ -77,7 +77,7 @@ function VerifyEmailContent() {
         </div>
         <h1 className="text-3xl font-black text-[#1E1E2A] mb-2">Verify Your Email</h1>
         <p className="text-[#5A5A6E]">
-          We've sent a 6-digit code to <span className="font-bold text-[#1E1E2A]">{email}</span>
+          We&apos;ve sent a 6-digit code to <span className="font-bold text-[#1E1E2A]">{email}</span>
         </p>
       </div>
 
@@ -102,7 +102,7 @@ function VerifyEmailContent() {
 
           <div className="text-center">
             <p className="text-sm text-[#5A5A6E] mb-4">
-              Didn't receive the code?
+              Didn&apos;t receive the code?
             </p>
             {canResend ? (
               <button

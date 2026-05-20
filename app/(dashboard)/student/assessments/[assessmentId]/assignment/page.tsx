@@ -288,7 +288,7 @@ export default function AssignmentSubmissionPage() {
                 {attemptData.feedback ? (
                   <div className="space-y-4">
                     <p className="text-sm text-[#1E1E2A] leading-relaxed italic">
-                      "{attemptData.feedback}"
+                      &quot;{attemptData.feedback}&quot;
                     </p>
                     <div className="pt-4 border-t border-[#0A5C4A]/10 text-xs text-[#5A5A6E]">
                       Graded on {format(new Date(attemptData.graded_at || new Date()), 'MMM dd, yyyy')}

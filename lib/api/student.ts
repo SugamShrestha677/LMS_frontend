@@ -104,4 +104,8 @@ export const studentApi = {
     const res = await api.post(`/enrollments/${enrollmentId}/heartbeat/`, data);
     return unwrapResponse(res.data);
   },
+  getAttendance: async () => {
+    const res = await api.get('/student/attendance/');
+    return unwrapResponse(res.data);
+  },
 };

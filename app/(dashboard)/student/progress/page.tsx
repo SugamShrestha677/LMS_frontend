@@ -199,7 +199,7 @@ export default function ProgressPage() {
               </div>
             </div>
             <p className="text-sm font-medium text-[var(--color-text-secondary)] mb-8 leading-relaxed">
-              You've logged <span className="font-black text-amber-600">12 technical hours</span> this week. Complete <span className="text-[var(--color-text-primary)] font-black">3 more</span> to achieve your milestone.
+              You&apos;ve logged <span className="font-black text-amber-600">12 technical hours</span> this week. Complete <span className="text-[var(--color-text-primary)] font-black">3 more</span> to achieve your milestone.
             </p>
             <div className="mb-10">
               <div className="flex justify-between text-[10px] font-black mb-2 text-amber-600 uppercase tracking-widest">
