@@ -14,6 +14,8 @@ import {
   UserCheck, TrendingUp, Shield, DollarSign, CreditCard,
   ClipboardCheck, Calendar
 } from 'lucide-react';
+import { AlarmClock } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 // ── Link sets per role ───────────────────────────────────────────────────────
@@ -27,6 +29,7 @@ const studentLinks = [
   { href: '/student/jobs', label: 'Jobs', icon: Briefcase },
   { href: '/student/certificates', label: 'Certificates', icon: FileText },
   { href: '/student/profile', label: 'Profile', icon: UserCheck },
+  { href: '/student/attendance', label: 'Attendance', icon: AlarmClock },
 ];
 
 const companyLinks = [

@@ -106,7 +106,7 @@ export default function StudentEventsPage() {
             </div>
             <h3 className="text-2xl font-black text-[var(--color-text-primary)]">No events found</h3>
             <p className="text-[var(--color-text-secondary)] mt-2 font-medium max-w-sm mx-auto">
-              We couldn't find any events matching your search criteria. Try adjusting your filters.
+              We couldn&apos;t find any events matching your search criteria. Try adjusting your filters.
             </p>
           </motion.div>
         ) : (
@@ -129,6 +129,7 @@ export default function StudentEventsPage() {
                     {/* Event Banner */}
                     <div className="h-44 relative overflow-hidden bg-gradient-to-br from-[var(--color-primary)]/20 to-[var(--color-primary)]/5">
                       {event.banner_url ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
                         <img src={event.banner_url} alt={event.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">

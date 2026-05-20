@@ -161,7 +161,7 @@ export default function StudentProfile() {
                 <div className="border-l-4 border-[var(--color-border)] pl-6 relative opacity-60">
                   <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-[var(--color-border)]" />
                   <p className="text-base font-black text-[var(--color-text-primary)]">+2 Science</p>
-                  <p className="text-sm font-bold text-[var(--color-text-secondary)] mt-0.5">St. Xavier's College</p>
+                  <p className="text-sm font-bold text-[var(--color-text-secondary)] mt-0.5">St. Xavier&apos;s College</p>
                   <p className="text-[10px] text-[var(--color-text-secondary)] mt-3 font-black tracking-widest uppercase bg-[var(--color-muted)] inline-block px-2 py-1 rounded">2018 - 2020</p>
                 </div>
               </div>

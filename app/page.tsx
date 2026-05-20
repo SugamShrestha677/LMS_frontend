@@ -104,7 +104,7 @@ export default function LandingPage() {
                 className="text-lg lg:text-xl text-[#5A5A6E] mb-10 max-w-2xl mx-auto leading-relaxed"
               >
                 Upskill with industry-verified courses, earn digital badges, and get 
-                fast-tracked to interviews with Nepal's leading companies.
+                fast-tracked to interviews with Nepal&apos;s leading companies.
               </motion.p>
               
               <motion.div

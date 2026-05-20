@@ -92,7 +92,7 @@ export default function StudentDashboard() {
           <h1 className="text-4xl font-black text-[var(--color-text-primary)] tracking-tight">
             Namaste, <span className="text-gradient">{user?.first_name}</span>! 👋
           </h1>
-          <p className="text-[var(--color-text-secondary)] mt-2 font-medium">Here's a curated look at your learning progress today.</p>
+          <p className="text-[var(--color-text-secondary)] mt-2 font-medium">Here&apos;s a curated look at your learning progress today.</p>
         </motion.div>
         
         <motion.div

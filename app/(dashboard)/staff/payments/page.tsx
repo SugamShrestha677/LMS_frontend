@@ -368,7 +368,7 @@ export default function StaffPaymentsPage() {
                     <p className="text-[9px] font-black uppercase tracking-widest text-red-500 mb-2 flex items-center gap-2">
                       <AlertCircle size={12} /> Rejection Reason
                     </p>
-                    <p className="text-sm font-medium text-[var(--color-text-primary)] italic">"{selectedPayment.rejection_reason}"</p>
+                    <p className="text-sm font-medium text-[var(--color-text-primary)] italic">&quot;{selectedPayment.rejection_reason}&quot;</p>
                   </div>
                 )}
 

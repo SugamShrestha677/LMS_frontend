@@ -47,7 +47,7 @@ export default function ForgotPasswordPage() {
               Back to login
             </Link>
             <h1 className="text-3xl font-black text-[var(--color-text-primary)] mb-2 tracking-tight">Forgot Password</h1>
-            <p className="text-[var(--color-text-secondary)]">Enter your email and we'll send you a link to reset your password</p>
+            <p className="text-[var(--color-text-secondary)]">Enter your email and we&apos;ll send you a link to reset your password</p>
           </div>
 
           <Card className="p-8 shadow-2xl border-[var(--color-border)] backdrop-blur-sm bg-[var(--color-bg-card)]/80">
@@ -59,7 +59,7 @@ export default function ForgotPasswordPage() {
                 <div className="space-y-2">
                   <h3 className="text-xl font-bold text-[var(--color-text-primary)]">Check your email</h3>
                   <p className="text-sm text-[var(--color-text-secondary)]">
-                    We've sent a password reset link to your registered personal email address.
+                    We&apos;ve sent a password reset link to your registered personal email address.
                   </p>
                 </div>
                 <Button asChild fullWidth className="h-12 rounded-xl">

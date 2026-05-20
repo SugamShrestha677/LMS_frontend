@@ -367,7 +367,7 @@ export default function AssessmentSubmissionsPage() {
                                   </div>
                                   <span className="flex-1">{opt}</span>
                                   {isCorrectOption && <span className="text-[8px] text-green-600 font-black">CORRECT</span>}
-                                  {isSelected && !isCorrectOption && <span className="text-[8px] text-red-600 font-black">STUDENT'S</span>}
+                                  {isSelected && !isCorrectOption && <span className="text-[8px] text-red-600 font-black">STUDENT&apos;S</span>}
                                 </div>
                               );
                             })}

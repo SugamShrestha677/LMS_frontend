@@ -1280,7 +1280,7 @@ export default function CoursePlayer() {
                           </div>
                           <h4 className="font-bold text-[var(--color-text-primary)]">No announcements yet</h4>
                           <p className="text-sm text-[var(--color-text-secondary)] mt-1">
-                            Your instructor hasn't posted any announcements for this course yet.
+                            Your instructor hasn&apos;t posted any announcements for this course yet.
                           </p>
                         </div>
                       ) : (
@@ -1375,6 +1375,7 @@ export default function CoursePlayer() {
               />
             ) : viewingResource.url.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/) ? (
               <div className="w-full h-full flex items-center justify-center p-4">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={viewingResource.url} alt="Resource" className="max-w-full max-h-full object-contain" />
               </div>
             ) : (
