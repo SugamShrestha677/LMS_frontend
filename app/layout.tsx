@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { Providers } from './providers';
 import './globals.css';
@@ -6,8 +6,30 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NODE_ENV === 'development' ? 'https://localhost:3000' : 'https://leapfrog.com'),
   title: 'Leapfrog Connect - LMS',
   description: 'Skills to Jobs Pipeline',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Leapfrog Connect',
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  icons: {
+    icon: '/icon001.png',
+    apple: '/icon001.png',
+  },
+  manifest: '/manifest.json',
+};
+
+export const viewport: Viewport = {
+  themeColor: '#2563eb',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
