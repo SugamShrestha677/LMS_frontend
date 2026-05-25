@@ -107,7 +107,10 @@ export const courseService = {
     const { data } = await api.post(
       `/courses/${courseId}/modules/${moduleId}/contents/${contentId}/upload-to-scorm/`,
       formData,
-      { headers: { 'Content-Type': undefined } }
+      {
+        headers: { 'Content-Type': undefined },
+        timeout: 0,
+      }
     );
     return data;
   },
@@ -249,7 +252,10 @@ createAnnouncement: async (courseId: number, announcementData: any) => {
     const { data } = await api.post(
       `/courses/${id}/upload-scorm/`,
       formData,
-      { headers: { 'Content-Type': undefined } },
+      {
+        headers: { 'Content-Type': undefined },
+        timeout: 0,
+      },
     );
     return data;
   },
@@ -334,4 +340,4 @@ createCourseResourceJson: async (courseId: number, data: any) => {
     const { data } = await api.post(`/payments/${paymentId}/reject/`, { reason });
     return data;
   },
-};
+};

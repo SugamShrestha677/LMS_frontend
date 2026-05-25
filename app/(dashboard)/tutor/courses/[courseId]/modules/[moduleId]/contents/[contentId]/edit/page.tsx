@@ -26,7 +26,6 @@ interface ContentFormData {
   audio_url: string;
   external_link: string;
   body_text: string;
-  order_number: number;
   duration_minutes: number;
   is_required: boolean;
   minimum_score: number;
@@ -47,7 +46,7 @@ export default function EditContentPage() {
   
   const { register, handleSubmit, reset, formState: { errors }, watch } = useForm<ContentFormData>();
 
-  const currentItem = contentsData ? (Array.isArray(contentsData) ? contentsData : (contentsData as any)?.data || []).find((c: any) => c.id === contentId) : null;
+  const currentItem = contentsData ? (Array.isArray(contentsData) ? contentsData : (contentsData as any)?.results || (contentsData as any)?.data || []).find((c: any) => c.id === contentId) : null;
 
   useEffect(() => {
     if (currentItem) {
@@ -60,7 +59,6 @@ export default function EditContentPage() {
         audio_url: currentItem.audio_url || '',
         external_link: currentItem.external_link || '',
         body_text: currentItem.body_text || '',
-        order_number: currentItem.order_number,
         duration_minutes: currentItem.duration_minutes,
         is_required: currentItem.is_required,
         minimum_score: currentItem.minimum_score || 0,
@@ -118,19 +116,19 @@ export default function EditContentPage() {
   };
 
   const onSubmit = (data: ContentFormData) => {
+    // Exclude content_type and order_number from the PATCH payload.
+    // Sending order_number causes a DB unique-constraint error if another
+    // item already holds that (module_id, order_number) combination.
     const { content_type, ...rest } = data;
-    const updatePayload = {
-      ...rest,
-      module: moduleId,
-    };
+    const updatePayload = { ...rest };
 
     updateContent(
       { courseId, moduleId, contentId, data: updatePayload },
-      { 
+      {
         onSuccess: () => {
           toast.success('Content updated successfully');
           router.push(`/tutor/courses/${courseId}/modules/${moduleId}/contents`);
-        }
+        },
       }
     );
   };
@@ -250,11 +248,14 @@ export default function EditContentPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Input
-              label="Order Number"
-              type="number"
-              {...register('order_number', { valueAsNumber: true, required: true })}
-            />
+            {/* Order # is shown read-only; changing it here causes a unique-constraint
+                DB error. Use a dedicated reorder UI instead. */}
+            <div className="space-y-1">
+              <label className="block text-sm font-semibold text-[var(--color-text-primary)]">Order Number</label>
+              <div className="px-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] text-sm">
+                #{currentItem?.order_number ?? '—'} <span className="text-xs">(read‑only)</span>
+              </div>
+            </div>
             <Input
               label="Duration (min)"
               type="number"

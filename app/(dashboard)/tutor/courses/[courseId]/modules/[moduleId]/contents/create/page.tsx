@@ -7,6 +7,8 @@ import { useCreateModuleContent, useModuleContents } from '@/lib/hooks/useCourse
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { courseService } from '@/lib/services/course.service';
+import { toast } from 'react-hot-toast';
 
 const contentTypes = [
   { value: 'video', label: 'Video' },
@@ -15,6 +17,7 @@ const contentTypes = [
   { value: 'quiz', label: 'Quiz' },
   { value: 'assignment', label: 'Assignment' },
   { value: 'link', label: 'External Link' },
+  { value: 'scorm', label: 'SCORM Package' },
 ];
 
 interface ContentFormData {
@@ -38,11 +41,13 @@ export default function CreateContentPage() {
   const moduleId = Number(params.moduleId);
   
   const { data: contentsData } = useModuleContents(courseId, moduleId);
-  const existingContents = Array.isArray(contentsData) ? contentsData : (contentsData as any)?.data || [];
+  const existingContents = Array.isArray(contentsData) ? contentsData : (contentsData as any)?.results || (contentsData as any)?.data || [];
   const nextOrder = existingContents.length + 1;
   
   const { mutate: createContent, isPending } = useCreateModuleContent();
   const [selectedType, setSelectedType] = useState('video');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploadingScorm, setIsUploadingScorm] = useState(false);
   
   const { register, handleSubmit, formState: { errors } } = useForm<ContentFormData>({
     defaultValues: {
@@ -55,11 +60,40 @@ export default function CreateContentPage() {
   });
 
   const onSubmit = (data: ContentFormData) => {
+    if (selectedType === 'scorm' && !selectedFile) {
+      toast.error('Please select a SCORM zip file');
+      return;
+    }
+
     createContent(
       { courseId, moduleId, data },
-      { onSuccess: () => router.push(`/tutor/courses/${courseId}/modules/${moduleId}/contents`) }
+      { 
+        onSuccess: async (res: any) => {
+          if (selectedType === 'scorm' && selectedFile) {
+            const newContentId = res?.id || res?.data?.id;
+            if (newContentId) {
+              setIsUploadingScorm(true);
+              try {
+                const formData = new FormData();
+                formData.append('file', selectedFile);
+                await courseService.uploadContentScorm(courseId, moduleId, newContentId, formData);
+                toast.success('SCORM package uploaded successfully');
+              } catch (error) {
+                toast.error('Failed to upload SCORM file');
+              } finally {
+                setIsUploadingScorm(false);
+                router.push(`/tutor/courses/${courseId}/modules/${moduleId}/contents`);
+              }
+              return;
+            }
+          }
+          router.push(`/tutor/courses/${courseId}/modules/${moduleId}/contents`);
+        } 
+      }
     );
   };
+
+  const showDuration = !['pdf', 'link'].includes(selectedType);
 
   return (
     <div className="space-y-8 pb-12">
@@ -138,6 +172,24 @@ export default function CreateContentPage() {
             />
           )}
 
+          {selectedType === 'scorm' && (
+            <div className="space-y-1">
+              <label className="block text-sm font-semibold text-[#1E1E2A]">SCORM ZIP Package</label>
+              <input
+                type="file"
+                accept=".zip"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) {
+                    setSelectedFile(e.target.files[0]);
+                  } else {
+                    setSelectedFile(null);
+                  }
+                }}
+                className="w-full px-4 py-3 rounded-lg border border-[#e5e7eb] bg-white focus:outline-none focus:ring-2 focus:ring-[#0A5C4A]/20 focus:border-[#0A5C4A] transition-all file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#0A5C4A]/10 file:text-[#0A5C4A] hover:file:bg-[#0A5C4A]/20 cursor-pointer"
+              />
+            </div>
+          )}
+
           {selectedType === 'text' && (
             <div className="space-y-1">
               <label className="block text-sm font-semibold text-[#1E1E2A]">Text Content</label>
@@ -156,11 +208,13 @@ export default function CreateContentPage() {
               type="number"
               {...register('order_number', { valueAsNumber: true, required: true })}
             />
-            <Input
-              label="Duration (min)"
-              type="number"
-              {...register('duration_minutes', { valueAsNumber: true })}
-            />
+            {showDuration && (
+              <Input
+                label="Duration (min)"
+                type="number"
+                {...register('duration_minutes', { valueAsNumber: true })}
+              />
+            )}
             {(selectedType === 'quiz' || selectedType === 'assignment') && (
               <Input
                 label="Min Score (%)"
@@ -183,8 +237,8 @@ export default function CreateContentPage() {
             <Button type="button" variant="outline" onClick={() => router.back()}>
               Cancel
             </Button>
-            <Button type="submit" loading={isPending}>
-              Add Content
+            <Button type="submit" loading={isPending || isUploadingScorm}>
+              {isUploadingScorm ? 'Uploading SCORM...' : 'Add Content'}
             </Button>
           </div>
         </form>

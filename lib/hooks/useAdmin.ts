@@ -4,6 +4,36 @@ import { userService } from '@/lib/services/user.service';
 import { adminService } from '@/lib/services/admin.service';
 import { toast } from 'react-hot-toast';
 
+function getApiErrorMessage(error: any, fallback: string) {
+  const responseData = error?.response?.data;
+
+  if (!responseData) return fallback;
+
+  if (typeof responseData.message === 'string' && responseData.message.trim()) {
+    return responseData.message;
+  }
+
+  if (typeof responseData.error === 'string' && responseData.error.trim()) {
+    return responseData.error;
+  }
+
+  if (responseData.errors && typeof responseData.errors === 'object') {
+    const fieldMessages = Object.values(responseData.errors)
+      .flat()
+      .filter((value) => typeof value === 'string' && value.trim());
+
+    if (fieldMessages.length > 0) {
+      return fieldMessages.join(' ');
+    }
+  }
+
+  if (typeof responseData.detail === 'string' && responseData.detail.trim()) {
+    return responseData.detail;
+  }
+
+  return fallback;
+}
+
 export const useUsers = () => {
   return useQuery({
     queryKey: ['users'],
@@ -94,8 +124,7 @@ export const useCreateUser = () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
     },
     onError: (error: any) => {
-      const message = error.response?.data?.error || 'Failed to create user.';
-      toast.error(message);
+      toast.error(getApiErrorMessage(error, 'Failed to create user.'));
     },
   });
 };
@@ -110,8 +139,7 @@ export const useUpdateUser = () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
     },
     onError: (error: any) => {
-      const message = error.response?.data?.error || 'Failed to update user.';
-      toast.error(message);
+      toast.error(getApiErrorMessage(error, 'Failed to update user.'));
     },
   });
 };
@@ -126,8 +154,7 @@ export const useChangeRole = () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
     },
     onError: (error: any) => {
-      const message = error.response?.data?.error || 'Failed to update role.';
-      toast.error(message);
+      toast.error(getApiErrorMessage(error, 'Failed to update role.'));
     },
   });
 };
@@ -180,4 +207,4 @@ export const useUpdateStaffPermission = () => {
       toast.success('Permissions updated successfully');
     },
   });
-};
+};

@@ -89,7 +89,7 @@ export default function CoursePlayer() {
         external_link?: string;
         body_text?: string;
         description?: string;
-        scorm_course_id?: number;
+        scorm_course_id?: string | null;
         scorm_status?: string;
       }>;
     }>;
@@ -103,10 +103,12 @@ export default function CoursePlayer() {
     locked: boolean;
     contentType: string;
     videoUrl?: string | null;
+    fileUrl?: string | null;
+    audioUrl?: string | null;
     externalLink?: string | null;
     bodyText?: string | null;
     description?: string | null;
-    scormCourseId?: number;
+    scormCourseId?: string | null;
     scormStatus?: string;
     isLiveSession?: boolean;
     sessionData?: any;
@@ -273,24 +275,55 @@ export default function CoursePlayer() {
       id: module.id,
       title: module.title,
       description: module.description,
-      lessons: (module.contents ?? []).map((content: any) => ({
-        id: content.id,
-        title: content.title,
-        duration: `${content.duration_minutes ?? 0} min`,
-        locked: !isEnrolled,
-        contentType: content.content_type,
-        videoUrl: content.video_url || content.file_url || content.audio_url || null,
-        externalLink: content.external_link || null,
-        bodyText: content.body_text || null,
-        description: content.description || null,
-        scormCourseId: content.scorm_course_id,
-        scormStatus: content.scorm_status,
-      })),
+      lessons: (module.contents ?? []).map((content: any) => {
+        // Map URLs to the correct property based on content type
+        // instead of using a generic fallback chain
+        let videoUrl = null;
+        let fileUrl = null;
+        let audioUrl = null;
+        
+        switch (content.content_type) {
+          case 'video':
+          case 'mp4':
+            videoUrl = content.video_url || content.file_url || null;
+            break;
+          case 'pdf':
+            fileUrl = content.file_url || content.video_url || null;
+            // Also set videoUrl for backward compat with the renderer
+            videoUrl = fileUrl;
+            break;
+          case 'mp3':
+            audioUrl = content.audio_url || content.file_url || null;
+            videoUrl = audioUrl; // renderer uses videoUrl for audio too
+            break;
+          default:
+            videoUrl = content.video_url || null;
+            fileUrl = content.file_url || null;
+            audioUrl = content.audio_url || null;
+        }
+        
+        return {
+          id: content.id,
+          title: content.title,
+          duration: `${content.duration_minutes ?? 0} min`,
+          locked: !isEnrolled,
+          contentType: content.content_type,
+          videoUrl,
+          fileUrl,
+          audioUrl,
+          externalLink: content.external_link || null,
+          bodyText: content.body_text || null,
+          description: content.description || null,
+          scormCourseId: content.scorm_course_id,
+          scormStatus: content.scorm_status,
+        };
+      }),
     }));
   }, [course, isEnrolled]);
 
   const allLessons: LessonItem[] = curriculum.flatMap((section) => section.lessons);
   const [activeLessonId, setActiveLessonId] = useState<number | null>(null);
+  const [scormLessonStatus, setScormLessonStatus] = useState<string | null>(null);
   const [contentLaunchUrl, setContentLaunchUrl] = useState<string | null>(null);
   const [launchingContent, setLaunchingContent] = useState(false);
 
@@ -333,6 +366,12 @@ export default function CoursePlayer() {
   const activeLesson = allLessons.find((lesson: LessonItem) => lesson.id === activeLessonId);
   const liveSession = activeLesson?.sessionData as any;
   const currentModuleId = typeof activeModule?.id === 'number' ? activeModule.id : null;
+  const effectiveScormStatus = scormLessonStatus || activeLesson?.scormStatus || null;
+
+  useEffect(() => {
+    setScormLessonStatus(activeLesson?.scormStatus || null);
+    setContentLaunchUrl(null);
+  }, [activeLesson?.id]);
 
   // Sync progress when window gains focus (useful for SCORM windows closing)
   useEffect(() => {
@@ -376,7 +415,7 @@ export default function CoursePlayer() {
   };
 
   useEffect(() => {
-    if (activeLesson?.scormCourseId && activeLesson?.scormStatus === 'finished') {
+    if (activeLesson?.scormCourseId && effectiveScormStatus === 'finished') {
       const fetchLaunchUrl = async () => {
         setLaunchingContent(true);
         try {
@@ -384,9 +423,12 @@ export default function CoursePlayer() {
           if (currentModuleId == null) {
             return;
           }
-          const response = await courseService.launchContentScorm(courseId, currentModuleId, activeLesson.id);
-          if (response.success) {
-            setContentLaunchUrl(response.data.launch_url);
+          const launchData = await courseService.launchContentScorm(courseId, currentModuleId, activeLesson.id);
+          const launchUrl = launchData?.launch_url || launchData?.data?.launch_url;
+          if (launchUrl) {
+            setContentLaunchUrl(launchUrl);
+          } else {
+            throw new Error('Launch URL was not returned');
           }
         } catch (error) {
           console.error('Failed to launch content:', error);
@@ -398,7 +440,30 @@ export default function CoursePlayer() {
     } else {
       setContentLaunchUrl(null);
     }
-  }, [activeLesson, courseId, activeModule]);
+  }, [activeLesson, courseId, activeModule, effectiveScormStatus]);
+
+  useEffect(() => {
+    // Auto-refresh SCORM status while the lesson is still processing.
+    if (!activeLesson?.scormCourseId || effectiveScormStatus === 'finished' || currentModuleId == null) {
+      return;
+    }
+
+    const timer = window.setInterval(async () => {
+      try {
+        const { courseService } = await import('@/lib/services/course.service');
+        const response = await courseService.getContentScormStatus(courseId, currentModuleId, activeLesson.id);
+        const liveStatus = String(response?.content_scorm_status || response?.status || '').toLowerCase();
+        if (liveStatus) {
+          setScormLessonStatus(liveStatus === 'complete' ? 'finished' : liveStatus);
+        }
+        refetchCourse();
+      } catch {
+        // Keep polling quietly; transient SCORM API delays are expected.
+      }
+    }, 6000);
+
+    return () => window.clearInterval(timer);
+  }, [activeLesson?.id, activeLesson?.scormCourseId, effectiveScormStatus, courseId, currentModuleId, refetchCourse]);
 
   const scormCompletion = typeof scormProgress?.completion_amount === 'number'
     ? scormProgress.completion_amount
@@ -717,7 +782,7 @@ export default function CoursePlayer() {
                     </div>
                   )}
                 </div>
-              ) : course.is_scorm ? (
+              ) : (!activeLesson || allLessons.length === 0) && course.is_scorm ? (
                 <div className="aspect-video bg-black relative overflow-hidden flex flex-col items-center justify-center text-white p-8 text-center bg-gradient-to-br from-slate-900 to-black">
                   <div className="w-24 h-24 bg-[var(--color-primary)]/10 rounded-full flex items-center justify-center mb-8 animate-pulse">
                     <PlayCircle className="w-12 h-12 text-[var(--color-primary)]" />
@@ -845,23 +910,75 @@ export default function CoursePlayer() {
                       <span className="text-sm font-bold">Initializing session...</span>
                     </div>
                   ) : (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-white gap-3 text-center p-4">
-                      <Lock size={32} className="text-white/50 mb-2" />
-                      <span className="text-sm font-bold">Content not ready</span>
+                    <div className="flex flex-col items-center gap-3 mt-4">
+                      <span className="text-sm font-bold text-red-400">Content not ready</span>
                       <Button
                         size="sm"
-                        variant="ghost"
-                        className="text-slate-400 hover:text-white"
-                        onClick={() => refetchCourse()}
+                        className="px-5"
+                        disabled={launchingContent}
+                        onClick={async () => {
+                          try {
+                            setLaunchingContent(true);
+                            const { courseService } = await import('@/lib/services/course.service');
+                            if (currentModuleId == null) {
+                              return;
+                            }
+                            const wait = (ms: number) => new Promise(resolve => window.setTimeout(resolve, ms));
+                            for (let attempt = 0; attempt < 3; attempt += 1) {
+                              try {
+                                await courseService.getContentScormStatus(courseId, currentModuleId, activeLesson.id);
+                              } catch {
+                                // Keep going; the launch endpoint is the actual gate.
+                              }
+
+                              try {
+                                const launchData = await courseService.launchContentScorm(courseId, currentModuleId, activeLesson.id);
+                                const launchUrl = launchData?.launch_url || launchData?.data?.launch_url;
+                                if (launchUrl) {
+                                  setContentLaunchUrl(launchUrl);
+                                  setScormLessonStatus('finished');
+                                  return;
+                                }
+                              } catch (error: any) {
+                                const statusCode = error?.response?.status;
+                                if (statusCode === 409 || statusCode === 404) {
+                                  await wait(4000);
+                                  continue;
+                                }
+                                throw error;
+                              }
+                            }
+                          } catch (e) {
+                            console.error(e);
+                          } finally {
+                            setLaunchingContent(false);
+                          }
+                        }}
                       >
-                        Retry Connection
+                        Try Launch Anyway
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-white border-white/20 hover:bg-white/10"
+                        onClick={async () => {
+                          try {
+                            const { courseService } = await import('@/lib/services/course.service');
+                            if (currentModuleId != null) {
+                               await courseService.getContentScormStatus(courseId, currentModuleId, activeLesson.id);
+                            }
+                            refetchCourse();
+                          } catch (e) { console.error(e); }
+                        }}
+                      >
+                        Refresh Status
                       </Button>
                     </div>
                   )}
                 </div>
               ) : (
                 activeLesson?.contentType === 'mp3' && activeLesson?.videoUrl ? (
-                  <div className="aspect-video bg-[var(--color-bg-card)] relative flex items-center justify-center overflow-hidden">
+                  <div className="aspect-video bg-[var(--color-bg-card)] relative flex items-center justify-center overflow-hidden border border-[var(--color-border)] rounded-xl">
                     <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-primary)]/10 to-transparent" />
                     <div className="relative z-10 w-full max-w-md p-8 text-center">
                       <div className="w-24 h-24 rounded-3xl bg-[var(--color-primary)] mx-auto mb-6 flex items-center justify-center text-white shadow-2xl">
@@ -877,8 +994,77 @@ export default function CoursePlayer() {
                       />
                     </div>
                   </div>
-                ) : activeLesson?.videoUrl ? (
-                  <div className="aspect-video bg-black relative overflow-hidden">
+                ) : activeLesson?.contentType === 'pdf' && activeLesson?.videoUrl ? (
+                  <div className="w-full h-[600px] bg-gray-100 relative overflow-hidden rounded-xl border border-[var(--color-border)]">
+                    <iframe
+                      key={activeLesson.id}
+                      src={`${activeLesson.videoUrl}#toolbar=0`}
+                      className="w-full h-full border-none"
+                      title={activeLesson.title}
+                      onLoad={() => handleLessonCompleted()}
+                    />
+                  </div>
+                ) : activeLesson?.contentType === 'link' && activeLesson?.externalLink ? (
+                  <div className="aspect-video bg-[var(--color-bg-card)] relative flex items-center justify-center overflow-hidden border border-[var(--color-border)] rounded-xl">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-primary)]/10 to-transparent" />
+                    <div className="relative z-10 w-full max-w-md p-8 text-center">
+                      <div className="w-24 h-24 rounded-3xl bg-[var(--color-primary)]/10 mx-auto mb-6 flex items-center justify-center text-[var(--color-primary)] shadow-xl">
+                        <ExternalLink size={40} />
+                      </div>
+                      <h3 className="font-bold text-[var(--color-text-primary)] mb-4">{activeLesson.title}</h3>
+                      <p className="text-[var(--color-text-secondary)] text-sm mb-8">This is an external resource. Click the button below to open it in a new tab.</p>
+                      <Button
+                        size="lg"
+                        className="w-full"
+                        onClick={() => {
+                          window.open(activeLesson.externalLink as string, '_blank');
+                          handleLessonCompleted();
+                        }}
+                      >
+                        Open Link <ExternalLink size={18} className="ml-2" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : activeLesson?.contentType === 'text' ? (
+                  <div className="aspect-video bg-[var(--color-bg-card)] relative flex items-center justify-center overflow-hidden border border-[var(--color-border)] rounded-xl">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-primary)]/5 to-transparent" />
+                    <div className="relative z-10 text-center p-8">
+                      <FileText size={48} className="mx-auto text-[var(--color-primary)] opacity-50 mb-4" />
+                      <h3 className="text-xl font-bold text-[var(--color-text-primary)] mb-2">{activeLesson.title}</h3>
+                      <p className="text-[var(--color-text-secondary)] text-sm mb-6">Read the content below</p>
+                      <Button onClick={() => handleLessonCompleted()}>Mark as Read</Button>
+                    </div>
+                  </div>
+                ) : activeLesson?.contentType === 'scorm' ? (
+                  <div className="aspect-video bg-black relative overflow-hidden flex flex-col items-center justify-center text-white p-8 text-center bg-gradient-to-br from-slate-900 to-black">
+                    <div className="w-16 h-16 bg-[var(--color-primary)]/10 rounded-full flex items-center justify-center mb-6">
+                      <Play className="w-8 h-8 text-[var(--color-primary)]" />
+                    </div>
+                    <h3 className="text-xl font-bold mb-2">{activeLesson?.title}</h3>
+                    <p className="text-slate-400 mb-6 max-w-sm text-sm">
+                      SCORM content is still processing or not linked yet. Refresh status and try again.
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-white border-white/20 hover:bg-white/10"
+                      onClick={async () => {
+                        try {
+                          const { courseService } = await import('@/lib/services/course.service');
+                          if (currentModuleId != null) {
+                            await courseService.getContentScormStatus(courseId, currentModuleId, activeLesson.id);
+                          }
+                          refetchCourse();
+                        } catch (e) {
+                          console.error(e);
+                        }
+                      }}
+                    >
+                      Refresh Status
+                    </Button>
+                  </div>
+                ) : activeLesson?.contentType === 'video' && activeLesson?.videoUrl ? (
+                  <div className="aspect-video bg-black relative overflow-hidden rounded-xl">
                     <video
                       key={activeLesson.id}
                       src={activeLesson.videoUrl}
@@ -889,15 +1075,12 @@ export default function CoursePlayer() {
                     />
                   </div>
                 ) : (
-                  <div className="aspect-video bg-black relative flex items-center justify-center group overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-br from-gray-900 to-black opacity-90" />
-                    <motion.div
-                      initial={{ scale: 0.8, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      className="relative z-10 w-20 h-20 rounded-full bg-[var(--color-primary)] flex items-center justify-center text-white shadow-2xl"
-                    >
-                      <Play size={32} className="fill-current ml-1" />
-                    </motion.div>
+                  <div className="aspect-video bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-xl relative flex items-center justify-center group overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-bg-secondary)] to-transparent" />
+                    <div className="relative z-10 flex flex-col items-center">
+                      <FileText size={48} className="text-[var(--color-text-secondary)] opacity-50 mb-4" />
+                      <p className="text-[var(--color-text-secondary)] text-sm">Content format not supported or missing</p>
+                    </div>
                   </div>
                 )
               )}
