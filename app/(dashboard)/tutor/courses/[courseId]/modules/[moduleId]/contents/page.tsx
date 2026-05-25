@@ -26,7 +26,7 @@ export default function ModuleContentsPage() {
   const { data: contentsData, isLoading } = useModuleContents(courseId, moduleId);
   const { mutate: deleteContent } = useDeleteModuleContent();
 
-  const contents = Array.isArray(contentsData) ? contentsData : (contentsData as any)?.data || [];
+  const contents = Array.isArray(contentsData) ? contentsData : (contentsData as any)?.results || (contentsData as any)?.data || [];
 
   const handleDelete = (contentId: number, title: string) => {
     if (confirm(`Delete "${title}"?`)) {
