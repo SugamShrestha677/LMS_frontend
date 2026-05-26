@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { 
   Eye, CheckCircle, XCircle, FileText, Download,
@@ -15,6 +14,17 @@ import {
 import { toast } from 'sonner';
 import api from '@/lib/services/api';
 import { format } from 'date-fns';
+
+const normalizeList = (value: unknown) => {
+  if (Array.isArray(value)) return value;
+
+  const candidate = value as { data?: unknown; results?: unknown } | null;
+  if (!candidate || typeof candidate !== 'object') return [];
+
+  return (Array.isArray(candidate.data) && candidate.data)
+    || (Array.isArray(candidate.results) && candidate.results)
+    || [];
+};
 
 export default function AssessmentSubmissionsPage() {
   const params = useParams();
@@ -25,16 +35,13 @@ export default function AssessmentSubmissionsPage() {
   
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
   const [isGradingModal, setIsGradingModal] = useState(false);
-  const [score, setScore] = useState('');
   const [feedback, setFeedback] = useState('');
-  const [passed, setPassed] = useState(false);
-  const [questionGrades, setQuestionGrades] = useState<Record<number, number>>({});
 
   const { data: submissionsData, isLoading } = useQuery({
     queryKey: ['assessment-submissions', assessmentId],
     queryFn: async () => {
       const response = await api.get(`/student-assessments/?assessment=${assessmentId}`);
-      return response.data?.data || response.data || [];
+      return normalizeList(response.data?.data ?? response.data);
     },
     enabled: !!assessmentId,
   });
@@ -48,94 +55,38 @@ export default function AssessmentSubmissionsPage() {
     enabled: !!assessmentId,
   });
 
-  const submissions = Array.isArray(submissionsData) ? submissionsData : [];
+  const submissions = normalizeList(submissionsData);
 
   const gradeMutation = useMutation({
-    mutationFn: async (data: { id: number; score: number; feedback: string; passed: boolean; answers: any }) => {
-      return api.post(`/student-assessments/${data.id}/grade/`, {
-        score: data.score,
+    mutationFn: async (data: { id: number; feedback: string }) => {
+      return api.post(`/student-assessments/${data.id}/feedback/`, {
         feedback: data.feedback,
-        passed: data.passed,
-        answers: data.answers
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['assessment-submissions', assessmentId] });
       setIsGradingModal(false);
       setSelectedSubmission(null);
-      setScore('');
       setFeedback('');
-      setPassed(false);
-      toast.success('Submission graded successfully!');
+      toast.success('Feedback sent successfully!');
     },
     onError: () => {
-      toast.error('Failed to grade submission');
+      toast.error('Failed to send feedback');
     },
   });
 
   const openGradingModal = (submission: any) => {
     setSelectedSubmission(submission);
-    setScore(submission.score || '');
     setFeedback(submission.feedback || '');
-    setPassed(submission.passed || false);
-
-    // Initialize question grades
-    const initialGrades: Record<number, number> = {};
-    if (assessmentData?.questions) {
-      assessmentData.questions.forEach((q: any, idx: number) => {
-        const studentAns = submission.answers[idx];
-        const isMCQ = q.type !== 'long_answer';
-        
-        if (isMCQ) {
-          // Auto-grade MCQ
-          const val = typeof studentAns === 'object' ? studentAns.value : studentAns;
-          const isCorrect = String(val) === String(q.correct);
-          initialGrades[idx] = isCorrect ? (q.points || 10) : 0;
-        } else {
-          // Load manual grade if exists
-          initialGrades[idx] = typeof studentAns === 'object' ? (studentAns.grade || 0) : 0;
-        }
-      });
-    }
-    setQuestionGrades(initialGrades);
     setIsGradingModal(true);
   };
 
-  // Auto-calculate score whenever question grades change
-  useEffect(() => {
-    if (Object.keys(questionGrades).length > 0 && assessmentData?.questions) {
-      let earned = 0;
-      let total = 0;
-      assessmentData.questions.forEach((q: any, idx: number) => {
-        earned += (questionGrades[idx] || 0);
-        total += (q.points || 10);
-      });
-      const percent = total > 0 ? Math.round((earned / total) * 100) : 0;
-      setScore(String(percent));
-      setPassed(percent >= (assessmentData.passing_score || 60));
-    }
-  }, [questionGrades, assessmentData]);
-
-  const submitGrade = () => {
+  const submitFeedback = () => {
     if (!selectedSubmission || !assessmentData) return;
-    
-    // Construct updated answers with grades
-    const updatedAnswers = { ...selectedSubmission.answers };
-    assessmentData.questions.forEach((q: any, idx: number) => {
-      const currentAns = updatedAnswers[idx];
-      const val = typeof currentAns === 'object' ? currentAns.value : currentAns;
-      updatedAnswers[idx] = {
-        value: val,
-        grade: questionGrades[idx] || 0
-      };
-    });
 
     gradeMutation.mutate({
       id: selectedSubmission.id,
-      score: Number(score),
       feedback,
-      passed,
-      answers: updatedAnswers
     });
   };
 
@@ -153,7 +104,7 @@ export default function AssessmentSubmissionsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-black text-[#1E1E2A]">Submissions</h1>
-          <p className="text-[#5A5A6E] mt-1">Grade and review student submissions</p>
+          <p className="text-[#5A5A6E] mt-1">Review student submissions and send feedback</p>
         </div>
       </div>
 
@@ -211,10 +162,9 @@ export default function AssessmentSubmissionsPage() {
                   <Badge variant={getStatusColor(submission.status)}>
                     {submission.status}
                   </Badge>
-                  
                   {submission.score !== null && submission.score !== undefined && (
                     <Badge variant={submission.passed ? 'success' : 'danger'}>
-                      {submission.score}% {submission.passed ? '✓' : '✗'}
+                      Score: {submission.score}%
                     </Badge>
                   )}
 
@@ -224,7 +174,7 @@ export default function AssessmentSubmissionsPage() {
                     onClick={() => openGradingModal(submission)}
                   >
                     <Eye size={14} className="mr-1" />
-                    {submission.status === 'graded' ? 'View/Edit' : 'Grade'}
+                    {submission.feedback ? 'View/Edit Feedback' : 'Send Feedback'}
                   </Button>
                 </div>
               </div>
@@ -261,7 +211,7 @@ export default function AssessmentSubmissionsPage() {
       <Modal
         open={isGradingModal}
         onClose={() => setIsGradingModal(false)}
-        title="Grade Submission"
+        title="Review Submission"
         size="xl"
       >
         {selectedSubmission && (
@@ -277,6 +227,11 @@ export default function AssessmentSubmissionsPage() {
               {selectedSubmission.tab_switch_count > 0 && (
                 <p className="text-sm text-orange-500 mt-1">
                   Tab switches: {selectedSubmission.tab_switch_count}
+                </p>
+              )}
+              {selectedSubmission.score !== null && selectedSubmission.score !== undefined && (
+                <p className="text-sm text-[#0A5C4A] mt-2 font-semibold">
+                  Current score: {selectedSubmission.score}% {selectedSubmission.passed ? '(passed)' : '(not passed)'}
                 </p>
               )}
             </div>
@@ -307,8 +262,8 @@ export default function AssessmentSubmissionsPage() {
             {/* Exam/Quiz Answers */}
             {assessmentData && assessmentData.questions && assessmentData.questions.length > 0 && selectedSubmission.answers && (
               <div>
-                <label className="block text-sm font-bold mb-4 text-[#0A5C4A]">Questions & Grading</label>
-                <div className="space-y-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                 <label className="block text-sm font-bold mb-4 text-[#0A5C4A]">Questions & Review</label>
+                <div className="space-y-6 max-h-125 overflow-y-auto pr-2 custom-scrollbar">
                    {assessmentData.questions.map((q: any, idx: number) => {
                     const rawAns = selectedSubmission.answers[idx];
                     const ans = typeof rawAns === 'object' ? rawAns.value : rawAns;
@@ -328,22 +283,10 @@ export default function AssessmentSubmissionsPage() {
                             <span className="text-xs font-bold text-gray-500 uppercase tracking-tighter">
                               Max Points: {q.points || 10}
                             </span>
-                            {isMCQ ? (
+                            {isMCQ && (
                               <Badge variant={isCorrect ? 'success' : 'danger'}>
                                 {isCorrect ? `${q.points || 10} pts` : '0 pts'}
                               </Badge>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <label className="text-xs font-bold">Grade:</label>
-                                <input
-                                  type="number"
-                                  value={questionGrades[idx] || 0}
-                                  onChange={(e) => setQuestionGrades(prev => ({ ...prev, [idx]: Number(e.target.value) }))}
-                                  max={q.points || 10}
-                                  min="0"
-                                  className="w-16 h-8 px-2 rounded-lg border-2 border-[#0A5C4A]/20 focus:border-[#0A5C4A] text-sm font-bold outline-none transition-all"
-                                />
-                              </div>
                             )}
                           </div>
                         </div>
@@ -387,35 +330,16 @@ export default function AssessmentSubmissionsPage() {
               </div>
             )}
 
-            {/* Final grading fields */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-[var(--color-primary)]/5 rounded-3xl border-2 border-[var(--color-primary)]/10">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-bold text-[#0A5C4A]">Final Score (%)</label>
-                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Calculated from points</span>
+            {/* Feedback details */}
+            <div className="grid grid-cols-1 gap-6 p-6 bg-(--color-primary)/5 rounded-3xl border-2 border-(--color-primary)/10">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-bold text-[#0A5C4A]">Feedback visibility</p>
+                  <p className="text-xs text-gray-500 mt-1">Only the selected student can view this feedback on their own submission.</p>
                 </div>
-                <div className="relative">
-                  <Input
-                    type="number"
-                    value={score}
-                    onChange={(e) => setScore(e.target.value)}
-                    min="0"
-                    max="100"
-                    className="pl-12 h-14 rounded-2xl text-xl font-black"
-                  />
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-xl font-black text-gray-300">%</div>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-[#0A5C4A] mb-2">Status</label>
-                <select
-                  value={passed ? 'pass' : 'fail'}
-                  onChange={(e) => setPassed(e.target.value === 'pass')}
-                  className="w-full h-14 px-4 rounded-2xl border-2 border-gray-100 text-lg font-black bg-white focus:border-[#0A5C4A] outline-none"
-                >
-                  <option value="fail">Not Passed ✗</option>
-                  <option value="pass">Passed ✓</option>
-                </select>
+                <Badge variant={selectedSubmission.feedback ? 'success' : 'outline'}>
+                  {selectedSubmission.feedback ? 'Feedback saved' : 'No feedback yet'}
+                </Badge>
               </div>
             </div>
 
@@ -434,8 +358,8 @@ export default function AssessmentSubmissionsPage() {
               <Button variant="outline" size="lg" onClick={() => setIsGradingModal(false)} className="flex-1 rounded-2xl h-14 font-black">
                 Discard
               </Button>
-              <Button size="lg" onClick={submitGrade} loading={gradeMutation.isPending} className="flex-1 rounded-2xl h-14 font-black shadow-lg">
-                {selectedSubmission.status === 'graded' ? 'Update Grade' : 'Finalize Grade'}
+              <Button size="lg" onClick={submitFeedback} loading={gradeMutation.isPending} className="flex-1 rounded-2xl h-14 font-black shadow-lg">
+                {selectedSubmission.feedback ? 'Update Feedback' : 'Send Feedback'}
               </Button>
             </div>
           </div>

@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useForm, useFieldArray } from 'react-hook-form';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useCreateAssessment, useModules, useCourse } from '@/lib/hooks/useCourses';
 import { useLiveSessions } from '@/lib/hooks/useLiveSessions';
 import { Card } from '@/components/ui/Card';
@@ -55,6 +55,27 @@ const fileTypeOptions = [
   { value: 'png', label: 'PNG' },
 ];
 
+const normalizeList = (value: unknown) => {
+  if (Array.isArray(value)) return value;
+
+  const candidate = value as {
+    data?: unknown;
+    results?: unknown;
+    modules?: unknown;
+    live_sessions?: unknown;
+  } | null;
+
+  if (!candidate || typeof candidate !== 'object') return [];
+
+  return (
+    (Array.isArray(candidate.data) && candidate.data) ||
+    (Array.isArray(candidate.results) && candidate.results) ||
+    (Array.isArray(candidate.modules) && candidate.modules) ||
+    (Array.isArray(candidate.live_sessions) && candidate.live_sessions) ||
+    []
+  );
+};
+
 type AssessmentQuestion =
   | {
       type: 'mcq';
@@ -80,10 +101,16 @@ export default function CreateAssessmentPage() {
   const isLive = course?.course_type === 'live';
   
   const { data: modulesData } = useModules(courseId);
-  const modules = Array.isArray(modulesData) ? modulesData : (modulesData as any)?.data || [];
+  const modules = useMemo(() => {
+    const modulesFromQuery = normalizeList(modulesData);
+    return modulesFromQuery.length > 0 ? modulesFromQuery : normalizeList(course?.modules);
+  }, [modulesData, course?.modules]);
   
   const { data: liveSessionsData } = useLiveSessions(courseId);
-  const liveSessions = Array.isArray(liveSessionsData) ? liveSessionsData : (liveSessionsData as any)?.data || [];
+  const liveSessions = useMemo(() => {
+    const liveSessionsFromQuery = normalizeList(liveSessionsData);
+    return liveSessionsFromQuery.length > 0 ? liveSessionsFromQuery : normalizeList(course?.live_sessions);
+  }, [liveSessionsData, course?.live_sessions]);
   
   const { mutate: createAssessment, isPending } = useCreateAssessment();
   const [selectedType, setSelectedType] = useState('quiz');
@@ -186,8 +213,8 @@ export default function CreateAssessmentPage() {
   return (
     <div className="space-y-8 pb-12">
       <div>
-        <h1 className="text-3xl font-black text-[var(--color-text-primary)]">Create Assessment</h1>
-        <p className="text-[var(--color-text-secondary)] mt-1">
+        <h1 className="text-3xl font-black text-(--color-text-primary)">Create Assessment</h1>
+        <p className="text-(--color-text-secondary) mt-1">
           Choose assessment type and configure settings
         </p>
       </div>
@@ -243,18 +270,29 @@ export default function CreateAssessmentPage() {
             />
             <div className="space-y-1">
               <label className="block text-sm font-semibold">{isLive ? 'Live Session' : 'Module'} (Optional)</label>
-              <select {...register('module')} className="w-full px-4 py-3 rounded-lg border border-gray-300 bg-white">
+              <select
+                {...register('module')}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white shadow-sm transition-all focus:border-[#0A5C4A] focus:ring-4 focus:ring-[#0A5C4A]/10"
+                disabled={isLive ? liveSessions.length === 0 : modules.length === 0}
+              >
                 <option value="">No specific {isLive ? 'session' : 'module'}</option>
                 {isLive ? (
                   liveSessions.map((s: any) => (
-                    <option key={s.id} value={s.id}>Day {s.day_number}: {s.title}</option>
+                    <option key={s.id} value={s.id}>Day {s.day_number || s.order_number || s.id}: {s.title}</option>
                   ))
                 ) : (
                   modules.map((m: any) => (
-                    <option key={m.id} value={m.id}>{m.title}</option>
+                    <option key={m.id} value={m.id}>
+                      {m.order_number ? `${m.order_number}. ` : ''}{m.title}
+                    </option>
                   ))
                 )}
               </select>
+              {!((isLive ? liveSessions : modules).length) && (
+                <p className="text-xs text-amber-700 mt-1">
+                  No {isLive ? 'live sessions' : 'modules'} were found for this course yet.
+                </p>
+              )}
             </div>
           </div>
 
@@ -321,7 +359,7 @@ export default function CreateAssessmentPage() {
                 />
               )}
               <div className="p-3 bg-amber-50 rounded-lg flex items-start gap-2">
-                <AlertCircle size={16} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                <AlertCircle size={16} className="text-amber-500 shrink-0 mt-0.5" />
                 <p className="text-sm text-amber-800">
                   Student will be warned on each tab switch. After exceeding the limit, the assessment will auto-submit.
                 </p>
@@ -471,7 +509,7 @@ export default function CreateAssessmentPage() {
                                 type="radio"
                                 {...register(`questions.${index}.correct`)}
                                 value={optIdx}
-                                className="w-4 h-4 accent-[#0A5C4A] flex-shrink-0"
+                                className="w-4 h-4 accent-[#0A5C4A] shrink-0"
                               />
                               <Input
                                 placeholder={`Option ${optIdx + 1}`}

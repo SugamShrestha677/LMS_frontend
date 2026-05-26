@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -44,24 +44,6 @@ export default function CoursePlayer() {
     isLoading: boolean;
     refetch: () => void;
   };
-
-  useEffect(() => {
-    // Handle SCORM exit - refresh data and clean URL
-    if (searchParams.get('scorm_exit') === 'true') {
-      console.log("SCORM exit detected, refreshing data...");
-      
-      // Remove the parameter from URL without refreshing the page
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, '', newUrl);
-      
-      // Trigger a refresh of the course data and progress
-      refetchCourse();
-      // Wait a bit for the backend to sync before refetching progress
-      setTimeout(() => {
-        refetchScormProgress();
-      }, 1000);
-    }
-  }, [searchParams, refetchCourse]);
 
   type CourseData = {
     id: number;
@@ -140,7 +122,10 @@ export default function CoursePlayer() {
   const { data: announcementsData } = useCourseAnnouncements(courseId);
   const { mutate: completeContent, isPending: completing } = useCompleteContent();
   const { data: liveSessionsData } = useLiveSessions(courseId);
-  const liveSessions: any[] = Array.isArray(liveSessionsData) ? liveSessionsData : (liveSessionsData as any)?.data || [];
+  const liveSessions: any[] = useMemo(
+    () => (Array.isArray(liveSessionsData) ? liveSessionsData : (liveSessionsData as any)?.data || []),
+    [liveSessionsData]
+  );
   const enrolledCourseList: Enrollment[] = Array.isArray(enrolledCourses)
     ? enrolledCourses
     : (enrolledCourses as any)?.data || [];
@@ -155,6 +140,27 @@ export default function CoursePlayer() {
     refetch: () => void;
     isFetching: boolean;
   };
+
+  const syncScormProgress = useCallback(() => {
+    refetchCourse();
+    window.setTimeout(() => {
+      refetchScormProgress();
+    }, 1500);
+  }, [refetchCourse, refetchScormProgress]);
+
+  useEffect(() => {
+    // Handle SCORM exit - refresh data and clean URL
+    if (searchParams.get('scorm_exit') === 'true') {
+      console.log("SCORM exit detected, refreshing data...");
+      
+      // Remove the parameter from URL without refreshing the page
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+      
+      // Trigger a refresh of the course data and progress
+      syncScormProgress();
+    }
+  }, [searchParams, syncScormProgress]);
 
   const { data: payments } = usePayments();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -203,7 +209,7 @@ export default function CoursePlayer() {
 
   const hasPendingPayment = !!pendingPayment;
   const isPaid = !!confirmedPayment || course?.is_free;
-  const canAccessContent = isEnrolled && isPaid;
+  const canAccessContent = !!course?.is_free || (isEnrolled && isPaid);
 
   // Real-time Progress State
   const [liveProgress, setLiveProgress] = useState<{ progress: number; status: string } | null>(null);
@@ -263,7 +269,7 @@ export default function CoursePlayer() {
           id: session.id,
           title: `Day ${session.day_number}: ${session.title}`,
           duration: `${session.start_time?.slice(0, 5)} - ${session.end_time?.slice(0, 5)}`,
-          locked: !isEnrolled,
+          locked: !canAccessContent,
           contentType: 'video',
           isLiveSession: true,
           sessionData: session
@@ -306,7 +312,7 @@ export default function CoursePlayer() {
           id: content.id,
           title: content.title,
           duration: `${content.duration_minutes ?? 0} min`,
-          locked: !isEnrolled,
+          locked: !canAccessContent,
           contentType: content.content_type,
           videoUrl,
           fileUrl,
@@ -319,7 +325,7 @@ export default function CoursePlayer() {
         };
       }),
     }));
-  }, [course, isEnrolled]);
+  }, [course, canAccessContent, liveSessions]);
 
   const allLessons: LessonItem[] = curriculum.flatMap((section) => section.lessons);
   const [activeLessonId, setActiveLessonId] = useState<number | null>(null);
@@ -371,21 +377,20 @@ export default function CoursePlayer() {
   useEffect(() => {
     setScormLessonStatus(activeLesson?.scormStatus || null);
     setContentLaunchUrl(null);
-  }, [activeLesson?.id]);
+  }, [activeLesson?.id, activeLesson?.scormStatus]);
 
   // Sync progress when window gains focus (useful for SCORM windows closing)
   useEffect(() => {
     const handleFocus = () => {
       if (course?.is_scorm || activeLesson?.scormCourseId) {
         console.log('Window focused, syncing SCORM progress...');
-        refetchScormProgress();
-        refetchCourse();
+        syncScormProgress();
       }
     };
 
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, [course?.is_scorm, activeLesson?.scormCourseId, refetchScormProgress, refetchCourse]);
+  }, [course?.is_scorm, activeLesson?.scormCourseId, syncScormProgress]);
 
   // Video Heartbeat Tracking
   const lastHeartbeatRef = useRef<number>(0);
@@ -415,6 +420,11 @@ export default function CoursePlayer() {
   };
 
   useEffect(() => {
+    if (!canAccessContent || !activeLesson?.scormCourseId || effectiveScormStatus !== 'finished') {
+      setContentLaunchUrl(null);
+      return;
+    }
+
     if (activeLesson?.scormCourseId && effectiveScormStatus === 'finished') {
       const fetchLaunchUrl = async () => {
         setLaunchingContent(true);
@@ -440,11 +450,11 @@ export default function CoursePlayer() {
     } else {
       setContentLaunchUrl(null);
     }
-  }, [activeLesson, courseId, activeModule, effectiveScormStatus]);
+  }, [activeLesson, canAccessContent, courseId, activeModule, effectiveScormStatus, currentModuleId]);
 
   useEffect(() => {
     // Auto-refresh SCORM status while the lesson is still processing.
-    if (!activeLesson?.scormCourseId || effectiveScormStatus === 'finished' || currentModuleId == null) {
+    if (!canAccessContent || !activeLesson?.scormCourseId || effectiveScormStatus === 'finished' || currentModuleId == null) {
       return;
     }
 
@@ -463,7 +473,7 @@ export default function CoursePlayer() {
     }, 6000);
 
     return () => window.clearInterval(timer);
-  }, [activeLesson?.id, activeLesson?.scormCourseId, effectiveScormStatus, courseId, currentModuleId, refetchCourse]);
+  }, [activeLesson?.id, activeLesson?.scormCourseId, effectiveScormStatus, courseId, currentModuleId, refetchCourse, canAccessContent]);
 
   const scormCompletion = typeof scormProgress?.completion_amount === 'number'
     ? scormProgress.completion_amount
@@ -863,21 +873,40 @@ export default function CoursePlayer() {
                       <Button
                         size="lg"
                         className="px-8 h-12 rounded-xl font-bold transition-all hover:scale-105 shadow-xl shadow-[var(--color-primary)]/20"
-                        onClick={() => {
-                          if (contentLaunchUrl) {
+                        onClick={async () => {
+                          try {
+                            if (currentModuleId == null) {
+                              return;
+                            }
+
+                            setLaunchingContent(true);
+                            const { courseService } = await import('@/lib/services/course.service');
+                            const launchData = await courseService.launchContentScorm(courseId, currentModuleId, activeLesson.id);
+                            const launchUrl = launchData?.launch_url || launchData?.data?.launch_url;
+
+                            if (!launchUrl) {
+                              throw new Error('Launch URL was not returned');
+                            }
+
+                            setContentLaunchUrl(launchUrl);
+
                             const width = Math.min(1400, window.screen.availWidth * 0.9);
                             const height = Math.min(900, window.screen.availHeight * 0.9);
                             const left = (window.screen.availWidth - width) / 2;
                             const top = (window.screen.availHeight - height) / 2;
-                            
+
                             window.open(
-                              contentLaunchUrl,
+                              launchUrl,
                               'SCORMContentPlayer',
                               `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=yes`
                             );
-                            
+
                             // Real-time updates are now handled by WebSocket, no more polling!
                             refetchScormProgress();
+                          } catch (error) {
+                            console.error('Failed to launch content:', error);
+                          } finally {
+                            setLaunchingContent(false);
                           }
                         }}
                       >
