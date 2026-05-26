@@ -739,6 +739,48 @@ function ResultsView({ assessment, answers, attempt }: {
         )}
       </Card>
 
+      {(attempt?.feedback || attempt?.feedback_at || attempt?.feedback_by) && (
+        <Card className="p-6 border-2 border-[#0A5C4A]/15 bg-[#0A5C4A]/5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="font-bold text-lg text-[#0A5C4A]">Instructor Feedback</h3>
+              <p className="text-sm text-[#5A5A6E] mt-1">
+                Private feedback from your instructor for this attempt.
+              </p>
+            </div>
+            <Badge variant="outline" className="shrink-0">
+              Visible only to you
+            </Badge>
+          </div>
+
+          <div className="mt-4 space-y-3">
+            {attempt?.feedback ? (
+              <p className="text-[#1E1E2A] leading-relaxed whitespace-pre-wrap italic">
+                {attempt.feedback}
+              </p>
+            ) : (
+              <p className="text-sm text-gray-500 italic">No written feedback yet.</p>
+            )}
+
+            {(attempt?.feedback_by || attempt?.feedback_at) && (
+              <div className="flex flex-wrap items-center gap-2 text-xs text-[#5A5A6E] pt-2 border-t border-[#0A5C4A]/10">
+                {attempt?.feedback_by && (
+                  <span>
+                    From: {attempt.feedback_by_name || 'Instructor'}
+                  </span>
+                )}
+                {attempt?.feedback_by && attempt?.feedback_at && <span>•</span>}
+                {attempt?.feedback_at && (
+                  <span>
+                    Sent {new Date(attempt.feedback_at).toLocaleString()}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
       {/* Question review */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
