@@ -17,6 +17,11 @@ import {
 import { format, isPast, differenceInHours } from 'date-fns';
 import api from '@/lib/services/api';
 
+const normalizeList = (value: any) => {
+  if (Array.isArray(value)) return value;
+  return value?.data || [];
+};
+
 export default function StudentAssessmentsPage() {
   const router = useRouter();
   const { user } = useAuthStore();
@@ -28,9 +33,7 @@ export default function StudentAssessmentsPage() {
     queryFn: () => courseService.getStudentEnrolledCourses(),
   });
 
-  const enrollments = Array.isArray(enrollmentsData) 
-    ? enrollmentsData 
-    : (enrollmentsData as any)?.data || [];
+  const enrollments = useMemo(() => normalizeList(enrollmentsData), [enrollmentsData]);
 
   // Get all course IDs from enrollments
   const courseIds = useMemo(() => {
@@ -38,6 +41,7 @@ export default function StudentAssessmentsPage() {
   }, [enrollments]);
 
   // Fetch assessments for each enrolled course
+    // Fetch assessments for each enrolled course
   const { data: allAssessmentsData, isLoading: isLoadingAssessments } = useQuery({
     queryKey: ['student-assessments-all', courseIds],
     queryFn: async () => {
@@ -46,7 +50,7 @@ export default function StudentAssessmentsPage() {
       // Fetch assessments for each course in parallel
       const promises = courseIds.map((courseId: number) =>
         api.get(`/courses/${courseId}/assessments/`)
-          .then(res => {
+          .then((res: any) => {
             const assessments = res.data?.data || res.data || [];
             // Find the course info from enrollments
             const enrollment = enrollments.find((e: any) => 
@@ -71,28 +75,14 @@ export default function StudentAssessmentsPage() {
     enabled: courseIds.length > 0,
   });
 
-  const allAssessments = Array.isArray(allAssessmentsData) ? allAssessmentsData : [];
-
-  // Also fetch student's assessment attempts to check completion status
-  const { data: studentAttempts } = useQuery({
-    queryKey: ['student-assessment-attempts'],
-    queryFn: async () => {
-      const response = await api.get('/student-assessments/');
-      return response.data?.data || response.data || [];
-    },
-  });
-
-  const attempts = Array.isArray(studentAttempts) ? studentAttempts : [];
+  const allAssessments = useMemo(() => normalizeList(allAssessmentsData), [allAssessmentsData]);
 
   // Separate into pending and completed
   const pendingAssessments = useMemo(() => {
     return allAssessments.filter((a: any) => {
       // Check if student has already submitted
-      const hasSubmitted = attempts.some(
-        (attempt: any) => 
-          attempt.assessment === a.id && 
-          (attempt.status === 'submitted' || attempt.status === 'graded')
-      );
+      const attempt = a.student_attempt;
+      const hasSubmitted = attempt && (attempt.status === 'submitted' || attempt.status === 'graded');
       
       if (hasSubmitted) return false;
       
@@ -106,31 +96,26 @@ export default function StudentAssessmentsPage() {
       
       return true;
     });
-  }, [allAssessments, attempts]);
+  }, [allAssessments]);
 
   const completedAssessments = useMemo(() => {
     return allAssessments.filter((a: any) => {
-      return attempts.some(
-        (attempt: any) => 
-          attempt.assessment === a.id && 
-          (attempt.status === 'submitted' || attempt.status === 'graded')
-      );
+      const attempt = a.student_attempt;
+      return attempt && (attempt.status === 'submitted' || attempt.status === 'graded');
     }).map((a: any) => {
-      const attempt = attempts.find((att: any) => att.assessment === a.id);
       return {
         ...a,
-        studentAttempt: attempt,
+        studentAttempt: a.student_attempt,
       };
     });
-  }, [allAssessments, attempts]);
+  }, [allAssessments]);
 
   const displayedAssessments = activeTab === 'pending' 
     ? pendingAssessments 
     : activeTab === 'completed' 
     ? completedAssessments 
     : allAssessments.map(a => {
-        const attempt = attempts.find((att: any) => att.assessment === a.id);
-        return { ...a, studentAttempt: attempt };
+        return { ...a, studentAttempt: a.student_attempt };
       });
 
   const getUrgencyColor = (assessment: any) => {
@@ -183,7 +168,7 @@ export default function StudentAssessmentsPage() {
   };
 
   const handleViewResult = (assessment: any) => {
-    const attempt = assessment.studentAttempt || attempts.find((a: any) => a.assessment === assessment.id);
+    const attempt = assessment.studentAttempt;
     if (attempt) {
       if (assessment.assessment_type === 'quiz' || assessment.assessment_type === 'exam') {
         router.push(`/student/assessments/${assessment.id}/take?attempt=${attempt.id}&courseId=${assessment.course_id}`);

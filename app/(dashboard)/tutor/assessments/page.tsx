@@ -18,6 +18,15 @@ import { format, isPast, isFuture } from 'date-fns';
 import api from '@/lib/services/api';
 import { useAuthStore } from '@/lib/store/auth-store';
 
+const normalizeList = (value: unknown) => {
+  if (Array.isArray(value)) return value;
+  const candidate = value as { data?: unknown; results?: unknown } | null;
+  if (!candidate || typeof candidate !== 'object') return [];
+  return (Array.isArray(candidate.data) && candidate.data)
+    || (Array.isArray(candidate.results) && candidate.results)
+    || [];
+};
+
 export default function TutorAssessmentsPage() {
   const router = useRouter();
   const { user } = useAuthStore();
@@ -30,70 +39,57 @@ export default function TutorAssessmentsPage() {
     queryKey: ['tutor-courses'],
     queryFn: async () => {
       const response = await api.get('/courses/');
-      return response.data?.data || response.data || [];
+      return normalizeList(response.data?.data || response.data);
     },
   });
 
-  const courses = Array.isArray(coursesData) ? coursesData : [];
+  const courses = normalizeList(coursesData);
 
-  // Fetch all assessments for tutor's courses
-  const { data: assessmentsData, isLoading } = useQuery({
-    queryKey: ['tutor-assessments', courses.map((c: any) => c.id)],
+  // Fetch all assessments for tutor (regardless of courses loaded)
+  const { data: assessmentsData, isLoading: isLoadingAssessments } = useQuery({
+    queryKey: ['tutor-assessments'],
     queryFn: async () => {
-      if (courses.length === 0) return [];
-      
-      const promises = courses.map((course: any) =>
-        api.get(`/courses/${course.id}/assessments/`)
-          .then(res => {
-            const assessments = res.data?.data || res.data || [];
-            return assessments.map((a: any) => ({
-              ...a,
-              course_title: course.title,
-              course_id: course.id,
-            }));
-          })
-          .catch(() => [])
-      );
-      
-      const results = await Promise.all(promises);
-      return results.flat();
+      const response = await api.get('/tutor/assessments/');
+      return normalizeList(response.data?.data || response.data);
     },
-    enabled: courses.length > 0,
   });
 
-  const allAssessments = Array.isArray(assessmentsData) ? assessmentsData : [];
+  const allAssessments = normalizeList(assessmentsData);
 
   // Fetch student submissions
   const { data: submissionsData, isLoading: isLoadingSubmissions } = useQuery({
     queryKey: ['all-student-assessments'],
     queryFn: async () => {
       const response = await api.get('/student-assessments/');
-      return response.data?.data || response.data || [];
+      return normalizeList(response.data?.data || response.data);
     },
   });
 
-  const submissions = Array.isArray(submissionsData) ? submissionsData : [];
+  const submissions = normalizeList(submissionsData);
 
-  // Merge assessments with their submissions
+  // Merge assessments with course info and submissions
   const mergedAssessments = useMemo(() => {
     return allAssessments.map((assessment: any) => {
+      const courseId = assessment.course || assessment.course_id;
+      const course = courses.find((c: any) => c.id === courseId) || {};
       const assessmentSubmissions = submissions.filter(
         (s: any) => s.assessment === assessment.id
       );
-      
       return {
         ...assessment,
+        course_title: course.title || 'Unknown Course',
+        course_id: courseId,
         submissions: assessmentSubmissions,
         totalSubmissions: assessmentSubmissions.length,
         pendingSubmissions: assessmentSubmissions.filter(
           (s: any) => s.status === 'submitted' && s.score == null
         ).length,
         gradedSubmissions: assessmentSubmissions.filter(
-          (s: any) => s.status === 'graded'
+          (s: any) => s.status === 'graded' || (s.status === 'submitted' && s.score != null)
         ).length,
       };
     });
-  }, [allAssessments, submissions]);
+  }, [allAssessments, courses, submissions]);
 
   // Filter
   const filteredAssessments = useMemo(() => {
@@ -134,7 +130,7 @@ export default function TutorAssessmentsPage() {
     router.push(`/tutor/courses/${assessment.course_id}/assessments/${assessment.id}/submissions`);
   };
 
-  if (isLoading || isLoadingSubmissions) {
+  if (isLoadingAssessments || isLoadingSubmissions) {
     return (
       <div className="space-y-8 pb-12">
         <div className="flex items-center justify-center min-h-[400px]">
@@ -143,6 +139,7 @@ export default function TutorAssessmentsPage() {
       </div>
     );
   }
+
 
   return (
     <div className="space-y-8 pb-12">
@@ -192,7 +189,7 @@ export default function TutorAssessmentsPage() {
           <div>
             <p className="text-xs text-[#5A5A6E] font-semibold">Graded</p>
             <p className="text-xl font-black">
-              {submissions.filter((s: any) => s.status === 'graded').length}
+              {submissions.filter((s: any) => s.status === 'graded' || (s.status === 'submitted' && s.score != null)).length}
             </p>
           </div>
         </Card>
@@ -202,9 +199,7 @@ export default function TutorAssessmentsPage() {
           </div>
           <div>
             <p className="text-xs text-[#5A5A6E] font-semibold">Students</p>
-            <p className="text-xl font-black">
-              {new Set(submissions.map((s: any) => s.student)).size}
-            </p>
+            <p className="text-xl font-black">{new Set(submissions.map((s: any) => s.student || s.student_id)).size}</p>
           </div>
         </Card>
       </div>
@@ -215,7 +210,7 @@ export default function TutorAssessmentsPage() {
           {[
             { key: 'all', label: 'All', count: mergedAssessments.length },
             { key: 'pending', label: 'Pending Review', count: submissions.filter((s: any) => s.status === 'submitted' && s.score == null).length },
-            { key: 'graded', label: 'Graded', count: submissions.filter((s: any) => s.status === 'graded').length },
+            { key: 'graded', label: 'Graded', count: submissions.filter((s: any) => s.status === 'graded' || (s.status === 'submitted' && s.score != null)).length },
           ].map((tab) => (
             <button 
               key={tab.key}

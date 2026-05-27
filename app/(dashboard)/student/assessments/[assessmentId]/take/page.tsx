@@ -27,6 +27,7 @@ export default function TakeAssessmentPage() {
   const { user } = useAuthStore();
   const assessmentId = Number(params.assessmentId);
   const courseId = searchParams.get('courseId') || 1;
+  const attemptParam = searchParams.get('attempt');
   
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({});
@@ -39,6 +40,7 @@ export default function TakeAssessmentPage() {
   const [reviewMode, setReviewMode] = useState(false);
   const [assessmentEnded, setAssessmentEnded] = useState(false);
   const [attemptData, setAttemptData] = useState<any>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<Date>(new Date());
@@ -58,19 +60,17 @@ export default function TakeAssessmentPage() {
   const isQuiz = assessment?.assessment_type === 'quiz';
   const isExam = assessment?.assessment_type === 'exam';
 
-  // Create attempt on mount
-  useEffect(() => {
-    if (assessment && !attemptId) {
-      createAttempt();
-    }
-  }, [assessment]);
+  const initializeAttempt = useCallback(async () => {
+    if (!assessment) return;
 
-  const createAttempt = async () => {
     try {
-      const response = await api.post('/student-assessments/', {
-        assessment: assessmentId,
-        status: 'in_progress',
-      });
+      const response = attemptParam
+        ? await api.get(`/student-assessments/${attemptParam}/`)
+        : await api.post('/student-assessments/', {
+            assessment: assessmentId,
+            status: 'in_progress',
+          });
+
       const attempt = response.data?.data || response.data;
       setAttemptId(attempt.id);
       
@@ -92,6 +92,7 @@ export default function TakeAssessmentPage() {
         } else {
           setAssessmentEnded(true);
         }
+        setIsInitializing(false);
         return;
       }
 
@@ -101,11 +102,20 @@ export default function TakeAssessmentPage() {
       if (assessment?.duration_minutes) {
         setTimeLeft(assessment.duration_minutes * 60);
       }
+
+      setIsInitializing(false);
     } catch (error: any) {
+      setIsInitializing(false);
       toast.error('Failed to access assessment');
       router.back();
     }
-  };
+  }, [assessment, assessmentId, attemptParam, router, isExam, isQuiz]);
+
+  // Create or hydrate attempt once the assessment is loaded
+  useEffect(() => {
+    if (!assessment || attemptId || !isInitializing) return;
+    initializeAttempt();
+  }, [assessment, attemptId, initializeAttempt, isInitializing]);
 
   // Timer countdown
   useEffect(() => {
@@ -307,11 +317,11 @@ export default function TakeAssessmentPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="w-8 h-8 border-4 border-[#0A5C4A] border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <AssessmentTakeSkeleton />;
+  }
+
+  if (isInitializing) {
+    return <AssessmentTakeSkeleton />;
   }
 
   if (!assessment) {
@@ -907,6 +917,54 @@ function ResultsView({ assessment, answers, attempt }: {
         <Button onClick={() => window.location.href = '/student/assessments'} size="lg">
           View All Assessments
         </Button>
+      </div>
+    </div>
+  );
+}
+
+function AssessmentTakeSkeleton() {
+  return (
+    <div className="max-w-6xl mx-auto p-4 py-8 space-y-6 animate-pulse">
+      <Card className="p-6 md:p-8 shadow-lg">
+        <div className="flex items-center justify-between gap-4">
+          <div className="space-y-3 flex-1">
+            <div className="h-4 w-24 rounded-full bg-gray-200" />
+            <div className="h-7 w-3/4 rounded-lg bg-gray-200" />
+            <div className="h-4 w-1/2 rounded-full bg-gray-100" />
+          </div>
+          <div className="hidden md:block h-10 w-28 rounded-xl bg-gray-200" />
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <Card className="hidden lg:block lg:col-span-1 p-4">
+          <div className="h-4 w-24 rounded-full bg-gray-200 mb-4" />
+          <div className="grid grid-cols-4 gap-1.5">
+            {Array.from({ length: 8 }).map((_, idx) => (
+              <div key={idx} className="aspect-square rounded-lg bg-gray-100" />
+            ))}
+          </div>
+        </Card>
+
+        <Card className="lg:col-span-4 p-6 md:p-8 shadow-lg space-y-6">
+          <div className="space-y-3">
+            <div className="h-4 w-32 rounded-full bg-gray-200" />
+            <div className="h-7 w-11/12 rounded-lg bg-gray-200" />
+            <div className="h-4 w-1/4 rounded-full bg-gray-100" />
+          </div>
+
+          <div className="space-y-3">
+            <div className="h-14 rounded-xl bg-gray-100" />
+            <div className="h-14 rounded-xl bg-gray-100" />
+            <div className="h-14 rounded-xl bg-gray-100" />
+            <div className="h-14 rounded-xl bg-gray-100" />
+          </div>
+
+          <div className="flex items-center justify-between gap-4 pt-2">
+            <div className="h-11 w-32 rounded-xl bg-gray-100" />
+            <div className="h-11 w-32 rounded-xl bg-gray-200" />
+          </div>
+        </Card>
       </div>
     </div>
   );
