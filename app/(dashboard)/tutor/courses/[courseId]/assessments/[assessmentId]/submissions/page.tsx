@@ -144,7 +144,7 @@ export default function AssessmentSubmissionsPage() {
                     </p>
                     <div className="flex items-center gap-3 text-xs text-[#5A5A6E] mt-1">
                       <span className="flex items-center gap-1">
-                        <Clock size={12} /> Submitted: {format(new Date(submission.submitted_at), 'PPp')}
+                        <Clock size={12} /> {submission.submitted_at ? `Submitted: ${format(new Date(submission.submitted_at), 'PPp')}` : 'Not officially submitted (Expired/Auto)'}
                       </span>
                       {submission.time_taken_minutes > 0 && (
                         <span>Time: {submission.time_taken_minutes} min</span>
@@ -222,7 +222,7 @@ export default function AssessmentSubmissionsPage() {
                 {selectedSubmission.student_name || selectedSubmission.student_email}
               </p>
               <p className="text-sm text-[#5A5A6E]">
-                Submitted: {format(new Date(selectedSubmission.submitted_at), 'PPp')}
+                {selectedSubmission.submitted_at ? `Submitted: ${format(new Date(selectedSubmission.submitted_at), 'PPp')}` : 'Status: Expired / Not officially submitted'}
               </p>
               {selectedSubmission.tab_switch_count > 0 && (
                 <p className="text-sm text-orange-500 mt-1">
@@ -260,9 +260,14 @@ export default function AssessmentSubmissionsPage() {
             )}
 
             {/* Exam/Quiz Answers */}
-            {assessmentData && assessmentData.questions && assessmentData.questions.length > 0 && selectedSubmission.answers && (
+            {assessmentData && assessmentData.questions && assessmentData.questions.length > 0 && (
               <div>
                  <label className="block text-sm font-bold mb-4 text-[#0A5C4A]">Questions & Review</label>
+                 {(!selectedSubmission.answers || Object.keys(selectedSubmission.answers).length === 0) ? (
+                   <div className="p-4 bg-gray-50 rounded-xl text-center text-gray-500 italic">
+                     No answers were provided in this submission (possibly due to expiration or auto-submission before answering).
+                   </div>
+                 ) : (
                 <div className="space-y-6 max-h-125 overflow-y-auto pr-2 custom-scrollbar">
                    {assessmentData.questions.map((q: any, idx: number) => {
                     const rawAns = selectedSubmission.answers[idx];
@@ -327,6 +332,7 @@ export default function AssessmentSubmissionsPage() {
                     );
                   })}
                 </div>
+                )}
               </div>
             )}
 

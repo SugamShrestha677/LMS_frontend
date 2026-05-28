@@ -106,7 +106,13 @@ export default function TakeAssessmentPage() {
       setIsInitializing(false);
     } catch (error: any) {
       setIsInitializing(false);
-      toast.error('Failed to access assessment');
+      
+      const isAfterDeadline = assessment?.end_datetime && new Date() >= new Date(assessment.end_datetime);
+      if (isAfterDeadline) {
+        toast.error('This assessment has expired and can no longer be taken.');
+      } else {
+        toast.error('Failed to access assessment');
+      }
       router.back();
     }
   }, [assessment, assessmentId, attemptParam, router, isExam, isQuiz]);
