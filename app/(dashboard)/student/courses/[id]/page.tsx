@@ -1387,7 +1387,7 @@ export default function CoursePlayer() {
                             const attempt = (course as any)?.student_attempts?.find((a: any) => a.assessment === assessment.id);
                             const status = attempt?.status || 'not_started';
                             const score = attempt?.score;
-                            const isDone = status === 'submitted' || status === 'graded';
+                            const isDone = status === 'submitted' || status === 'graded' || status === 'auto_submitted';
                             const deadline = assessment.end_datetime ? new Date(assessment.end_datetime) : null;
                             const isPastDeadline = deadline && new Date() > deadline;
 
@@ -1411,12 +1411,20 @@ export default function CoursePlayer() {
                                       <Badge className="text-[10px] h-4 capitalize" variant="secondary">
                                         {assessment.assessment_type}
                                       </Badge>
-                                      {status !== 'not_started' && (
+                                      {status !== 'not_started' && !isPastDeadline && (
                                         <Badge
                                           className="text-[10px] h-4 capitalize"
                                           variant={status === 'graded' ? 'success' : 'warning'}
                                         >
-                                          {status}
+                                          {status.replace('_', ' ')}
+                                        </Badge>
+                                      )}
+                                      {isPastDeadline && status === 'not_started' && (
+                                        <Badge className="text-[10px] h-4 capitalize" variant="secondary">Expired</Badge>
+                                      )}
+                                      {isPastDeadline && status !== 'not_started' && (
+                                        <Badge className="text-[10px] h-4 capitalize" variant={status === 'graded' ? 'success' : 'secondary'}>
+                                          {status === 'auto_submitted' ? 'Auto-submitted' : status === 'graded' ? 'Graded' : 'Expired'}
                                         </Badge>
                                       )}
                                     </div>
@@ -1449,23 +1457,28 @@ export default function CoursePlayer() {
                                     const courseId = course.id;
                                     if (isDone) {
                                       // View results
-                                      if (assessment.assessment_type === 'quiz' || assessment.assessment_type === 'exam') {
-                                        router.push(`/student/assessments/${assessment.id}/take?attempt=${attempt.id}&courseId=${courseId}`);
-                                      } else {
-                                        router.push(`/student/assessments/${assessment.id}/assignment?attempt=${attempt.id}&courseId=${courseId}`);
+                                      if (attempt) {
+                                        if (assessment.assessment_type === 'quiz' || assessment.assessment_type === 'exam') {
+                                          router.push(`/student/assessments/${assessment.id}/take?attempt=${attempt.id}&courseId=${courseId}`);
+                                        } else {
+                                          router.push(`/student/assessments/${assessment.id}/assignment?attempt=${attempt.id}&courseId=${courseId}`);
+                                        }
                                       }
                                     } else {
                                       // Start/Resume
-                                      if (assessment.assessment_type === 'quiz' || assessment.assessment_type === 'exam') {
-                                        router.push(`/student/assessments/${assessment.id}/take?courseId=${courseId}`);
-                                      } else {
-                                        router.push(`/student/assessments/${assessment.id}/assignment?courseId=${courseId}`);
+                                      if (!isPastDeadline) {
+                                        if (assessment.assessment_type === 'quiz' || assessment.assessment_type === 'exam') {
+                                          router.push(`/student/assessments/${assessment.id}/take?courseId=${courseId}`);
+                                        } else {
+                                          router.push(`/student/assessments/${assessment.id}/assignment?courseId=${courseId}`);
+                                        }
                                       }
                                     }
                                   }}
                                 >
                                   {status === 'graded' ? 'View Result' :
-                                    status === 'submitted' ? 'Submitted' :
+                                    status === 'submitted' || status === 'auto_submitted' ? 'View Result' :
+                                      isDone ? 'Closed' :
                                       status === 'started' ? 'Resume' : 'Start'}
                                 </Button>
                               </div>

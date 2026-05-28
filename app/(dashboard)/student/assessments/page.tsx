@@ -82,7 +82,7 @@ export default function StudentAssessmentsPage() {
     return allAssessments.filter((a: any) => {
       // Check if student has already submitted
       const attempt = a.student_attempt;
-      const hasSubmitted = attempt && (attempt.status === 'submitted' || attempt.status === 'graded');
+      const hasSubmitted = attempt && (attempt.status === 'submitted' || attempt.status === 'graded' || attempt.status === 'auto_submitted');
       
       if (hasSubmitted) return false;
       
@@ -101,7 +101,10 @@ export default function StudentAssessmentsPage() {
   const completedAssessments = useMemo(() => {
     return allAssessments.filter((a: any) => {
       const attempt = a.student_attempt;
-      return attempt && (attempt.status === 'submitted' || attempt.status === 'graded');
+      const hasSubmitted = attempt && (attempt.status === 'submitted' || attempt.status === 'graded' || attempt.status === 'auto_submitted');
+      const isExpired = a.end_datetime && isPast(new Date(a.end_datetime));
+      
+      return hasSubmitted || isExpired; // Treat expired as completed so they don't disappear from lists entirely
     }).map((a: any) => {
       return {
         ...a,
@@ -273,11 +276,13 @@ export default function StudentAssessmentsPage() {
               const isExpired = assessment.end_datetime && isPast(new Date(assessment.end_datetime));
               const notStarted = assessment.start_datetime && new Date(assessment.start_datetime) > new Date();
               const canViewResults = !assessment.end_datetime || isPast(new Date(assessment.end_datetime));
-              const isCompleted = assessment.studentAttempt && 
+              const isCompleted = (assessment.studentAttempt && 
                 (assessment.studentAttempt.status === 'submitted' || 
-                 assessment.studentAttempt.status === 'graded');
+                 assessment.studentAttempt.status === 'graded' ||
+                 assessment.studentAttempt.status === 'auto_submitted')) || isExpired;
               const score = assessment.studentAttempt?.score;
               const isGraded = assessment.studentAttempt?.status === 'graded';
+              const isAutoSubmitted = assessment.studentAttempt?.status === 'auto_submitted';
 
               return (
                 <motion.div
@@ -310,8 +315,8 @@ export default function StudentAssessmentsPage() {
                                 {getTypeLabel(assessment.assessment_type)}
                               </Badge>
                               {isCompleted && (
-                                <Badge variant={isGraded ? 'success' : 'primary'} className="text-xs">
-                                  {isGraded ? 'Graded' : 'Submitted'}
+                                <Badge variant={isGraded ? 'success' : isAutoSubmitted || isExpired ? 'secondary' : 'primary'} className="text-xs">
+                                  {isGraded ? 'Graded' : isAutoSubmitted ? 'Auto-submitted' : isExpired && !assessment.studentAttempt ? 'Expired' : 'Submitted'}
                                 </Badge>
                               )}
                               {!isCompleted && urgency === 'high' && !isExpired && (
@@ -389,7 +394,7 @@ export default function StudentAssessmentsPage() {
 
                       <div className="flex items-center">
                         {isCompleted ? (
-                          canViewResults ? (
+                          canViewResults && assessment.studentAttempt ? (
                             <Button 
                               variant="outline"
                               size="lg" 
@@ -405,7 +410,7 @@ export default function StudentAssessmentsPage() {
                               className="gap-2 min-w-[160px]"
                               disabled
                             >
-                              <Clock size={18} /> Results Pending
+                              <Clock size={18} /> {assessment.studentAttempt ? 'Results Pending' : 'Missed'}
                             </Button>
                           )
                         ) : (
