@@ -8,11 +8,6 @@ function isLocalHost(hostname: string): boolean {
 }
 
 export function resolveApiBaseUrl(fallback?: string): string {
-  const configuredUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
-  if (configuredUrl) {
-    return configuredUrl;
-  }
-
   if (typeof window !== 'undefined') {
     return isLocalHost(window.location.hostname)
       ? LOCAL_API_URL
@@ -23,11 +18,6 @@ export function resolveApiBaseUrl(fallback?: string): string {
 }
 
 export function resolveAppBaseUrl(): string {
-  const configuredUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (configuredUrl) {
-    return configuredUrl;
-  }
-
   if (typeof window !== 'undefined') {
     return isLocalHost(window.location.hostname)
       ? LOCAL_APP_URL
