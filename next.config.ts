@@ -47,6 +47,36 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', 'date-fns', 'recharts', 'framer-motion'],
   },
+  async rewrites() {
+    return [
+      // Proxy student dashboard to Vite dev server
+      {
+        source: '/student/dashboard',
+        destination: 'http://localhost:5173/student/dashboard',
+      },
+      // Proxy Vite's internal assets
+      {
+        source: '/src/:path*',
+        destination: 'http://localhost:5173/src/:path*',
+      },
+      {
+        source: '/@vite/:path*',
+        destination: 'http://localhost:5173/@vite/:path*',
+      },
+      {
+        source: '/@react-refresh',
+        destination: 'http://localhost:5173/@react-refresh',
+      },
+      {
+        source: '/@fs/:path*',
+        destination: 'http://localhost:5173/@fs/:path*',
+      },
+      {
+        source: '/node_modules/:path*',
+        destination: 'http://localhost:5173/node_modules/:path*',
+      },
+    ];
+  },
 };
 
 export default withBundleAnalyzer(withSerwist(nextConfig));

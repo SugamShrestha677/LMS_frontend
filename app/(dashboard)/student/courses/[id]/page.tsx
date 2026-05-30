@@ -30,6 +30,7 @@ import { usePayments } from '@/lib/hooks/useCourses';
 import { useLiveSessions } from '@/lib/hooks/useLiveSessions';
 import { CoursePaymentModal } from '@/components/student/CoursePaymentModal';
 import { format, formatDistanceToNow, isPast, isFuture } from 'date-fns';
+import { useEnrollmentProgress } from '@/hooks/useEnrollmentProgress';
 
 export default function CoursePlayer() {
   const params = useParams();
@@ -211,44 +212,13 @@ export default function CoursePlayer() {
   const isPaid = !!confirmedPayment || course?.is_free;
   const canAccessContent = !!course?.is_free || (isEnrolled && isPaid);
 
-  // Real-time Progress State
-  const [liveProgress, setLiveProgress] = useState<{ progress: number; status: string } | null>(null);
-
-  useEffect(() => {
-    if (!isEnrolled || !enrollment?.id) return;
-
-    // Construct WebSocket URL - Use 127.0.0.1 for local dev to be more stable
-    const host = window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname;
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${wsProtocol}//${host}:8000/ws/enrollment/${enrollment.id}/progress/`;
-    
-    console.log('Connecting to Progress WebSocket:', wsUrl);
-    const socket = new WebSocket(wsUrl);
-
-    socket.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        console.log('Live Progress Received:', data);
-        setLiveProgress({
-          progress: data.progress,
-          status: data.status
-        });
-        // We don't need to refetch the whole course here, 
-        // as setLiveProgress will update the progress bar.
-      } catch (err) {
-        console.error('Failed to parse WS message:', err);
-      }
-    };
-
-    socket.onerror = (err) => {
-      console.error('WebSocket Error:', err);
-    };
-
-    return () => {
-      console.log('Closing Progress WebSocket');
-      socket.close();
-    };
-  }, [enrollment?.id, isEnrolled, refetchCourse]);
+  const {
+    progress: realtimeProgress,
+    status: realtimeStatus,
+    score: realtimeScore,
+    connectionState,
+    lastUpdatedAt,
+  } = useEnrollmentProgress(isEnrolled && enrollment?.id ? String(enrollment.id) : '');
 
 
   // Announcements
@@ -478,11 +448,19 @@ export default function CoursePlayer() {
   const scormCompletion = typeof scormProgress?.completion_amount === 'number'
     ? scormProgress.completion_amount
     : null;
-    
-  // Use liveProgress from WebSocket if available, otherwise fallback to REST/SCORM data
-  const progress = liveProgress?.progress 
+
+  // Use deterministic realtime progress when available, then fallback to REST/SCORM values.
+  const progress = realtimeProgress
     ?? scormCompletion 
     ?? (enrollment ? Number(enrollment.progress_percentage ?? 0) : 0);
+  const progressStatus = realtimeStatus ?? 'unknown';
+  const progressScore = realtimeScore;
+  const connectionLabel =
+    connectionState === 'open'
+      ? 'connected'
+      : connectionState === 'reconnecting' || connectionState === 'connecting'
+        ? 'reconnecting'
+        : 'offline';
   const scormLaunchUrl = course?.scorm_launch_url as string | undefined;
   const scormLaunchError = course?.scorm_launch_error as string | undefined;
 
@@ -605,6 +583,10 @@ export default function CoursePlayer() {
                   <span>{Math.round(progress)}%</span>
                 </div>
                 <ProgressBar value={progress} color="var(--color-primary)" />
+                <div className="flex justify-between text-[10px] font-medium text-[var(--color-text-secondary)]">
+                  <span className="uppercase tracking-wide">Status: {progressStatus}</span>
+                  <span>{progressScore === null || progressScore === undefined ? 'Score: --' : `Score: ${Math.round(progressScore)}`}</span>
+                </div>
               </div>
             </div>
 
@@ -693,10 +675,24 @@ export default function CoursePlayer() {
           </div>
           <div className="flex items-center gap-3">
             <Badge variant="success" size="sm" dot>Enrolled</Badge>
+            <Badge
+              variant={connectionLabel === 'connected' ? 'success' : connectionLabel === 'reconnecting' ? 'warning' : 'danger'}
+              size="sm"
+              dot
+            >
+              {connectionLabel}
+            </Badge>
             <div className="h-4 w-px bg-[var(--color-border)] mx-1" />
-            <span className="text-xs font-bold text-[var(--color-text-secondary)]">
-              {Math.round(progress)}% Complete
-            </span>
+            <div className="flex flex-col items-end">
+              <span className="text-xs font-bold text-[var(--color-text-secondary)]">
+                {Math.round(progress)}% Complete
+              </span>
+              <span className="text-[10px] font-medium text-[var(--color-text-secondary)]">
+                {lastUpdatedAt
+                  ? `Updated ${formatDistanceToNow(new Date(lastUpdatedAt), { addSuffix: true })}`
+                  : 'Awaiting live updates'}
+              </span>
+            </div>
           </div>
         </div>
 

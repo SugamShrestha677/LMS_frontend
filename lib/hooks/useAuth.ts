@@ -35,7 +35,7 @@ export function useLogin() {
       } else {
         // Redirect to role-based dashboard
         const dashboardRoute = getDashboardRoute(user.role);
-        router.push(dashboardRoute);
+        window.location.href = dashboardRoute;
       }
     },
     onError: (error: any) => {
@@ -67,7 +67,7 @@ export function useFirstLogin() {
       
       // Redirect to role-based dashboard
       const dashboardRoute = getDashboardRoute(user.role);
-      router.push(dashboardRoute);
+      window.location.href = dashboardRoute;
     },
     onError: (error: any) => {
       const data = error.response?.data;
