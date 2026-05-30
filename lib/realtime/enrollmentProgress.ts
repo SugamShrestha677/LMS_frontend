@@ -4,7 +4,7 @@ import type {
 } from './types';
 
 const DEFAULT_BASE_URL =
-  process.env.NEXT_PUBLIC_WS_URL || process.env.NEXT_PUBLIC_API_URL || '';
+  process.env.NEXT_PUBLIC_WS_URL || process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
 
 export function resolveWebSocketOrigin(baseUrl?: string): string {
   const candidate = (baseUrl || DEFAULT_BASE_URL).trim();
