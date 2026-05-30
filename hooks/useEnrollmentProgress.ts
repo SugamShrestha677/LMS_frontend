@@ -1,0 +1,149 @@
+'use client';
+
+import { useEffect, useMemo, useRef } from 'react';
+import {
+  buildEnrollmentProgressSocketUrl,
+  createCourseProgressClient,
+  useCourseProgressStore,
+} from '@/lib/realtime';
+
+type UseEnrollmentProgressResult = {
+  progress: number | null;
+  status: string | null;
+  score: number | null;
+  connectionState: 'idle' | 'connecting' | 'open' | 'reconnecting' | 'closed' | 'error';
+  lastUpdatedAt: string | null;
+};
+
+export function useEnrollmentProgress(enrollmentId: string): UseEnrollmentProgressResult {
+  const {
+    progress,
+    status,
+    score,
+    connectionState,
+    receivedAt,
+    setEnrollmentId,
+    setConnectionState,
+    setError,
+    applyEvent,
+    reset,
+  } = useCourseProgressStore((state) => ({
+    progress: state.progress,
+    status: state.status,
+    score: state.score,
+    connectionState: state.connectionState,
+    receivedAt: state.receivedAt,
+    setEnrollmentId: state.setEnrollmentId,
+    setConnectionState: state.setConnectionState,
+    setError: state.setError,
+    applyEvent: state.applyEvent,
+    reset: state.reset,
+  }));
+
+  const replayWindowRef = useRef<{
+    active: boolean;
+    count: number;
+    timeout: ReturnType<typeof setTimeout> | null;
+  }>({
+    active: false,
+    count: 0,
+    timeout: null,
+  });
+
+  const previousConnectionRef = useRef<typeof connectionState>('idle');
+
+  const channelUrl = useMemo(
+    () => (enrollmentId ? buildEnrollmentProgressSocketUrl(enrollmentId) : ''),
+    [enrollmentId],
+  );
+
+  useEffect(() => {
+    if (!enrollmentId) {
+      reset();
+      return;
+    }
+
+    const replayWindow = replayWindowRef.current;
+
+    setEnrollmentId(enrollmentId);
+
+    const client = createCourseProgressClient({
+      enrollmentId,
+      onStateChange: (state) => {
+        setConnectionState(state);
+
+        const previous = previousConnectionRef.current;
+        previousConnectionRef.current = state;
+
+        if (process.env.NODE_ENV !== 'production' && state === 'open') {
+          console.log(`[WebSocket] connected to channel ${channelUrl}`);
+        }
+
+        if (previous === 'reconnecting' && state === 'open') {
+          replayWindow.active = true;
+          replayWindow.count = 0;
+
+          if (replayWindow.timeout) {
+            clearTimeout(replayWindow.timeout);
+          }
+
+          replayWindow.timeout = setTimeout(() => {
+            if (process.env.NODE_ENV !== 'production') {
+              console.log(`[Replay] processed ${replayWindow.count} missed events`);
+            }
+            replayWindow.active = false;
+            replayWindow.timeout = null;
+          }, 5000);
+        }
+      },
+      onEvent: (event) => {
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`[WebSocket] received event id: ${event.fingerprint}`);
+        }
+
+        const applied = applyEvent(event);
+        if (!applied) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`[Dedupe] skipped duplicate event ${event.fingerprint}`);
+          }
+          return;
+        }
+
+        if (replayWindow.active) {
+          replayWindow.count += 1;
+        }
+      },
+      onError: (error) => {
+        setError(error.message);
+      },
+    });
+
+    void client.connect();
+
+    return () => {
+      if (replayWindow.timeout) {
+        clearTimeout(replayWindow.timeout);
+        replayWindow.timeout = null;
+      }
+      replayWindow.active = false;
+      replayWindow.count = 0;
+      client.close();
+    };
+  }, [
+    enrollmentId,
+    setEnrollmentId,
+    setConnectionState,
+    setError,
+    applyEvent,
+    reset,
+    channelUrl,
+  ]);
+
+  return {
+    progress,
+    status,
+    score,
+    connectionState,
+    lastUpdatedAt: receivedAt,
+  };
+}
