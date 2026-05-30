@@ -2,11 +2,12 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { Providers } from './providers';
 import './globals.css';
+import { resolveAppBaseUrl } from '@/lib/config/runtime-urls';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
+  metadataBase: new URL(resolveAppBaseUrl()),
   title: 'Leapfrog Connect - LMS',
   description: 'Skills to Jobs Pipeline',
   appleWebApp: {

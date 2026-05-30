@@ -4,6 +4,7 @@ import {
   buildEnrollmentProgressSocketUrl,
   normalizeEnrollmentProgressEvent,
 } from './enrollmentProgress';
+import { resolveApiBaseUrl } from '@/lib/config/runtime-urls';
 import type {
   CreateCourseProgressClientOptions,
   RealtimeConnectionState,
@@ -133,7 +134,7 @@ export function createCourseProgressClient(
 
     const url = buildEnrollmentProgressSocketUrl(
       options.enrollmentId,
-      options.baseUrl,
+      options.baseUrl || resolveApiBaseUrl(),
     );
 
     clearReconnectTimer();

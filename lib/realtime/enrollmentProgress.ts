@@ -2,9 +2,9 @@ import type {
   EnrollmentProgressEnvelope,
   EnrollmentProgressMessage,
 } from './types';
+import { resolveApiBaseUrl } from '@/lib/config/runtime-urls';
 
-const DEFAULT_BASE_URL =
-  process.env.NEXT_PUBLIC_WS_URL || process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
+const DEFAULT_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || resolveApiBaseUrl();
 
 export function resolveWebSocketOrigin(baseUrl?: string): string {
   const candidate = (baseUrl || DEFAULT_BASE_URL).trim();
