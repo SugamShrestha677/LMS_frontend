@@ -6,7 +6,7 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NODE_ENV === 'development' ? 'https://localhost:3000' : 'https://leapfrog.com'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'),
   title: 'Leapfrog Connect - LMS',
   description: 'Skills to Jobs Pipeline',
   appleWebApp: {
