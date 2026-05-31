@@ -15,7 +15,7 @@ type UseEnrollmentProgressResult = {
   lastUpdatedAt: string | null;
 };
 
-export function useEnrollmentProgress(enrollmentId: string): UseEnrollmentProgressResult {
+export function useEnrollmentProgress(enrollmentId: string, enabled = true): UseEnrollmentProgressResult {
   const {
     progress,
     status,
@@ -58,7 +58,7 @@ export function useEnrollmentProgress(enrollmentId: string): UseEnrollmentProgre
   );
 
   useEffect(() => {
-    if (!enrollmentId) {
+    if (!enabled || !enrollmentId) {
       reset();
       return;
     }
@@ -130,6 +130,7 @@ export function useEnrollmentProgress(enrollmentId: string): UseEnrollmentProgre
       client.close();
     };
   }, [
+    enabled,
     enrollmentId,
     setEnrollmentId,
     setConnectionState,

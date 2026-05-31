@@ -42,6 +42,7 @@ export function createCourseProgressClient(
   let reconnectAttempt = 0;
   let shouldReconnect = true;
   let lastFingerprint: string | null = null;
+  let hasOpenedOnce = false;
 
   const policy = {
     enabled: options.reconnect?.enabled ?? true,
@@ -142,6 +143,7 @@ export function createCourseProgressClient(
 
     socket = new WebSocket(url);
     socket.addEventListener('open', () => {
+      hasOpenedOnce = true;
       reconnectAttempt = 0;
       emitState('open');
     });
@@ -154,6 +156,13 @@ export function createCourseProgressClient(
     });
     socket.addEventListener('close', (event) => {
       socket = null;
+
+      if (!hasOpenedOnce) {
+        shouldReconnect = false;
+        emitState('error');
+        options.onError?.(new Error('WebSocket closed before the connection was established'));
+        return;
+      }
 
       if (event.code === 1008 || event.code === 4401 || event.code === 4403) {
         shouldReconnect = false;
