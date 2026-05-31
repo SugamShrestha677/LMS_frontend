@@ -10,6 +10,11 @@ export const metadata: Metadata = {
   metadataBase: new URL(resolveAppBaseUrl()),
   title: 'Leapfrog Connect - LMS',
   description: 'Skills to Jobs Pipeline',
+
+  verification: {
+    google: '6nAkUvyJNiUYmFWrdAFlU7JQDaNiu6EBSBf9XbB0LTM',
+  },
+
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
