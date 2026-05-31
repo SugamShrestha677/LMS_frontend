@@ -14,11 +14,13 @@ import {
 import { toast } from 'sonner';
 import api from '@/lib/services/api';
 import { format } from 'date-fns';
+import { useAuthStore } from '@/lib/store/auth-store';
 
 export default function AssignmentSubmissionPage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user, _hasHydrated } = useAuthStore();
   const assessmentId = Number(params.assessmentId);
   const courseId = searchParams.get('courseId') || 1;
   
@@ -49,6 +51,12 @@ export default function AssignmentSubmissionPage() {
   });
 
   const assessment = assessmentData;
+  const isTutor = _hasHydrated && user?.role === 'tutor';
+
+  useEffect(() => {
+    if (!assessment || !isTutor) return;
+    router.replace(`/tutor/courses/${courseId}/assessments/${assessmentId}/submissions`);
+  }, [assessment, assessmentId, courseId, isTutor, router]);
 
   // Check if submission is allowed
   const isWithinDeadline = () => {
@@ -100,6 +108,10 @@ export default function AssignmentSubmissionPage() {
 
   // Create/Resume attempt
   useEffect(() => {
+    if (!_hasHydrated || isTutor || !assessment || reviewMode) {
+      return;
+    }
+
     if (assessment && !attemptId && !reviewMode) {
       api.post('/student-assessments/', {
         assessment: assessmentId,
@@ -118,10 +130,30 @@ export default function AssignmentSubmissionPage() {
         router.back();
       });
     }
-  }, [assessment, assessmentId, router, courseId, reviewMode]);
+  }, [_hasHydrated, assessment, assessmentId, attemptId, courseId, isTutor, reviewMode, router]);
+
+  if (isTutor) {
+    return (
+      <div className="flex items-center justify-center min-h-100">
+        <div className="w-8 h-8 border-4 border-[#0A5C4A] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   const handleSubmit = async () => {
-    if (!file && !text) {
+    const submissionType = assessment?.submission_type || 'online';
+
+    if ((submissionType === 'file' || submissionType === 'multiple') && !file) {
+      toast.error('Please upload a file');
+      return;
+    }
+
+    if (submissionType === 'text' && !text.trim()) {
+      toast.error('Please enter text');
+      return;
+    }
+
+    if (!file && !text.trim()) {
       toast.error('Please upload a file or enter text');
       return;
     }
@@ -129,28 +161,15 @@ export default function AssignmentSubmissionPage() {
     setIsUploading(true);
 
     try {
-      let submissionFile = null;
-
-      // Upload file to Cloudinary if file is selected
+      const formData = new FormData();
       if (file) {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('upload_preset', 'lms_assignments'); // Your Cloudinary preset
-        formData.append('folder', `assignments/${assessmentId}`);
-
-        const cloudResponse = await fetch(
-          `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/upload`,
-          { method: 'POST', body: formData }
-        );
-        const cloudData = await cloudResponse.json();
-        submissionFile = cloudData.secure_url;
+        formData.append('submission_file', file);
       }
+      formData.append('submission_text', text);
 
       // Submit to backend
-      await api.post(`/student-assessments/${attemptId}/submit/`, {
-        submission_file: submissionFile,
-        submission_text: text,
-        status: 'submitted',
+      await api.post(`/student-assessments/${attemptId}/submit/`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
 
       setSubmitted(true);
@@ -168,7 +187,7 @@ export default function AssignmentSubmissionPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center min-h-100">
         <div className="w-8 h-8 border-4 border-[#0A5C4A] border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -210,7 +229,7 @@ export default function AssignmentSubmissionPage() {
           Back to Assessments
         </button>
 
-        <Card className="p-8 md:p-12 text-center bg-gradient-to-br from-[#0A5C4A]/5 to-transparent border-2 border-[#0A5C4A]/10 mb-8">
+        <Card className="p-8 md:p-12 text-center bg-linear-to-br from-[#0A5C4A]/5 to-transparent border-2 border-[#0A5C4A]/10 mb-8">
           <div className={`w-24 h-24 rounded-full mx-auto mb-6 flex items-center justify-center ${
             isGraded ? (passed ? 'bg-green-100' : 'bg-red-100') : 'bg-amber-100'
           }`}>
@@ -450,7 +469,7 @@ export default function AssignmentSubmissionPage() {
         {/* Late submission warning */}
         {assessment?.end_datetime && new Date() > new Date(assessment.end_datetime) && (
           <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl flex items-center gap-3">
-            <AlertTriangle size={20} className="text-yellow-600 flex-shrink-0" />
+            <AlertTriangle size={20} className="text-yellow-600 shrink-0" />
             <p className="text-sm text-yellow-800">
               You are submitting after the deadline. 
               {assessment.allow_late_submission ? ' Late submission is accepted.' : ' Late submission may not be accepted.'}
