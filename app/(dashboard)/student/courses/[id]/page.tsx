@@ -211,6 +211,7 @@ export default function CoursePlayer() {
   const hasPendingPayment = !!pendingPayment;
   const isPaid = !!confirmedPayment || course?.is_free;
   const canAccessContent = !!course?.is_free || (isEnrolled && isPaid);
+  const enableEnrollmentProgressWs = process.env.NEXT_PUBLIC_ENABLE_ENROLLMENT_PROGRESS_WS === 'true';
 
   const {
     progress: realtimeProgress,
@@ -218,7 +219,10 @@ export default function CoursePlayer() {
     score: realtimeScore,
     connectionState,
     lastUpdatedAt,
-  } = useEnrollmentProgress(isEnrolled && enrollment?.id ? String(enrollment.id) : '');
+  } = useEnrollmentProgress(
+    isEnrolled && enrollment?.id ? String(enrollment.id) : '',
+    enableEnrollmentProgressWs,
+  );
 
 
   // Announcements

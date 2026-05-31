@@ -25,6 +25,14 @@ import api from "@/lib/services/api";
 import { format } from "date-fns";
 import { useAuthStore } from "@/lib/store/auth-store";
 
+const normalizeSubmissionUrl = (url?: string | null) => {
+  if (!url) return null;
+  if (typeof window !== "undefined" && window.location.protocol === "https:" && url.startsWith("http://")) {
+    return url.replace(/^http:\/\//, "https://");
+  }
+  return url;
+};
+
 export default function AssignmentSubmissionPage() {
   const params = useParams();
   const router = useRouter();
@@ -348,7 +356,7 @@ export default function AssignmentSubmissionPage() {
                       Submitted File
                     </p>
                     <a
-                      href={attemptData.submission_file}
+                      href={normalizeSubmissionUrl(attemptData.submission_file) || attemptData.submission_file}
                       target="_blank"
                       rel="noreferrer"
                       className="flex items-center gap-3 text-[#0A5C4A] font-bold p-3 bg-white border border-gray-200 rounded-lg hover:border-[#0A5C4A] transition-colors"

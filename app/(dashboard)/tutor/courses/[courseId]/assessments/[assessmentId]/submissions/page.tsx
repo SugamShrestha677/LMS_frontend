@@ -15,6 +15,14 @@ import { toast } from 'sonner';
 import api from '@/lib/services/api';
 import { format } from 'date-fns';
 
+const normalizeSubmissionUrl = (url?: string | null) => {
+  if (!url) return null;
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:' && url.startsWith('http://')) {
+    return url.replace(/^http:\/\//, 'https://');
+  }
+  return url;
+};
+
 const normalizeList = (value: unknown) => {
   if (Array.isArray(value)) return value;
 
@@ -36,6 +44,7 @@ export default function AssessmentSubmissionsPage() {
   const [selectedSubmission, setSelectedSubmission] = useState<any>(null);
   const [isGradingModal, setIsGradingModal] = useState(false);
   const [feedback, setFeedback] = useState('');
+  const [score, setScore] = useState('');
 
   const { data: submissionsData, isLoading } = useQuery({
     queryKey: ['assessment-submissions', assessmentId],
@@ -58,9 +67,12 @@ export default function AssessmentSubmissionsPage() {
   const submissions = normalizeList(submissionsData);
 
   const gradeMutation = useMutation({
-    mutationFn: async (data: { id: number; feedback: string }) => {
-      return api.post(`/student-assessments/${data.id}/feedback/`, {
+    mutationFn: async (data: { id: number; feedback: string; score: string }) => {
+      const numericScore = data.score === '' ? null : Number(data.score);
+      return api.post(`/student-assessments/${data.id}/grade/`, {
         feedback: data.feedback,
+        score: numericScore,
+        passed: numericScore === null ? null : numericScore >= Number(assessmentData?.passing_score || 60),
       });
     },
     onSuccess: () => {
@@ -78,6 +90,7 @@ export default function AssessmentSubmissionsPage() {
   const openGradingModal = (submission: any) => {
     setSelectedSubmission(submission);
     setFeedback(submission.feedback || '');
+    setScore(submission.score !== null && submission.score !== undefined ? String(submission.score) : '');
     setIsGradingModal(true);
   };
 
@@ -87,6 +100,7 @@ export default function AssessmentSubmissionsPage() {
     gradeMutation.mutate({
       id: selectedSubmission.id,
       feedback,
+      score,
     });
   };
 
@@ -234,12 +248,15 @@ export default function AssessmentSubmissionsPage() {
                   Current score: {selectedSubmission.score}% {selectedSubmission.passed ? '(passed)' : '(not passed)'}
                 </p>
               )}
+              <p className="text-xs text-[#5A5A6E] mt-2">
+                Passing score: {assessmentData?.passing_score}%
+              </p>
             </div>
 
             {/* File link */}
             {selectedSubmission.submission_file && (
               <a
-                href={selectedSubmission.submission_file}
+                href={normalizeSubmissionUrl(selectedSubmission.submission_file) || selectedSubmission.submission_file}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 text-[#0A5C4A] hover:underline"
@@ -258,6 +275,43 @@ export default function AssessmentSubmissionsPage() {
                 </div>
               </div>
             )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold mb-2">Score</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={score}
+                  onChange={(e) => setScore(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#0A5C4A] focus:ring-2 focus:ring-[#0A5C4A]/20"
+                  placeholder="Enter marks"
+                />
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
+                <p className="font-semibold text-[#1E1E2A]">Pass / Fail</p>
+                <p className="text-[#5A5A6E] mt-1">
+                  {score === ''
+                    ? 'Enter a score to auto-calculate'
+                    : Number(score) >= Number(assessmentData?.passing_score || 60)
+                      ? 'Will be marked as passed'
+                      : 'Will be marked as failed'}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold mb-2">Feedback</label>
+              <textarea
+                value={feedback}
+                onChange={(e) => setFeedback(e.target.value)}
+                rows={5}
+                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#0A5C4A] focus:ring-2 focus:ring-[#0A5C4A]/20"
+                placeholder="Write feedback for the student"
+              />
+            </div>
 
             {/* Exam/Quiz Answers */}
             {assessmentData && assessmentData.questions && assessmentData.questions.length > 0 && (
@@ -365,7 +419,7 @@ export default function AssessmentSubmissionsPage() {
                 Discard
               </Button>
               <Button size="lg" onClick={submitFeedback} loading={gradeMutation.isPending} className="flex-1 rounded-2xl h-14 font-black shadow-lg">
-                {selectedSubmission.feedback ? 'Update Feedback' : 'Send Feedback'}
+                {selectedSubmission.feedback ? 'Update Marks' : 'Save Marks'}
               </Button>
             </div>
           </div>
