@@ -1384,8 +1384,8 @@ export default function CoursePlayer() {
                       ) : (
                         <div className="grid gap-3">
                           {filteredResources.map((resource: any) => {
-                            const href = resource.file || resource.file_url || resource.external_link;
-                            const isExternal = !!resource.external_link && !resource.file && !resource.file_url;
+                            const href = resource.file_url || resource.external_link;
+                            const isExternal = !!resource.external_link && !resource.file_url;
                             return (
                               <div
                                 key={resource.id}
