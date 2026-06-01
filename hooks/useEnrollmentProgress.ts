@@ -16,29 +16,17 @@ type UseEnrollmentProgressResult = {
 };
 
 export function useEnrollmentProgress(enrollmentId: string, enabled = true): UseEnrollmentProgressResult {
-  const {
-    progress,
-    status,
-    score,
-    connectionState,
-    receivedAt,
-    setEnrollmentId,
-    setConnectionState,
-    setError,
-    applyEvent,
-    reset,
-  } = useCourseProgressStore((state) => ({
-    progress: state.progress,
-    status: state.status,
-    score: state.score,
-    connectionState: state.connectionState,
-    receivedAt: state.receivedAt,
-    setEnrollmentId: state.setEnrollmentId,
-    setConnectionState: state.setConnectionState,
-    setError: state.setError,
-    applyEvent: state.applyEvent,
-    reset: state.reset,
-  }));
+  const progress = useCourseProgressStore((state) => state.progress);
+  const status = useCourseProgressStore((state) => state.status);
+  const score = useCourseProgressStore((state) => state.score);
+  const connectionState = useCourseProgressStore((state) => state.connectionState);
+  const receivedAt = useCourseProgressStore((state) => state.receivedAt);
+
+  const setEnrollmentId = useCourseProgressStore((state) => state.setEnrollmentId);
+  const setConnectionState = useCourseProgressStore((state) => state.setConnectionState);
+  const setError = useCourseProgressStore((state) => state.setError);
+  const applyEvent = useCourseProgressStore((state) => state.applyEvent);
+  const reset = useCourseProgressStore((state) => state.reset);
 
   const replayWindowRef = useRef<{
     active: boolean;

@@ -10,12 +10,24 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope;
 
-const serwist = new Serwist({
-  precacheEntries: self.__SW_MANIFEST,
-  skipWaiting: true,
-  clientsClaim: true,
-  navigationPreload: true,
-  runtimeCaching: defaultCache,
-});
+const isLocalhost =
+  self.location.hostname === 'localhost' ||
+  self.location.hostname === '127.0.0.1' ||
+  self.location.hostname.endsWith('.local');
 
-serwist.addEventListeners();
+if (isLocalhost) {
+  self.addEventListener('install', () => self.skipWaiting());
+  self.addEventListener('activate', (event) => {
+    event.waitUntil(self.registration.unregister().then(() => self.clients.claim()));
+  });
+} else {
+  const serwist = new Serwist({
+    precacheEntries: self.__SW_MANIFEST,
+    skipWaiting: true,
+    clientsClaim: true,
+    navigationPreload: true,
+    runtimeCaching: defaultCache,
+  });
+
+  serwist.addEventListeners();
+}

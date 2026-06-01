@@ -38,11 +38,19 @@ export default function CoursePlayer() {
   const searchParams = useSearchParams();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<'content' | 'resources' | 'assignments' | 'announcements' | 'live'>('content');
-  const courseId = Number(params.id);
+  const courseIdParam = Array.isArray(params?.id) ? params.id[0] : params?.id;
+  const courseId = Number(courseIdParam);
+  const isValidCourseId = Number.isFinite(courseId) && courseId > 0;
 
-  const { data: course, isLoading, refetch: refetchCourse } = useStudentCourse(courseId) as {
+  const {
+    data: course,
+    isLoading,
+    error: courseError,
+    refetch: refetchCourse,
+  } = useStudentCourse(isValidCourseId ? courseId : undefined) as {
     data: CourseData | undefined;
     isLoading: boolean;
+    error?: unknown;
     refetch: () => void;
   };
 
@@ -117,12 +125,12 @@ export default function CoursePlayer() {
     completed_contents?: number[];
   };
 
-  const { data: enrolledCourses } = useEnrolledCourses();
+  const { data: enrolledCourses, error: enrolledCoursesError } = useEnrolledCourses();
   const { mutate: enrollCourse, isPending: enrolling } = useEnrollCourse();
-  const { data: resources } = useCourseResources(courseId);
-  const { data: announcementsData } = useCourseAnnouncements(courseId);
+  const { data: resources, error: resourcesError } = useCourseResources(isValidCourseId ? courseId : undefined);
+  const { data: announcementsData, error: announcementsError } = useCourseAnnouncements(isValidCourseId ? courseId : 0);
   const { mutate: completeContent, isPending: completing } = useCompleteContent();
-  const { data: liveSessionsData } = useLiveSessions(courseId);
+  const { data: liveSessionsData, error: liveSessionsError } = useLiveSessions(isValidCourseId ? courseId : 0);
   const liveSessions: any[] = useMemo(
     () => (Array.isArray(liveSessionsData) ? liveSessionsData : (liveSessionsData as any)?.data || []),
     [liveSessionsData]
@@ -136,7 +144,7 @@ export default function CoursePlayer() {
     data: scormProgress,
     refetch: refetchScormProgress,
     isFetching: fetchingScormProgress,
-  } = useScormProgress(courseId, isEnrolled && !!course?.is_scorm) as {
+  } = useScormProgress(isValidCourseId ? courseId : undefined, isEnrolled && !!course?.is_scorm) as {
     data: ScormProgress | undefined;
     refetch: () => void;
     isFetching: boolean;
@@ -149,7 +157,21 @@ export default function CoursePlayer() {
     }, 1500);
   }, [refetchCourse, refetchScormProgress]);
 
+  const { data: payments, error: paymentsError } = usePayments();
+  const hasApiError = Boolean(
+    courseError ||
+    enrolledCoursesError ||
+    resourcesError ||
+    announcementsError ||
+    liveSessionsError ||
+    paymentsError,
+  );
+
   useEffect(() => {
+    if (hasApiError) {
+      return;
+    }
+
     // Handle SCORM exit - refresh data and clean URL
     if (searchParams.get('scorm_exit') === 'true') {
       console.log("SCORM exit detected, refreshing data...");
@@ -161,9 +183,8 @@ export default function CoursePlayer() {
       // Trigger a refresh of the course data and progress
       syncScormProgress();
     }
-  }, [searchParams, syncScormProgress]);
+  }, [hasApiError, searchParams, syncScormProgress]);
 
-  const { data: payments } = usePayments();
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [viewingResource, setViewingResource] = useState<{ url: string, title: string } | null>(null);
@@ -211,7 +232,11 @@ export default function CoursePlayer() {
   const hasPendingPayment = !!pendingPayment;
   const isPaid = !!confirmedPayment || course?.is_free;
   const canAccessContent = !!course?.is_free || (isEnrolled && isPaid);
-  const enableEnrollmentProgressWs = process.env.NEXT_PUBLIC_ENABLE_ENROLLMENT_PROGRESS_WS === 'true';
+  const enableEnrollmentProgressWs =
+    isValidCourseId &&
+    process.env.NEXT_PUBLIC_ENABLE_ENROLLMENT_PROGRESS_WS === 'true' &&
+    !!course &&
+    !!enrollment?.id;
 
   const {
     progress: realtimeProgress,
@@ -235,27 +260,31 @@ export default function CoursePlayer() {
 
   const curriculum: CurriculumSection[] = useMemo(() => {
     if (course?.course_type === 'live') {
+      const sessionList = Array.isArray(liveSessions) ? liveSessions : [];
       return [{
         id: 'live_sessions',
         title: 'Live Sessions',
         description: 'Scheduled classes',
-        lessons: liveSessions.map((session: any) => ({
-          id: session.id,
-          title: `Day ${session.day_number}: ${session.title}`,
-          duration: `${session.start_time?.slice(0, 5)} - ${session.end_time?.slice(0, 5)}`,
-          locked: !canAccessContent,
-          contentType: 'video',
-          isLiveSession: true,
-          sessionData: session
-        }))
+        lessons: sessionList
+          .filter(Boolean)
+          .map((session: any, index: number) => ({
+            id: session?.id ?? index + 1,
+            title: `Day ${session?.day_number ?? index + 1}: ${session?.title ?? 'Live Session'}`,
+            duration: `${session?.start_time?.slice(0, 5) || '--:--'} - ${session?.end_time?.slice(0, 5) || '--:--'}`,
+            locked: !canAccessContent,
+            contentType: 'video',
+            isLiveSession: true,
+            sessionData: session
+          }))
       }];
     }
-    if (!course?.modules) return [];
-    return course.modules.map((module: any) => ({
+    const moduleList = Array.isArray(course?.modules) ? course.modules : [];
+    if (!moduleList.length) return [];
+    return moduleList.filter(Boolean).map((module: any, moduleIndex: number) => ({
       id: module.id,
       title: module.title,
       description: module.description,
-      lessons: (module.contents ?? []).map((content: any) => {
+      lessons: (Array.isArray(module?.contents) ? module.contents : []).filter(Boolean).map((content: any, contentIndex: number) => {
         // Map URLs to the correct property based on content type
         // instead of using a generic fallback chain
         let videoUrl = null;
@@ -283,19 +312,19 @@ export default function CoursePlayer() {
         }
         
         return {
-          id: content.id,
-          title: content.title,
+          id: content?.id ?? `${moduleIndex}-${contentIndex}`,
+          title: content?.title ?? 'Untitled content',
           duration: `${content.duration_minutes ?? 0} min`,
           locked: !canAccessContent,
-          contentType: content.content_type,
+          contentType: content?.content_type ?? 'video',
           videoUrl,
           fileUrl,
           audioUrl,
-          externalLink: content.external_link || null,
-          bodyText: content.body_text || null,
-          description: content.description || null,
-          scormCourseId: content.scorm_course_id,
-          scormStatus: content.scorm_status,
+          externalLink: content?.external_link || null,
+          bodyText: content?.body_text || null,
+          description: content?.description || null,
+          scormCourseId: content?.scorm_course_id,
+          scormStatus: content?.scorm_status,
         };
       }),
     }));
@@ -308,6 +337,10 @@ export default function CoursePlayer() {
   const [launchingContent, setLaunchingContent] = useState(false);
 
   useEffect(() => {
+    if (hasApiError) {
+      return;
+    }
+
     if (allLessons.length > 0) {
       // If we have an active lesson but it's not in the current curriculum (e.g. after a type switch or reload)
       const currentLessonExists = allLessons.some(l => l.id === activeLessonId);
@@ -334,7 +367,7 @@ export default function CoursePlayer() {
         setActiveLessonId(allLessons[0].id);
       }
     }
-  }, [activeLessonId, allLessons, course?.course_type]);
+  }, [hasApiError, activeLessonId, allLessons, course?.course_type]);
 
   const activeModule = useMemo(() => {
     if (!activeLessonId) return null;
@@ -349,12 +382,20 @@ export default function CoursePlayer() {
   const effectiveScormStatus = scormLessonStatus || activeLesson?.scormStatus || null;
 
   useEffect(() => {
+    if (hasApiError) {
+      return;
+    }
+
     setScormLessonStatus(activeLesson?.scormStatus || null);
     setContentLaunchUrl(null);
-  }, [activeLesson?.id, activeLesson?.scormStatus]);
+  }, [hasApiError, activeLesson?.id, activeLesson?.scormStatus]);
 
   // Sync progress when window gains focus (useful for SCORM windows closing)
   useEffect(() => {
+    if (hasApiError) {
+      return;
+    }
+
     const handleFocus = () => {
       if (course?.is_scorm || activeLesson?.scormCourseId) {
         console.log('Window focused, syncing SCORM progress...');
@@ -364,7 +405,7 @@ export default function CoursePlayer() {
 
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, [course?.is_scorm, activeLesson?.scormCourseId, syncScormProgress]);
+  }, [hasApiError, course?.is_scorm, activeLesson?.scormCourseId, syncScormProgress]);
 
   // Video Heartbeat Tracking
   const lastHeartbeatRef = useRef<number>(0);
@@ -427,6 +468,10 @@ export default function CoursePlayer() {
   }, [activeLesson, canAccessContent, courseId, activeModule, effectiveScormStatus, currentModuleId]);
 
   useEffect(() => {
+    if (hasApiError) {
+      return;
+    }
+
     // Auto-refresh SCORM status while the lesson is still processing.
     if (!canAccessContent || !activeLesson?.scormCourseId || effectiveScormStatus === 'finished' || currentModuleId == null) {
       return;
@@ -447,7 +492,7 @@ export default function CoursePlayer() {
     }, 6000);
 
     return () => window.clearInterval(timer);
-  }, [activeLesson?.id, activeLesson?.scormCourseId, effectiveScormStatus, courseId, currentModuleId, refetchCourse, canAccessContent]);
+  }, [hasApiError, activeLesson?.id, activeLesson?.scormCourseId, effectiveScormStatus, courseId, currentModuleId, refetchCourse, canAccessContent]);
 
   const scormCompletion = typeof scormProgress?.completion_amount === 'number'
     ? scormProgress.completion_amount
@@ -550,12 +595,46 @@ export default function CoursePlayer() {
     }
   };
 
-  if (isLoading || !course) {
+  if (!isValidCourseId) {
+    return (
+      <div className="flex items-center justify-center h-[60vh] text-[var(--color-text-secondary)]">
+        <div className="flex flex-col items-center gap-3 text-center max-w-md px-6">
+          <div className="w-10 h-10 rounded-full border-4 border-[var(--color-primary)] border-t-transparent animate-spin" />
+          <h1 className="text-lg font-bold text-[var(--color-text-primary)]">Invalid course</h1>
+          <p className="text-sm text-[var(--color-text-secondary)]">
+            The course id in the URL is missing or invalid. Please go back to your courses list and open the course again.
+          </p>
+          <Button onClick={() => router.push('/student/courses')}>
+            Back to courses
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading || (!course && !hasApiError)) {
     return (
       <div className="flex items-center justify-center h-[60vh] text-[var(--color-text-secondary)]">
         <div className="flex flex-col items-center gap-4">
           <div className="w-10 h-10 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
           <p>Loading course...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (hasApiError) {
+    return (
+      <div className="flex items-center justify-center h-[60vh] text-[var(--color-text-secondary)]">
+        <div className="flex flex-col items-center gap-4 text-center max-w-md px-6">
+          <div className="w-10 h-10 rounded-full border-4 border-[var(--color-primary)] border-t-transparent animate-spin" />
+          <h1 className="text-lg font-bold text-[var(--color-text-primary)]">Course unavailable</h1>
+          <p className="text-sm text-[var(--color-text-secondary)]">
+            Some course data could not be loaded right now. Please try again in a moment.
+          </p>
+          <Button onClick={() => router.refresh()}>
+            Retry
+          </Button>
         </div>
       </div>
     );

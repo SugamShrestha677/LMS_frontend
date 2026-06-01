@@ -121,7 +121,7 @@ export function useProfile() {
     queryFn: async () => {
       const response = await authService.getCurrentUser();
       const user = response.data || response;
-      if (user) {
+      if (user && (!authUser || authUser.id !== user.id)) {
         setUser(user);
       }
       return user;

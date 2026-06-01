@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { useUIStore } from '@/lib/store/uiStore';
-import { useLogout, useProfile } from '@/lib/hooks/useAuth';
+import { useLogout } from '@/lib/hooks/useAuth';
 import { cn, getInitials } from '@/lib/utils';
 import {
   LayoutDashboard, BookOpen, Award, Briefcase, BarChart2,
@@ -143,9 +143,6 @@ export function Sidebar() {
   const pathname = usePathname();
   const { mutate: logout, isPending: isLoggingOut } = useLogout();
   
-  // Keep profile in sync with backend to reflect permission changes
-  useProfile();
-
   useEffect(() => {
     setMounted(true);
   }, []);
