@@ -379,6 +379,9 @@ export default function CoursePlayer() {
   const activeLesson = allLessons.find((lesson: LessonItem) => lesson.id === activeLessonId);
   const liveSession = activeLesson?.sessionData as any;
   const currentModuleId = typeof activeModule?.id === 'number' ? activeModule.id : null;
+  const currentLiveSessionId = course?.course_type === 'live'
+    ? (typeof liveSession?.id === 'number' ? liveSession.id : null)
+    : null;
   const effectiveScormStatus = scormLessonStatus || activeLesson?.scormStatus || null;
 
   useEffect(() => {
@@ -524,13 +527,13 @@ export default function CoursePlayer() {
     }
     if (course?.course_type === 'live') {
       return resourceList.filter((r: any) =>
-        !r.live_session_id || String(r.live_session_id) === String(activeModule.id)
+        !r.live_session_id || (currentLiveSessionId != null && String(r.live_session_id) === String(currentLiveSessionId))
       );
     }
     return resourceList.filter((r: any) =>
       !r.module_id || String(r.module_id) === String(activeModule.id)
     );
-  }, [resourceList, activeModule, course?.course_type]);
+  }, [resourceList, activeModule, course?.course_type, currentLiveSessionId]);
 
   const assessments = useMemo(() => {
     const list = Array.isArray(course?.assessments) ? course.assessments : [];
@@ -543,13 +546,13 @@ export default function CoursePlayer() {
     }
     if (course?.course_type === 'live') {
       return assessments.filter((a: any) =>
-        !a.live_session || String(a.live_session) === String(activeModule.id)
+        !a.live_session || (currentLiveSessionId != null && String(a.live_session) === String(currentLiveSessionId))
       );
     }
     return assessments.filter((a: any) =>
       !a.module || String(a.module) === String(activeModule.id)
     );
-  }, [assessments, activeModule, course?.course_type]);
+  }, [assessments, activeModule, course?.course_type, currentLiveSessionId]);
 
   const generalResources = useMemo(() =>
     filteredResources.filter((r: any) => !r.module_id),
