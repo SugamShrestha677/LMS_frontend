@@ -97,6 +97,15 @@ export default function AssessmentSubmissionsPage() {
   const submitFeedback = () => {
     if (!selectedSubmission || !assessmentData) return;
 
+    if (score !== '') {
+      const numericScore = Number(score);
+
+      if (!Number.isFinite(numericScore) || numericScore < 0 || numericScore > 100) {
+        toast.error('Score must be between 0 and 100.');
+        return;
+      }
+    }
+
     gradeMutation.mutate({
       id: selectedSubmission.id,
       feedback,
