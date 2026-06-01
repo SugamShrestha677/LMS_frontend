@@ -35,6 +35,10 @@ type CourseFormValues = {
   thumbnail_file: File | string | null;
 };
 
+const normalizeCourseStatus = (status?: string) => {
+  return status === 'active' ? 'published' : (status || 'draft');
+};
+
 interface CourseManagementProps {
   title?: string;
   subtitle?: string;
@@ -139,6 +143,7 @@ export function CourseManagement({
   };
 
   const onSubmit = (data: any) => {
+    const status = normalizeCourseStatus(data.status);
     const formData = new FormData();
     formData.append('title', data.title);
     formData.append('description', data.description || data.title);
@@ -146,7 +151,7 @@ export function CourseManagement({
     formData.append('course_type', data.course_type);
     if (data.instructor) formData.append('instructor', String(data.instructor));
     if (data.category) formData.append('category', String(data.category));
-    formData.append('status', data.status);
+    formData.append('status', status);
     formData.append('is_free', String(data.is_free));
     formData.append('price', String(data.is_free ? 0 : parseFloat(data.price || 0)));
     formData.append('max_students', String(data.max_students || 50));
@@ -165,6 +170,8 @@ export function CourseManagement({
 
   const onUpdate = (data: any) => {
     if (!selectedCourse) return;
+
+    const status = normalizeCourseStatus(data.status);
     
     const formData = new FormData();
     formData.append('title', data.title);
@@ -173,7 +180,7 @@ export function CourseManagement({
     formData.append('course_type', data.course_type);
     if (data.instructor) formData.append('instructor', String(data.instructor));
     if (data.category) formData.append('category', String(data.category));
-    formData.append('status', data.status);
+    formData.append('status', status);
     formData.append('is_free', String(data.is_free));
     formData.append('price', String(data.is_free ? 0 : parseFloat(data.price || 0)));
     formData.append('max_students', String(data.max_students || 50));
@@ -199,7 +206,7 @@ export function CourseManagement({
     
     const instructorId = typeof course.instructor === 'object' ? course.instructor?.id : (course.instructor || course.instructor_id || course.tutor);
     setValue('instructor', instructorId || '');
-    setValue('status', getStatus(course));
+    setValue('status', normalizeCourseStatus(getStatus(course)) as CourseFormValues['status']);
     setValue('is_free', course.is_free !== false);
     setValue('price', course.price || 0);
     setValue('max_students', course.max_students || 50);
@@ -409,7 +416,6 @@ export function CourseManagement({
               label="Initial Status" 
               options={[
                 { value: 'draft', label: 'Draft' },
-                { value: 'active', label: 'Active' },
                 { value: 'published', label: 'Published' },
               ]} 
               {...register('status')} 
@@ -500,7 +506,6 @@ export function CourseManagement({
               label="Course Status" 
               options={[
                 { value: 'draft', label: 'Draft' },
-                { value: 'active', label: 'Active' },
                 { value: 'published', label: 'Published' },
               ]} 
               {...register('status')} 

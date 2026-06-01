@@ -92,7 +92,12 @@ export default function SuperAdminCoursesPage() {
     (c.category_name || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const normalizeCourseStatus = (status?: string) => {
+    return status === 'active' ? 'published' : (status || 'draft');
+  };
+
   const onSubmit = (data: any) => {
+    const status = normalizeCourseStatus(data.status);
     const formData = new FormData();
     formData.append('title', data.title);
     formData.append('description', data.description || data.title);
@@ -100,7 +105,7 @@ export default function SuperAdminCoursesPage() {
     formData.append('course_type', data.course_type);
     if (data.instructor) formData.append('instructor', String(data.instructor));
     if (data.category) formData.append('category', String(data.category));
-    formData.append('status', data.status);
+    formData.append('status', status);
     formData.append('is_free', String(data.is_free));
     formData.append('price', String(data.is_free ? 0 : parseFloat(data.price || 0)));
     formData.append('max_students', String(data.max_students || 50));
@@ -119,6 +124,8 @@ export default function SuperAdminCoursesPage() {
 
   const onUpdate = (data: any) => {
     if (!selectedCourse) return;
+
+    const status = normalizeCourseStatus(data.status);
     
     const formData = new FormData();
     formData.append('title', data.title);
@@ -126,7 +133,7 @@ export default function SuperAdminCoursesPage() {
     formData.append('course_type', data.course_type);
     if (data.instructor) formData.append('instructor', String(data.instructor));
     if (data.category) formData.append('category', String(data.category));
-    formData.append('status', data.status);
+    formData.append('status', status);
     formData.append('is_free', String(data.is_free));
     formData.append('price', String(data.is_free ? 0 : parseFloat(data.price || 0)));
     formData.append('max_students', String(data.max_students || 50));
@@ -150,7 +157,7 @@ export default function SuperAdminCoursesPage() {
     setValue('category', course.category || '');
     setValue('course_type', course.course_type || 'self_paced');
     setValue('instructor', course.instructor || '');
-    setValue('status', course.status || 'draft');
+    setValue('status', normalizeCourseStatus(course.status) as CourseFormValues['status']);
     setValue('is_free', course.is_free !== false);
     setValue('price', course.price || 0);
     setValue('max_students', course.max_students || 50);
