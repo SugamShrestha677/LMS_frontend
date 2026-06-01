@@ -271,6 +271,19 @@ export default function TutorCoursesPage() {
                     >
                       <Eye size={14} className="mr-1" /> View
                     </Button>
+                      {course.course_type !== 'live' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="flex-1 text-red-500 hover:text-red-600 hover:bg-red-50"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/tutor/courses/${course.id}/edit`);
+                          }}
+                        >
+                          <Radio size={14} className="mr-1" /> Live Setup
+                        </Button>
+                      )}
                     {course.course_type !== 'live' && (
                       <Button
                         variant="ghost"

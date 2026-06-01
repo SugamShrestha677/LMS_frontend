@@ -12,6 +12,10 @@ import { ImageUpload } from '@/components/ui/ImageUpload';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Save } from 'lucide-react';
 
+const normalizeCourseStatus = (status?: string) => {
+  return status === 'active' ? 'published' : (status || 'draft');
+};
+
 export default function TutorCourseEditPage() {
   const { courseId: paramCourseId } = useParams();
   const router = useRouter();
@@ -59,7 +63,7 @@ export default function TutorCourseEditPage() {
       setValue('short_description', course.short_description || '');
       setValue('category', course.category || '');
       setValue('course_type', course.course_type || 'self_paced');
-      setValue('status', getStatus(course));
+      setValue('status', normalizeCourseStatus(getStatus(course)));
       setValue('level', course.level || 'beginner');
       setValue('duration_weeks', course.duration_weeks || 4);
       setValue('total_hours', course.total_hours || 20);
@@ -73,12 +77,13 @@ export default function TutorCourseEditPage() {
 
   const onUpdate = (data: any) => {
     const formData = new FormData();
+    const status = normalizeCourseStatus(data.status);
     formData.append('title', data.title);
     formData.append('description', data.description || course.description || course.short_description || '');
     formData.append('short_description', data.short_description || course.short_description || '');
     formData.append('course_type', data.course_type);
     if (data.category) formData.append('category', String(parseInt(data.category)));
-    formData.append('status', data.status);
+    formData.append('status', status);
     formData.append('level', data.level);
     formData.append('duration_weeks', String(data.duration_weeks));
     formData.append('total_hours', String(data.total_hours));
@@ -201,8 +206,7 @@ export default function TutorCourseEditPage() {
                 { value: 'live', label: 'Live Sessions' },
               ]} 
               {...register('course_type')} 
-              disabled={true}
-              helper="Course format is set by administrators."
+                helper="Switch this assigned course to live so you can schedule sessions."
             />
 
             <Select 
@@ -221,12 +225,10 @@ export default function TutorCourseEditPage() {
               label="Course Status" 
               options={[
                 { value: 'draft', label: 'Draft' },
-                { value: 'active', label: 'Active' },
                 { value: 'published', label: 'Published' },
               ]} 
               {...register('status')} 
-              disabled={true}
-              helper="Status is managed by administrators."
+                helper="Publish the course when your live setup is ready."
             />
           </Card>
 
