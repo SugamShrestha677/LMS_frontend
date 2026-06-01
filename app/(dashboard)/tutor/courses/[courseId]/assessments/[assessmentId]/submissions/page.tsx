@@ -45,6 +45,46 @@ export default function AssessmentSubmissionsPage() {
   const [isGradingModal, setIsGradingModal] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [score, setScore] = useState('');
+  const [gradeError, setGradeError] = useState('');
+
+  const getApiErrorMessage = (error: any, fallback: string) => {
+    const responseData = error?.response?.data;
+
+    if (!responseData) return fallback;
+
+    if (typeof responseData === 'string') {
+      const normalizedMessage = responseData.trim();
+      if (normalizedMessage) return normalizedMessage;
+    }
+
+    if (typeof responseData.message === 'string' && responseData.message.trim()) {
+      return responseData.message;
+    }
+
+    if (typeof responseData.error === 'string' && responseData.error.trim()) {
+      return responseData.error;
+    }
+
+    if (responseData.errors && typeof responseData.errors === 'object') {
+      const fieldMessages = Object.values(responseData.errors)
+        .flat()
+        .filter((value) => typeof value === 'string' && value.trim());
+
+      if (fieldMessages.length > 0) {
+        return fieldMessages.join(' ');
+      }
+    }
+
+    if (typeof responseData.detail === 'string' && responseData.detail.trim()) {
+      return responseData.detail;
+    }
+
+    if (error?.message && typeof error.message === 'string') {
+      return error.message;
+    }
+
+    return fallback;
+  };
 
   const { data: submissionsData, isLoading } = useQuery({
     queryKey: ['assessment-submissions', assessmentId],
@@ -80,10 +120,17 @@ export default function AssessmentSubmissionsPage() {
       setIsGradingModal(false);
       setSelectedSubmission(null);
       setFeedback('');
+      setGradeError('');
       toast.success('Feedback sent successfully!');
     },
-    onError: () => {
-      toast.error('Failed to send feedback');
+    onError: (error: any) => {
+      const message = getApiErrorMessage(
+        error,
+        'Failed to send feedback. Please check that the score is between 0 and 100 and try again.',
+      );
+
+      setGradeError(message);
+      toast.error(message);
     },
   });
 
@@ -91,17 +138,22 @@ export default function AssessmentSubmissionsPage() {
     setSelectedSubmission(submission);
     setFeedback(submission.feedback || '');
     setScore(submission.score !== null && submission.score !== undefined ? String(submission.score) : '');
+    setGradeError('');
     setIsGradingModal(true);
   };
 
   const submitFeedback = () => {
     if (!selectedSubmission || !assessmentData) return;
 
+    setGradeError('');
+
     if (score !== '') {
       const numericScore = Number(score);
 
       if (!Number.isFinite(numericScore) || numericScore < 0 || numericScore > 100) {
-        toast.error('Score must be between 0 and 100.');
+        const message = 'Score must be between 0 and 100.';
+        setGradeError(message);
+        toast.error(message);
         return;
       }
     }
@@ -239,6 +291,12 @@ export default function AssessmentSubmissionsPage() {
       >
         {selectedSubmission && (
           <div className="space-y-6 pt-4">
+            {gradeError && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {gradeError}
+              </div>
+            )}
+
             {/* Student info */}
             <div className="p-4 bg-gray-50 rounded-xl">
               <p className="font-semibold">
@@ -298,6 +356,9 @@ export default function AssessmentSubmissionsPage() {
                   className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#0A5C4A] focus:ring-2 focus:ring-[#0A5C4A]/20"
                   placeholder="Enter marks"
                 />
+                <p className="mt-2 text-xs text-[#5A5A6E]">
+                  Allowed range: 0 to 100.
+                </p>
               </div>
               <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
                 <p className="font-semibold text-[#1E1E2A]">Pass / Fail</p>

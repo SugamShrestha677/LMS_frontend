@@ -2,6 +2,57 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { courseService } from '@/lib/services/course.service';
 import { toast } from 'react-hot-toast';
 
+const extractErrorMessage = (error: any, fallback: string) => {
+  const responseData = error?.response?.data;
+
+  if (!responseData) {
+    return fallback;
+  }
+
+  if (typeof responseData === 'string') {
+    return responseData;
+  }
+
+  const stack = [responseData.errors ?? responseData];
+
+  while (stack.length > 0) {
+    const current = stack.shift();
+    if (!current) continue;
+
+    if (typeof current === 'string') {
+      return current;
+    }
+
+    if (Array.isArray(current)) {
+      for (const item of current) {
+        if (typeof item === 'string') return item;
+        stack.push(item);
+      }
+      continue;
+    }
+
+    if (typeof current === 'object') {
+      if (typeof current.message === 'string' && current.message.trim()) {
+        return current.message;
+      }
+
+      for (const value of Object.values(current)) {
+        if (typeof value === 'string') {
+          return value;
+        }
+
+        if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'string') {
+          return value[0];
+        }
+
+        stack.push(value);
+      }
+    }
+  }
+
+  return responseData.message || fallback;
+};
+
 // ==================== COURSES ====================
 export const useCourses = (includeDeleted = false) => {
   return useQuery({
@@ -27,14 +78,7 @@ export const useCreateCourse = () => {
       toast.success('Course created successfully');
     },
     onError: (error: any) => {
-      const fieldErrors = error.response?.data;
-      if (fieldErrors && typeof fieldErrors === 'object') {
-        const firstError = Object.values(fieldErrors)[0];
-        const errorMessage = Array.isArray(firstError) ? firstError[0] : (fieldErrors.message || 'Failed to create course');
-        toast.error(errorMessage);
-      } else {
-        toast.error('Failed to create course');
-      }
+      toast.error(extractErrorMessage(error, 'Failed to create course'));
     },
   });
 };
@@ -374,10 +418,7 @@ export const useCreateCourseResource = () => {
       toast.success('Resource added');
     },
     onError: (error: any) => {
-      const message = error?.response?.data?.errors?.error || 
-                     error?.response?.data?.message || 
-                     'Failed to add resource';
-      toast.error(message);
+      toast.error(extractErrorMessage(error, 'Failed to add resource'));
     },
   });
 };
@@ -584,4 +625,4 @@ export const useRejectPayment = () => {
       toast.error(message);
     },
   });
-};
+};

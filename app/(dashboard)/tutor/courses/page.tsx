@@ -80,6 +80,10 @@ export default function TutorCoursesPage() {
     return course.status || (course.is_published ? 'published' : course.is_active ? 'active' : 'draft');
   };
 
+  const normalizeCourseStatus = (status?: string) => {
+    return status === 'active' ? 'published' : (status || 'draft');
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'published': return 'primary';
@@ -94,13 +98,15 @@ export default function TutorCoursesPage() {
 
   const onUpdate = (data: any) => {
     if (!selectedCourse) return;
+
+    const status = normalizeCourseStatus(data.status);
     
     const formData = new FormData();
     formData.append('title', data.title);
     formData.append('description', data.description || selectedCourse.description || selectedCourse.short_description || '');
     formData.append('short_description', data.short_description || selectedCourse.short_description || '');
     if (data.category) formData.append('category', String(parseInt(data.category)));
-    formData.append('status', data.status);
+    formData.append('status', status);
     formData.append('level', data.level);
     formData.append('duration_weeks', String(data.duration_weeks));
     formData.append('total_hours', String(data.total_hours));
@@ -127,7 +133,7 @@ export default function TutorCoursesPage() {
     setValue('description', course.description || course.short_description || '');
     setValue('short_description', course.short_description || '');
     setValue('category', course.category || '');
-    setValue('status', getStatus(course));
+    setValue('status', normalizeCourseStatus(getStatus(course)) as any);
     setValue('level', course.level || 'beginner');
     setValue('duration_weeks', course.duration_weeks || 4);
     setValue('total_hours', course.total_hours || 20);
@@ -314,4 +320,4 @@ export default function TutorCoursesPage() {
 
     </div>
   );
-}
+}
