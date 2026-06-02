@@ -490,11 +490,17 @@ export default function StudentAssessmentsPage() {
                 <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl">
                   <span className="text-sm font-semibold text-[var(--color-text-secondary)]">Average Score</span>
                   <span className="font-black text-lg text-[#0A5C4A]">
-                    {completedAssessments.length > 0 
-                      ? Math.round(completedAssessments.reduce((acc: number, a: any) => {
-                          return acc + (a.studentAttempt?.score || 0);
-                        }, 0) / completedAssessments.length)
-                      : 0}%
+                    {(() => {
+                      const graded = completedAssessments.filter((a: any) => 
+                        a.studentAttempt && 
+                        a.studentAttempt.status === 'graded' && 
+                        a.studentAttempt.score != null &&
+                        !isNaN(Number(a.studentAttempt.score))
+                      );
+                      if (graded.length === 0) return '0%';
+                      const sum = graded.reduce((acc: number, a: any) => acc + Number(a.studentAttempt.score), 0);
+                      return `${Math.round(sum / graded.length)}%`;
+                    })()}
                   </span>
                 </div>
               </div>
