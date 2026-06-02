@@ -259,28 +259,30 @@ export default function CoursePlayer() {
   }, [announcementsData]);
 
   const curriculum: CurriculumSection[] = useMemo(() => {
+    const sessionList = Array.isArray(liveSessions) ? liveSessions : [];
+    const liveSessionsSection = sessionList.length > 0 ? {
+      id: 'live_sessions',
+      title: 'Live Sessions',
+      description: 'Scheduled classes',
+      lessons: sessionList
+        .filter(Boolean)
+        .map((session: any, index: number) => ({
+          id: session?.id ?? `live-${index + 1}`,
+          title: `Day ${session?.day_number ?? index + 1}: ${session?.title ?? 'Live Session'}`,
+          duration: `${session?.start_time?.slice(0, 5) || '--:--'} - ${session?.end_time?.slice(0, 5) || '--:--'}`,
+          locked: !canAccessContent,
+          contentType: 'video',
+          isLiveSession: true,
+          sessionData: session
+        }))
+    } : null;
+
     if (course?.course_type === 'live') {
-      const sessionList = Array.isArray(liveSessions) ? liveSessions : [];
-      return [{
-        id: 'live_sessions',
-        title: 'Live Sessions',
-        description: 'Scheduled classes',
-        lessons: sessionList
-          .filter(Boolean)
-          .map((session: any, index: number) => ({
-            id: session?.id ?? index + 1,
-            title: `Day ${session?.day_number ?? index + 1}: ${session?.title ?? 'Live Session'}`,
-            duration: `${session?.start_time?.slice(0, 5) || '--:--'} - ${session?.end_time?.slice(0, 5) || '--:--'}`,
-            locked: !canAccessContent,
-            contentType: 'video',
-            isLiveSession: true,
-            sessionData: session
-          }))
-      }];
+      return liveSessionsSection ? [liveSessionsSection] : [];
     }
+
     const moduleList = Array.isArray(course?.modules) ? course.modules : [];
-    if (!moduleList.length) return [];
-    return moduleList.filter(Boolean).map((module: any, moduleIndex: number) => ({
+    const parsedModules = moduleList.filter(Boolean).map((module: any, moduleIndex: number) => ({
       id: module.id,
       title: module.title,
       description: module.description,
@@ -328,6 +330,8 @@ export default function CoursePlayer() {
         };
       }),
     }));
+
+    return liveSessionsSection ? [...parsedModules, liveSessionsSection] : parsedModules;
   }, [course, canAccessContent, liveSessions]);
 
   const allLessons: LessonItem[] = curriculum.flatMap((section) => section.lessons);
