@@ -21,6 +21,7 @@ const StudentActivityChart = dynamic(() => import('./StudentActivityChart'), {
 });
 import { formatDate } from '@/lib/utils';
 import Link from 'next/link';
+import StudentLiveClassesWidget from './StudentLiveClassesWidget';
 
 export default function StudentDashboard() {
   type ActivityPoint = {
@@ -205,6 +206,8 @@ export default function StudentDashboard() {
 
         {/* Right: Badges & Alerts */}
         <div className="space-y-8">
+          <StudentLiveClassesWidget />
+
           <Card className="p-8">
             <h3 className="font-black text-xl text-[var(--color-text-primary)] mb-8 tracking-tight">Recent Achievements</h3>
             {recentBadges.length === 0 ? (
