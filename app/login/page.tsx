@@ -169,7 +169,7 @@ export default function LoginPage() {
                   
                   <Quote className="text-[var(--color-border)] w-12 h-12 mb-4" />
                   <h3 className="text-2xl font-black text-[var(--color-text-primary)] mb-4 leading-snug">
-                    "Leapfrog Connect helped me land my dream job at a top tech company right after finishing my courses."
+                    &quot;Leapfrog Connect helped me land my dream job at a top tech company right after finishing my courses.&quot;
                   </h3>
                   
                   <div className="flex items-center gap-4 mt-8 pt-6 border-t border-[var(--color-border)]">
