@@ -152,22 +152,22 @@ export function Sidebar() {
   const links = (mounted && isActuallyHydrated) ? getLinks(user) : [];
 
   const SidebarContent = ({ mobile = false }: { mobile?: boolean }) => (
-    <div className="flex flex-col h-full bg-[var(--color-bg-sidebar)]">
-      {/* Logo */}
-      <div className={cn('flex items-center gap-4 px-7 py-10', sidebarCollapsed && !mobile && 'justify-center px-2')}>
-        <div className="w-12 h-12 rounded-2xl bg-[var(--color-primary)] flex items-center justify-center flex-shrink-0 shadow-2xl shadow-[var(--color-primary)]/40">
-          <GraduationCap size={24} className="text-white" />
-        </div>
-        {(!sidebarCollapsed || mobile) && (
+    <div className={cn("flex flex-col h-full bg-[var(--color-bg-sidebar)]", !mobile && "pt-6")}>
+      {/* Logo - Only show in mobile drawer since Navbar has it on desktop */}
+      {mobile && (
+        <div className={cn('flex items-center gap-4 px-7 py-6 border-b border-[var(--color-border)] bg-[var(--color-bg-sidebar)]')}>
+          <div className="w-10 h-10 rounded-2xl bg-[var(--color-primary)] flex items-center justify-center flex-shrink-0 shadow-lg shadow-[var(--color-primary)]/40">
+            <GraduationCap size={20} className="text-white" />
+          </div>
           <motion.span
             initial={{ opacity: 0, x: -12 }}
             animate={{ opacity: 1, x: 0 }}
-            className="text-[var(--color-text-primary)] font-black text-xl tracking-tighter leading-none"
+            className="text-[var(--color-text-primary)] font-black text-lg tracking-tighter leading-none"
           >
             Leapfrog<br /><span className="text-[var(--color-primary)]">Connect</span>
           </motion.span>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Nav Links */}
       <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1 custom-scrollbar">

@@ -176,4 +176,13 @@
   .count-up {
     font-variant-numeric: tabular-nums;
   }
+
+  /* Utilities for hiding scrollbar but allowing scroll */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
 }

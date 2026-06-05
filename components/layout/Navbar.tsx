@@ -49,7 +49,6 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [scrollY, setScrollY] = useState(0);
   const pathname = usePathname();
 
   // Scroll progress bar
@@ -59,7 +58,6 @@ export function Navbar() {
   useEffect(() => {
     setMounted(true);
     const handleScroll = () => {
-      setScrollY(window.scrollY);
       setScrolled(window.scrollY > 20);
     };
     window.addEventListener('scroll', handleScroll, { passive: true });

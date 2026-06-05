@@ -742,7 +742,7 @@ export default function CoursePlayer() {
       </AnimatePresence>
 
       {/* Main Player Area */}
-      <main className="flex-1 flex flex-col min-w-0 bg-[var(--color-bg-card)]">
+      <main className="flex-1 flex flex-col min-w-0 bg-[var(--color-bg-card)] overflow-x-hidden">
         {/* Top Header */}
         <div className="h-14 border-b border-[var(--color-border)] flex items-center justify-between px-6 bg-[var(--color-bg-card)] shrink-0">
           <div className="flex items-center gap-4">
@@ -757,7 +757,7 @@ export default function CoursePlayer() {
             {activeModule && (
               <>
                 <div className="h-4 w-px bg-[var(--color-border)]" />
-                <span className="text-xs font-semibold text-[var(--color-text-secondary)]">
+                <span className="text-xs font-semibold text-[var(--color-text-secondary)] truncate max-w-[100px] sm:max-w-[200px] md:max-w-xs">
                   {activeModule.title}
                 </span>
               </>
@@ -1295,8 +1295,8 @@ export default function CoursePlayer() {
           {canAccessContent && (
             <>
               {/* Tabs */}
-              <div className="px-8 max-w-4xl mx-auto">
-                <div className="flex border-b border-[var(--color-border)] mb-6">
+              <div className="px-4 sm:px-8 max-w-4xl mx-auto w-full">
+                <div className="flex border-b border-[var(--color-border)] mb-6 overflow-x-auto scrollbar-hide">
                   {([
                     { key: 'content', label: 'Content', icon: Play },
                     { key: 'resources', label: 'Resources', icon: FolderOpen, count: filteredResources.length },
@@ -1307,7 +1307,7 @@ export default function CoursePlayer() {
                       key={tab.key}
                       onClick={() => setActiveTab(tab.key)}
                       className={cn(
-                        'px-5 py-3 text-sm font-bold capitalize transition-all relative flex items-center gap-2',
+                        'px-4 sm:px-5 py-3 text-sm font-bold capitalize transition-all relative flex items-center gap-2 whitespace-nowrap',
                         activeTab === tab.key ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
                       )}
                     >
@@ -1327,7 +1327,7 @@ export default function CoursePlayer() {
               </div>
 
               {/* Tab Panels */}
-              <div className="px-8 pb-8 max-w-4xl mx-auto min-h-[200px] mt-8">
+              <div className="px-4 sm:px-8 pb-8 max-w-4xl mx-auto min-h-[200px] mt-8 w-full">
                 <AnimatePresence mode="wait">
                   {/* Content Tab */}
                   {activeTab === 'content' && (
@@ -1396,11 +1396,11 @@ export default function CoursePlayer() {
                                 className="group p-4 rounded-xl border border-[var(--color-border)] bg-white hover:border-[var(--color-primary)] transition-all flex items-center justify-between"
                               >
                                 <div className="flex items-center gap-4">
-                                  <div className="w-10 h-10 rounded-lg bg-[var(--color-primary)]/5 flex items-center justify-center text-[var(--color-primary)]">
+                                  <div className="w-10 h-10 rounded-lg bg-[var(--color-primary)]/5 flex items-center justify-center text-[var(--color-primary)] shrink-0">
                                     {isExternal ? <ExternalLink size={20} /> : resource.file_name?.endsWith('.pdf') ? <FileText size={20} /> : <Download size={20} />}
                                   </div>
-                                  <div>
-                                    <h4 className="font-bold text-[var(--color-text-primary)] text-sm group-hover:text-[var(--color-primary)] transition-colors">
+                                  <div className="min-w-0 flex-1">
+                                    <h4 className="font-bold text-[var(--color-text-primary)] text-sm group-hover:text-[var(--color-primary)] transition-colors truncate">
                                       {resource.title}
                                     </h4>
                                     <p className="text-[var(--color-text-secondary)] text-xs">
