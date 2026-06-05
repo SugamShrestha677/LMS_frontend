@@ -269,7 +269,7 @@ export function Sidebar() {
       <motion.aside
         animate={{ width: sidebarCollapsed ? 80 : 260 }}
         transition={{ type: 'spring', stiffness: 250, damping: 30 }}
-        className="hidden lg:flex flex-col h-screen sticky top-0 bg-[var(--color-bg-sidebar)] border-r border-[var(--color-border)] flex-shrink-0 z-30 overflow-hidden"
+        className="hidden lg:flex flex-col h-screen sticky top-0 bg-[var(--color-bg-sidebar)] border-r border-[var(--color-border)] flex-shrink-0 z-[60]"
       >
         <SidebarContent />
         <button
