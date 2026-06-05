@@ -83,8 +83,9 @@ export function Navbar() {
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
         style={{ height: navHeight }}
         className={cn(
-          'fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300',
-          scrolled
+          'z-50 transition-all duration-300',
+          isDashboard ? 'sticky top-0 w-full' : 'fixed top-0 left-0 right-0 w-full',
+          scrolled || isDashboard
             ? 'bg-[var(--color-bg-card)]/90 backdrop-blur-2xl border-b border-[var(--color-border)] shadow-lg shadow-black/5'
             : 'bg-transparent border-b border-transparent'
         )}
@@ -111,8 +112,11 @@ export function Navbar() {
             )}
 
             <Link
-              href={showAuthUI ? getDashboardRoute(user.role) : '/'}
-              className="flex items-center gap-3 group"
+              href={showAuthUI ? getDashboardRoute(user?.role || '') : '/'}
+              className={cn(
+                "flex items-center gap-3 group",
+                isDashboard ? "lg:hidden" : "" // Hide logo on desktop dashboard because Sidebar already has it
+              )}
             >
               <motion.div
                 animate={{ scale: scrolled ? 0.85 : 1 }}
@@ -328,8 +332,8 @@ export function Navbar() {
         )}
       </AnimatePresence>
 
-      {/* Spacer so content doesn't hide under the fixed nav */}
-      <div style={{ height: 80 }} />
+      {/* Spacer so content doesn't hide under the fixed nav - only for public pages since dashboard uses sticky */}
+      {!isDashboard && <div style={{ height: 80 }} />}
     </>
   );
 }
