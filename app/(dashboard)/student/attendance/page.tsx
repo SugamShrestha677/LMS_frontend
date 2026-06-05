@@ -127,19 +127,19 @@ export default function AttendancePage() {
                 placeholder="Search by course or session..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 rounded-xl border-2 border-[var(--color-border)] bg-white text-sm font-medium focus:outline-none focus:border-[var(--color-primary)] transition-colors shadow-sm"
+                className="w-full pl-11 pr-4 py-3 rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-bg-card)] text-[var(--color-text-primary)] text-sm font-medium focus:outline-none focus:border-[var(--color-primary)] transition-colors shadow-sm"
               />
             </div>
             
-            <div className="flex items-center gap-2 bg-gray-100 p-1.5 rounded-xl w-full md:w-auto overflow-x-auto">
+            <div className="flex items-center gap-2 bg-[var(--color-muted)] p-1.5 rounded-xl w-full md:w-auto overflow-x-auto">
               {['all', 'present', 'late', 'absent'].map((status) => (
                 <button
                   key={status}
                   onClick={() => setStatusFilter(status)}
                   className={`px-5 py-2 rounded-lg font-bold text-sm capitalize whitespace-nowrap transition-all ${
                     statusFilter === status
-                      ? 'bg-white shadow-sm text-[#0A5C4A]'
-                      : 'text-[#5A5A6E] hover:text-[#1E1E2A]'
+                      ? 'bg-[var(--color-bg-card)] shadow-sm text-[var(--color-primary)]'
+                      : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
                   }`}
                 >
                   {status}
@@ -177,7 +177,7 @@ export default function AttendancePage() {
                           {getStatusIcon(record.status)}
                           {record.status}
                         </Badge>
-                        <div className="flex items-center text-xs font-bold text-[var(--color-text-secondary)] bg-gray-50 border border-gray-100 px-3 py-1.5 rounded-lg shadow-sm">
+                        <div className="flex items-center text-xs font-bold text-[var(--color-text-secondary)] bg-[var(--color-muted)] border border-[var(--color-border)] px-3 py-1.5 rounded-lg shadow-sm">
                           <Calendar size={12} className="mr-1.5 text-[var(--color-primary)]" />
                           {record.date}
                         </div>
@@ -199,10 +199,10 @@ export default function AttendancePage() {
                 <motion.div 
                   initial={{ opacity: 0 }} 
                   animate={{ opacity: 1 }} 
-                  className="col-span-full py-16 text-center bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200"
+                  className="col-span-full py-16 text-center bg-[var(--color-muted)] rounded-2xl border-2 border-dashed border-[var(--color-border)]"
                 >
-                  <div className="w-16 h-16 bg-white shadow-sm rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Search className="text-gray-400" size={24} />
+                  <div className="w-16 h-16 bg-[var(--color-bg-card)] shadow-sm border border-[var(--color-border)] rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Search className="text-[var(--color-text-secondary)]" size={24} />
                   </div>
                   <h3 className="text-xl font-bold text-[var(--color-text-primary)]">No matching records found</h3>
                   <p className="text-[var(--color-text-secondary)] mt-2">Try adjusting your search terms or status filters.</p>
@@ -212,10 +212,10 @@ export default function AttendancePage() {
           </div>
         </>
       ) : (
-        <Card className="p-20 text-center border-dashed border-2 bg-gray-50/50">
-          <Calendar size={64} className="text-[#5A5A6E] mx-auto mb-6 opacity-30" />
+        <Card className="p-20 text-center border-dashed border-2 bg-[var(--color-muted)]/50">
+          <Calendar size={64} className="text-[var(--color-text-secondary)] mx-auto mb-6 opacity-30" />
           <h3 className="text-2xl font-black text-[var(--color-text-primary)] mb-3">No attendance history yet</h3>
-          <p className="text-[#5A5A6E] font-medium max-w-md mx-auto text-lg leading-relaxed">
+          <p className="text-[var(--color-text-secondary)] font-medium max-w-md mx-auto text-lg leading-relaxed">
             Your attendance records will appear here once tutors start marking live-session attendance for your enrolled courses.
           </p>
         </Card>
