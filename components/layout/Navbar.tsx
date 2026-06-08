@@ -98,24 +98,28 @@ export function Navbar() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-  const token = localStorage.getItem("access");
+  const token = useAuthStore((state) => state.token);
 
   useEffect(() => {
-  const ws = new WebSocket(`wss://lms-backend-eff3.onrender.com/ws/notifications/?token=${token}`);
+    if (!token) return;
 
-  ws.onmessage = (event) => {
-    const data = JSON.parse(event.data);
+    const ws = new WebSocket(
+      `wss://lms-backend-eff3.onrender.com/ws/notifications/?token=${token}`,
+    );
 
-    setNotifications((prev) => [data, ...prev]);
-    setUnreadCount((prev) => prev + 1);
-  };
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
 
-  ws.onerror = (err) => console.error("WS ERROR:", err);
+      setNotifications((prev) => [data, ...prev]);
+      setUnreadCount((prev) => prev + 1);
+    };
 
-  return () => {
-    ws.close();
-  };
-}, []);
+    ws.onerror = (err) => console.error("WS ERROR:", err);
+
+    return () => {
+      ws.close();
+    };
+  }, [token]);
 
   const dashboardPrefixes = [
     "/student",
