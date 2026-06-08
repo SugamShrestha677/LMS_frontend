@@ -1,260 +1,336 @@
 'use client';
 
-import { useState } from 'react';
+import { useStudentProfile } from '@/lib/hooks/useStudentData';
+import { useAuthStore } from '@/lib/store/authStore';
 import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { 
-  Calendar, 
-  Clock, 
-  MapPin, 
-  Users, 
-  Globe, 
-  CheckCircle2, 
-  Radio, 
-  Search,
-  Filter
+import { Button } from '@/components/ui/Button';
+import { ProgressBar } from '@/components/ui/Badge';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { motion } from 'framer-motion';
+import {
+  User, Mail, Phone, MapPin,
+  Award, GraduationCap, Link as LinkIcon,
+  Share2, Edit, Camera, Github, Linkedin, Twitter, Star
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useEvents, useRegisterForEvent, useUnregisterFromEvent } from '@/lib/hooks/useEvents';
-import { format } from 'date-fns';
+import { getInitials } from '@/lib/utils';
 
-export default function StudentEventsPage() {
-  const { data: eventsData, isLoading: loadingEvents } = useEvents();
-  const { mutate: registerForEvent, isPending: registering } = useRegisterForEvent();
-  const { mutate: unregisterFromEvent, isPending: unregistering } = useUnregisterFromEvent();
-  
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('all');
-  const [registeringEventId, setRegisteringEventId] = useState<number | null>(null);
+// Extended profile type matching backend response
+interface StudentProfileData {
+  // Personal
+  program?: string;
+  campus?: string;
+  location?: string;
+  bio?: string;
+  phone?: string;
+  profileSlug?: string;
+  // Social links
+  socialLinks?: {
+    github?: string;
+    linkedin?: string;
+    twitter?: string;
+  };
+  // Education
+  education?: Array<{
+    degree: string;
+    institution: string;
+    startYear: number;
+    endYear?: number;
+    current?: boolean;
+  }>;
+  // Skills (each with label and percentage)
+  skills?: Array<{
+    name: string;
+    percentage: number;
+    color?: string;
+  }>;
+  // Badges (optional – not yet implemented on backend)
+  badges?: Array<{
+    id: number;
+    name: string;
+    date: string;
+    icon: string;
+    rarity: 'Gold' | 'Silver' | 'Bronze';
+  }>;
+}
 
-  const eventList = Array.isArray(eventsData) ? eventsData : (eventsData as any)?.data || [];
+// Fallback dummy badges (backend doesn't store these yet)
+const fallbackBadges = [
+  { id: 1, name: 'React Expert', date: '2024-03-12', icon: 'React', rarity: 'Gold' },
+  { id: 2, name: 'Django Master', date: '2024-02-28', icon: 'Python', rarity: 'Gold' },
+  { id: 3, name: 'TypeScript Pro', date: '2024-03-25', icon: 'TS', rarity: 'Silver' },
+  { id: 4, name: 'UI Patterns', date: '2024-04-10', icon: 'Figma', rarity: 'Silver' },
+  { id: 5, name: 'Git Master', date: '2024-01-15', icon: 'Git', rarity: 'Bronze' },
+  { id: 6, name: 'Agile Team', date: '2024-04-20', icon: 'Agile', rarity: 'Bronze' },
+];
 
-  const filteredEvents = eventList.filter((event: any) => {
-    const matchesSearch = event.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         event.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = filterType === 'all' || event.event_type?.toLowerCase() === filterType.toLowerCase();
-    return matchesSearch && matchesType;
-  });
+export default function StudentProfile() {
+  const { user } = useAuthStore();
+  const { data: profile, isLoading } = useStudentProfile() as {
+    data: StudentProfileData | undefined;
+    isLoading: boolean;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-8">
+        <Skeleton className="h-96 w-full" rounded="lg" />
+      </div>
+    );
+  }
+
+  // Destructure profile fields with fallbacks
+  const {
+    program = 'Computer Engineering',
+    campus = 'Pulchowk Campus',
+    location = 'Kathmandu, NP',
+    bio = 'Passionate full-stack developer with a focus on building scalable web applications. Currently exploring AI integration in modern SaaS platforms. I love solving complex problems and mentoring junior developers.',
+    phone = '+977 9800000000',
+    profileSlug = user?.email?.split('@')[0] || 'student',
+    socialLinks = {},
+    education = [
+      {
+        degree: 'BE in Computer Engineering',
+        institution: 'Pulchowk Campus, IOE',
+        startYear: 2020,
+        current: true,
+      },
+      {
+        degree: '+2 Science',
+        institution: "St. Xavier's College",
+        startYear: 2018,
+        endYear: 2020,
+      },
+    ],
+    skills = [
+      { name: 'Frontend Engineering', percentage: 92, color: 'var(--color-primary)' },
+      { name: 'Backend Architecture', percentage: 85, color: '#1E88E5' },
+      { name: 'Product Design', percentage: 78, color: '#F5A623' },
+      { name: 'Distributed Systems', percentage: 65, color: '#7C3AED' },
+    ],
+    badges = fallbackBadges,
+  } = profile ?? {};
+
+  // Helper to format education year range
+  const formatYearRange = (edu: typeof education[0]) => {
+    if (edu.current) return `${edu.startYear} - PRESENT`;
+    return `${edu.startYear} - ${edu.endYear}`;
+  };
+
+  // Profile URL for the "leapfrog.connect/p/..." placeholder
+  const profileUrl = `leapfrog.connect/p/${profileSlug}`;
 
   return (
     <div className="space-y-8 pb-12">
-      {/* Header */}
-      <Card className="p-8 bg-[var(--color-bg-card)]/60 border-[var(--color-border)] rounded-[2rem] shadow-xl backdrop-blur-md">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
-            <h1 className="text-4xl font-black text-[var(--color-text-primary)] tracking-tight">
-              Upcoming <span className="text-[var(--color-primary)]">Events</span>
-            </h1>
-            <p className="text-[var(--color-text-secondary)] mt-2 font-medium">
-              Join workshops, webinars, and networking events to boost your skills.
-            </p>
-          </div>
-          <div className="flex items-center gap-3 bg-[var(--color-bg)]/50 p-2 rounded-2xl border border-[var(--color-border)]">
-            <div className="px-4 py-2 text-center border-r border-[var(--color-border)]">
-              <p className="text-[10px] font-black uppercase text-[var(--color-text-secondary)]">Total</p>
-              <p className="text-xl font-black text-[var(--color-primary)]">{eventList.length}</p>
+      {/* Profile Header Card */}
+      <Card className="p-0 overflow-hidden border-[var(--color-border)] shadow-[var(--shadow-lg)]">
+        <div className="h-40 bg-[var(--color-primary)] relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-black/20 to-transparent" />
+          <button className="absolute top-6 right-6 p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-all backdrop-blur-md border border-white/10">
+            <Edit size={18} />
+          </button>
+        </div>
+        <div className="px-10 pb-10">
+          <div className="relative flex flex-col md:flex-row md:items-end gap-8 -mt-16">
+            <div className="relative group">
+              <div className="w-40 h-40 rounded-[2.5rem] bg-[var(--color-bg-card)] p-2 shadow-2xl">
+                <div className="w-full h-full rounded-[2.25rem] bg-[var(--color-muted)] flex items-center justify-center text-[var(--color-primary)] font-black text-5xl border border-[var(--color-border)]">
+                  {getInitials(`${user?.first_name} ${user?.last_name}`)}
+                </div>
+              </div>
+              <button className="absolute bottom-3 right-3 w-10 h-10 rounded-2xl bg-[var(--color-primary)] text-white flex items-center justify-center border-4 border-[var(--color-bg-card)] shadow-lg hover:scale-110 transition-transform">
+                <Camera size={18} />
+              </button>
             </div>
-            <div className="px-4 py-2 text-center">
-              <p className="text-[10px] font-black uppercase text-[var(--color-text-secondary)]">Registered</p>
-              <p className="text-xl font-black text-green-600">
-                {eventList.filter((e: any) => e.is_registered).length}
+
+            <div className="flex-1 space-y-2 mb-2">
+              <div className="flex flex-wrap items-center gap-4">
+                <h1 className="text-4xl font-black text-[var(--color-text-primary)] tracking-tight">
+                  {user?.first_name} {user?.last_name}
+                </h1>
+                <Badge variant="success" size="md" dot pulse>Verified Scholar</Badge>
+              </div>
+              <p className="text-lg text-[var(--color-text-secondary)] font-bold flex items-center gap-2">
+                {program} <span className="w-1 h-1 rounded-full bg-[var(--color-border)]" />{' '}
+                <span className="text-[var(--color-text-primary)]">{campus}</span>
               </p>
+              <div className="flex flex-wrap gap-5 pt-2 text-[10px] text-[var(--color-text-secondary)] font-black uppercase tracking-widest">
+                <span className="flex items-center gap-2 bg-[var(--color-muted)] px-3 py-1.5 rounded-lg border border-[var(--color-border)]">
+                  <MapPin size={12} className="text-[var(--color-primary)]" /> {location}
+                </span>
+                <span className="flex items-center gap-2 bg-[var(--color-muted)] px-3 py-1.5 rounded-lg border border-[var(--color-border)]">
+                  <Mail size={12} className="text-[var(--color-primary)]" /> {user?.email}
+                </span>
+                <span className="flex items-center gap-2 bg-[var(--color-muted)] px-3 py-1.5 rounded-lg border border-[var(--color-border)]">
+                  <LinkIcon size={12} className="text-[var(--color-primary)]" /> {profileUrl}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mb-2">
+              <Button variant="outline" size="md">
+                <Share2 size={18} />
+              </Button>
+              <Button variant="primary" size="lg">
+                View Public CV
+              </Button>
             </div>
           </div>
         </div>
       </Card>
 
-      {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-4 items-center">
-        <div className="relative flex-1 group">
-          <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)] group-focus-within:text-[var(--color-primary)] transition-colors" />
-          <input
-            type="text"
-            placeholder="Search events, webinars, workshops..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-6 py-4 rounded-[1.5rem] border-2 border-[var(--color-border)] bg-[var(--color-bg-card)]/60 text-sm font-bold outline-none focus:border-[var(--color-primary)]/40 focus:ring-4 focus:ring-[var(--color-primary)]/10 transition-all shadow-sm"
-          />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column: Stats & Badges */}
+        <div className="lg:col-span-2 space-y-8">
+          {/* Badge Showcase */}
+          <Card className="p-10">
+            <div className="flex items-center justify-between mb-10">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 shadow-inner border border-amber-500/10">
+                  <Award size={24} />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black text-[var(--color-text-primary)] tracking-tight">Skill Achievements</h3>
+                  <p className="text-[10px] font-black text-[var(--color-text-secondary)] uppercase tracking-widest mt-0.5">Verified competency badges</p>
+                </div>
+              </div>
+              <Badge variant="primary" size="md">Top 5% Student</Badge>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-8">
+              {badges.map((badge, idx) => (
+                <motion.div
+                  key={badge.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: idx * 0.05, type: 'spring' }}
+                  whileHover={{ y: -8 }}
+                  className="flex flex-col items-center text-center p-6 rounded-[var(--radius-lg)] border border-[var(--color-border)] hover:bg-[var(--color-muted)] transition-all group relative overflow-hidden"
+                >
+                  <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 relative shadow-lg group-hover:rotate-12 transition-all duration-500 ${
+                    badge.rarity === 'Gold' ? 'bg-amber-500/10 text-amber-500 border-2 border-amber-500/20' :
+                    badge.rarity === 'Silver' ? 'bg-slate-500/10 text-slate-500 border-2 border-slate-500/20' :
+                    'bg-orange-500/10 text-orange-500 border-2 border-orange-500/20'
+                  }`}>
+                    <Award size={40} className="fill-current opacity-20" />
+                    <Star size={24} className="absolute inset-0 m-auto fill-current" />
+                  </div>
+                  <p className="text-base font-black text-[var(--color-text-primary)] mb-1">{badge.name}</p>
+                  <p className="text-[10px] text-[var(--color-text-secondary)] font-black uppercase tracking-widest">{badge.rarity} Recognition</p>
+                </motion.div>
+              ))}
+            </div>
+
+            <Button variant="ghost" fullWidth className="mt-10 border border-dashed border-[var(--color-border)] py-6 rounded-2xl group">
+              <span className="group-hover:scale-110 transition-transform">View All 12 Achievements</span>
+            </Button>
+          </Card>
+
+          {/* Education & Experience */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <Card className="p-8">
+              <h3 className="font-black text-xl text-[var(--color-text-primary)] mb-8 flex items-center gap-3 tracking-tight">
+                <GraduationCap size={22} className="text-[var(--color-primary)]" /> Academic History
+              </h3>
+              <div className="space-y-8">
+                {education.map((edu, index) => (
+                  <div key={index} className={`border-l-4 ${edu.current ? 'border-[var(--color-primary)]' : 'border-[var(--color-border)]'} pl-6 relative ${!edu.current ? 'opacity-60' : ''}`}>
+                    <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full ${edu.current ? 'bg-[var(--color-primary)] shadow-lg shadow-[var(--color-primary)]/20' : 'bg-[var(--color-border)]'}`} />
+                    <p className="text-base font-black text-[var(--color-text-primary)]">{edu.degree}</p>
+                    <p className="text-sm font-bold text-[var(--color-text-secondary)] mt-0.5">{edu.institution}</p>
+                    <p className={`text-[10px] mt-3 font-black tracking-widest uppercase inline-block px-2 py-1 rounded ${edu.current ? 'text-[var(--color-primary)] bg-[var(--color-primary)]/5' : 'text-[var(--color-text-secondary)] bg-[var(--color-muted)]'}`}>
+                      {formatYearRange(edu)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <Card className="p-8">
+              <h3 className="font-black text-xl text-[var(--color-text-primary)] mb-8 flex items-center gap-3 tracking-tight">
+                <Star size={22} className="text-[var(--color-secondary)]" /> Skill Proficiency
+              </h3>
+              <div className="space-y-6">
+                {skills.map((skill, idx) => (
+                  <ProgressBar
+                    key={idx}
+                    label={skill.name}
+                    value={skill.percentage}
+                    color={skill.color || 'var(--color-primary)'}
+                  />
+                ))}
+              </div>
+            </Card>
+          </div>
         </div>
-        <div className="flex items-center gap-3 bg-[var(--color-bg-card)]/60 p-2 rounded-[1.5rem] border-2 border-[var(--color-border)] shadow-sm">
-          <Filter size={18} className="ml-2 text-[var(--color-text-secondary)]" />
-          <select 
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            className="bg-transparent border-none text-sm font-bold outline-none pr-4 text-[var(--color-text-primary)]"
-          >
-            <option value="all">All Types</option>
-            <option value="webinar">Webinars</option>
-            <option value="workshop">Workshops</option>
-            <option value="networking">Networking</option>
-          </select>
+
+        {/* Right Column: Socials & Bio */}
+        <div className="space-y-8">
+          <Card className="p-8">
+            <h3 className="font-black text-xl text-[var(--color-text-primary)] mb-6 tracking-tight">Biography</h3>
+            <p className="text-sm text-[var(--color-text-secondary)] leading-loose font-medium">
+              {bio}
+            </p>
+            <div className="flex gap-3 mt-8">
+              {socialLinks.github && (
+                <a href={socialLinks.github} target="_blank" rel="noopener noreferrer" className="w-12 h-12 rounded-2xl bg-[var(--color-muted)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-text-secondary)] hover:bg-[var(--color-primary)] hover:text-white transition-all shadow-sm">
+                  <Github size={20} />
+                </a>
+              )}
+              {socialLinks.linkedin && (
+                <a href={socialLinks.linkedin} target="_blank" rel="noopener noreferrer" className="w-12 h-12 rounded-2xl bg-[var(--color-muted)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-text-secondary)] hover:bg-[#0077b5] hover:text-white transition-all shadow-sm">
+                  <Linkedin size={20} />
+                </a>
+              )}
+              {socialLinks.twitter && (
+                <a href={socialLinks.twitter} target="_blank" rel="noopener noreferrer" className="w-12 h-12 rounded-2xl bg-[var(--color-muted)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-text-secondary)] hover:bg-[#1da1f2] hover:text-white transition-all shadow-sm">
+                  <Twitter size={20} />
+                </a>
+              )}
+            </div>
+          </Card>
+
+          <Card className="p-8 bg-[var(--color-muted)] border-dashed border-2 border-[var(--color-border)]">
+            <h3 className="font-black text-xl text-[var(--color-text-primary)] mb-6 tracking-tight">Registry Details</h3>
+            <div className="space-y-5">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-primary)] shadow-sm">
+                  <Phone size={18} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-[var(--color-text-secondary)] uppercase tracking-widest mb-0.5">Contact Line</p>
+                  <p className="text-sm font-bold text-[var(--color-text-primary)]">{phone}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-primary)] shadow-sm">
+                  <Mail size={18} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-[var(--color-text-secondary)] uppercase tracking-widest mb-0.5">Work Email</p>
+                  <p className="text-sm font-bold text-[var(--color-text-primary)]">{user?.email}</p>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-10 bg-gradient-to-br from-[#121217] to-[#1E1E2A] text-white border-none relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--color-primary)]/20 blur-3xl rounded-full -mr-16 -mt-16 group-hover:bg-[var(--color-primary)]/40 transition-all duration-500" />
+            <h4 className="font-black text-2xl mb-4 tracking-tight relative z-10">Application Score</h4>
+            <div className="flex items-end gap-3 mb-6 relative z-10">
+              <span className="text-6xl font-black font-mono">88</span>
+              <span className="text-white/40 font-bold mb-2 text-lg">/ 100</span>
+            </div>
+            <p className="text-white/60 text-xs mb-8 leading-relaxed relative z-10">
+              Your profile algorithm score is stronger than <span className="text-white font-black">92%</span> of competing students in your engineering cohort.
+            </p>
+            <Button variant="primary" fullWidth size="lg" className="bg-white text-[var(--color-text-primary)] hover:bg-gray-100 border-none">
+              Optimization Guide
+            </Button>
+          </Card>
         </div>
       </div>
-
-      <AnimatePresence mode="wait">
-        {loadingEvents ? (
-          <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3, 4, 5, 6].map(i => (
-              <div key={i} className="h-96 rounded-[2rem] bg-[var(--color-bg-card)]/40 animate-pulse border border-[var(--color-border)]" />
-            ))}
-          </motion.div>
-        ) : filteredEvents.length === 0 ? (
-          <motion.div key="empty" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-24 bg-[var(--color-bg-card)]/40 rounded-[3rem] border-2 border-dashed border-[var(--color-border)]">
-            <div className="w-24 h-24 bg-[var(--color-muted)] rounded-full flex items-center justify-center mx-auto mb-6">
-              <Calendar size={40} className="text-[var(--color-text-secondary)]/40" />
-            </div>
-            <h3 className="text-2xl font-black text-[var(--color-text-primary)]">No events found</h3>
-            <p className="text-[var(--color-text-secondary)] mt-2 font-medium max-w-sm mx-auto">
-              We couldn&apos;t find any events matching your search criteria. Try adjusting your filters.
-            </p>
-          </motion.div>
-        ) : (
-          <motion.div key="grid" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredEvents.map((event: any, idx: number) => {
-              const isFull = event.current_attendees >= event.max_attendees;
-              const isRegistered = event.is_registered;
-              const isOngoing = event.actual_status === 'ongoing';
-              const isPast = event.actual_status === 'completed';
-              const seatsLeft = event.max_attendees - event.current_attendees;
-              
-              return (
-                <motion.div 
-                  key={event.id} 
-                  initial={{ opacity: 0, y: 20 }} 
-                  animate={{ opacity: 1, y: 0 }} 
-                  transition={{ delay: idx * 0.05 }}
-                >
-                  <Card className="p-0 overflow-hidden hover:shadow-2xl transition-all group border-2 border-[var(--color-border)] rounded-[2rem] flex flex-col h-full bg-[var(--color-bg-card)]/60">
-                    {/* Event Banner */}
-                    <div className="h-44 relative overflow-hidden bg-gradient-to-br from-[var(--color-primary)]/20 to-[var(--color-primary)]/5">
-                      {event.banner_url ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img src={event.banner_url} alt={event.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Calendar size={64} className="text-[var(--color-primary)]/20" />
-                        </div>
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                      
-                      <div className="absolute top-4 right-4 flex gap-2">
-                        <Badge variant={isPast ? 'secondary' : isOngoing ? 'danger' : 'primary'} className={isOngoing ? 'animate-pulse' : ''}>
-                          {isPast ? 'Completed' : isOngoing ? '🔴 Ongoing' : event.event_type}
-                        </Badge>
-                      </div>
-
-                      {isRegistered && (
-                        <div className="absolute top-4 left-4">
-                          <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest bg-green-500 text-white px-3 py-1.5 rounded-full shadow-lg">
-                            <CheckCircle2 size={12} /> Registered
-                          </span>
-                        </div>
-                      )}
-
-                      <div className="absolute bottom-4 left-4 right-4">
-                        <h3 className="font-black text-white text-xl leading-tight drop-shadow-md line-clamp-1">
-                          {event.title}
-                        </h3>
-                      </div>
-                    </div>
-
-                    <div className="p-6 flex flex-col flex-1">
-                      <p className="text-sm text-[var(--color-text-secondary)] font-medium line-clamp-2 mb-6 flex-1">
-                        {event.description}
-                      </p>
-
-                      <div className="space-y-3 mb-6">
-                        <div className="flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-2 font-bold text-[var(--color-text-secondary)]">
-                            <Clock size={14} className="text-[var(--color-primary)]" />
-                            {format(new Date(event.start_time), 'MMM dd, h:mm a')}
-                          </div>
-                          <div className="flex items-center gap-2 font-bold text-[var(--color-text-secondary)]">
-                            <MapPin size={14} className="text-[var(--color-primary)]" />
-                            {event.location || 'Online'}
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-2 font-bold text-[var(--color-text-secondary)]">
-                            <Globe size={14} className="text-[var(--color-primary)]" />
-                            {event.is_online ? 'Virtual' : 'In-person'}
-                          </div>
-                          <div className={`flex items-center gap-2 font-bold ${isFull ? 'text-red-500' : 'text-[var(--color-text-secondary)]'}`}>
-                            <Users size={14} className={isFull ? 'text-red-500' : 'text-[var(--color-primary)]'} />
-                            {isFull ? 'Sold Out' : `${seatsLeft} seats left`}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Capacity Bar */}
-                      <div className="mb-6">
-                        <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-[var(--color-text-secondary)] mb-2">
-                          <span>Registration Progress</span>
-                          <span>{event.current_attendees}/{event.max_attendees}</span>
-                        </div>
-                        <div className="h-2 bg-[var(--color-bg-secondary)] rounded-full overflow-hidden border border-[var(--color-border)]">
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: `${Math.min(100, (event.current_attendees / event.max_attendees) * 100)}%` }}
-                            className={`h-full rounded-full transition-all ${
-                              isFull ? 'bg-red-500' : seatsLeft <= 10 ? 'bg-amber-500' : 'bg-[var(--color-primary)]'
-                            }`}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="mt-auto pt-4 border-t border-[var(--color-border)]">
-                        {isRegistered ? (
-                          <div className="flex flex-col gap-3">
-                            {event.meeting_link && isOngoing && (
-                              <a
-                                href={event.meeting_link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center justify-center gap-2 px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-red-500/30 transition-all hover:scale-[1.02] active:scale-95"
-                              >
-                                <Radio size={16} className="animate-pulse" /> Join Event
-                              </a>
-                            )}
-                            {!isPast && (
-                              <Button
-                                variant="outline"
-                                fullWidth
-                                className="rounded-2xl h-12 border-2 text-red-500 border-red-100 hover:bg-red-50 font-black text-xs uppercase tracking-widest"
-                                loading={unregistering && registeringEventId === event.id}
-                                onClick={() => {
-                                  setRegisteringEventId(event.id);
-                                  unregisterFromEvent(event.id, { onSettled: () => setRegisteringEventId(null) });
-                                }}
-                              >
-                                Cancel Registration
-                              </Button>
-                            )}
-                          </div>
-                        ) : (
-                          <Button
-                            fullWidth
-                            className="rounded-2xl h-12 font-black text-xs uppercase tracking-widest shadow-lg shadow-[var(--color-primary)]/20 active:scale-95 transition-transform"
-                            disabled={isFull || isOngoing || isPast}
-                            loading={registering && registeringEventId === event.id}
-                            onClick={() => {
-                              setRegisteringEventId(event.id);
-                              registerForEvent(event.id, { onSettled: () => setRegisteringEventId(null) });
-                            }}
-                          >
-                            {isPast ? 'Event Completed' : isFull ? 'Sold Out' : isOngoing ? 'Closed' : 'Register Now'}
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </Card>
-                </motion.div>
-              );
-            })}
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

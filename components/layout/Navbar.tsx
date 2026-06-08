@@ -101,25 +101,27 @@ export function Navbar() {
   const token = useAuthStore((state) => state.token);
 
   useEffect(() => {
-    if (!token) return;
+  if (!token) return;
 
-    const ws = new WebSocket(
-      `wss://lms-backend-eff3.onrender.com/ws/notifications/?token=${token}`,
-    );
+  let ws: WebSocket | null = null;
 
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
+  ws = new WebSocket(
+    `wss://lms-backend-eff3.onrender.com/ws/notifications/?token=${token}`,
+  );
 
-      setNotifications((prev) => [data, ...prev]);
-      setUnreadCount((prev) => prev + 1);
-    };
+  ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
 
-    ws.onerror = (err) => console.error("WS ERROR:", err);
+    setNotifications((prev) => [data, ...prev]);
+    setUnreadCount((prev) => prev + 1);
+  };
 
-    return () => {
-      ws.close();
-    };
-  }, [token]);
+  ws.onerror = (err) => console.error("WS ERROR:", err);
+
+  return () => {
+    ws?.close();
+  };
+}, [token]);
 
   const dashboardPrefixes = [
     "/student",
