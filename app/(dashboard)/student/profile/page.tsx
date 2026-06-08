@@ -8,42 +8,117 @@ import { Button } from '@/components/ui/Button';
 import { ProgressBar } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { motion } from 'framer-motion';
-import { 
-  User, Mail, Phone, MapPin, 
+import {
+  User, Mail, Phone, MapPin,
   Award, GraduationCap, Link as LinkIcon,
   Share2, Edit, Camera, Github, Linkedin, Twitter, Star
 } from 'lucide-react';
 import { getInitials } from '@/lib/utils';
 
-export default function StudentProfile() {
-  type BadgeItem = {
+// Extended profile type matching backend response
+interface StudentProfileData {
+  // Personal
+  program?: string;
+  campus?: string;
+  location?: string;
+  bio?: string;
+  phone?: string;
+  profileSlug?: string;
+  // Social links
+  socialLinks?: {
+    github?: string;
+    linkedin?: string;
+    twitter?: string;
+  };
+  // Education
+  education?: Array<{
+    degree: string;
+    institution: string;
+    startYear: number;
+    endYear?: number;
+    current?: boolean;
+  }>;
+  // Skills (each with label and percentage)
+  skills?: Array<{
+    name: string;
+    percentage: number;
+    color?: string;
+  }>;
+  // Badges (optional – not yet implemented on backend)
+  badges?: Array<{
     id: number;
     name: string;
     date: string;
     icon: string;
     rarity: 'Gold' | 'Silver' | 'Bronze';
-  };
+  }>;
+}
 
-  type StudentProfileData = {
-    badges?: BadgeItem[];
-  };
+// Fallback dummy badges (backend doesn't store these yet)
+const fallbackBadges = [
+  { id: 1, name: 'React Expert', date: '2024-03-12', icon: 'React', rarity: 'Gold' },
+  { id: 2, name: 'Django Master', date: '2024-02-28', icon: 'Python', rarity: 'Gold' },
+  { id: 3, name: 'TypeScript Pro', date: '2024-03-25', icon: 'TS', rarity: 'Silver' },
+  { id: 4, name: 'UI Patterns', date: '2024-04-10', icon: 'Figma', rarity: 'Silver' },
+  { id: 5, name: 'Git Master', date: '2024-01-15', icon: 'Git', rarity: 'Bronze' },
+  { id: 6, name: 'Agile Team', date: '2024-04-20', icon: 'Agile', rarity: 'Bronze' },
+];
 
+export default function StudentProfile() {
   const { user } = useAuthStore();
   const { data: profile, isLoading } = useStudentProfile() as {
     data: StudentProfileData | undefined;
     isLoading: boolean;
   };
 
-  if (isLoading) return <div className="p-8"><Skeleton className="h-96 w-full" rounded="lg" /></div>;
+  if (isLoading) {
+    return (
+      <div className="p-8">
+        <Skeleton className="h-96 w-full" rounded="lg" />
+      </div>
+    );
+  }
 
-  const badges: BadgeItem[] = profile?.badges ?? [
-    { id: 1, name: 'React Expert', date: '2024-03-12', icon: 'React', rarity: 'Gold' },
-    { id: 2, name: 'Django Master', date: '2024-02-28', icon: 'Python', rarity: 'Gold' },
-    { id: 3, name: 'TypeScript Pro', date: '2024-03-25', icon: 'TS', rarity: 'Silver' },
-    { id: 4, name: 'UI Patterns', date: '2024-04-10', icon: 'Figma', rarity: 'Silver' },
-    { id: 5, name: 'Git Master', date: '2024-01-15', icon: 'Git', rarity: 'Bronze' },
-    { id: 6, name: 'Agile Team', date: '2024-04-20', icon: 'Agile', rarity: 'Bronze' },
-  ];
+  // Destructure profile fields with fallbacks
+  const {
+    program = 'Computer Engineering',
+    campus = 'Pulchowk Campus',
+    location = 'Kathmandu, NP',
+    bio = 'Passionate full-stack developer with a focus on building scalable web applications. Currently exploring AI integration in modern SaaS platforms. I love solving complex problems and mentoring junior developers.',
+    phone = '+977 9800000000',
+    profileSlug = user?.email?.split('@')[0] || 'student',
+    socialLinks = {},
+    education = [
+      {
+        degree: 'BE in Computer Engineering',
+        institution: 'Pulchowk Campus, IOE',
+        startYear: 2020,
+        current: true,
+      },
+      {
+        degree: '+2 Science',
+        institution: "St. Xavier's College",
+        startYear: 2018,
+        endYear: 2020,
+      },
+    ],
+    skills = [
+      { name: 'Frontend Engineering', percentage: 92, color: 'var(--color-primary)' },
+      { name: 'Backend Architecture', percentage: 85, color: '#1E88E5' },
+      { name: 'Product Design', percentage: 78, color: '#F5A623' },
+      { name: 'Distributed Systems', percentage: 65, color: '#7C3AED' },
+    ],
+    badges = fallbackBadges,
+  } = profile ?? {};
+
+  // Helper to format education year range
+  const formatYearRange = (edu: typeof education[0]) => {
+    if (edu.current) return `${edu.startYear} - PRESENT`;
+    return `${edu.startYear} - ${edu.endYear}`;
+  };
+
+  // Profile URL for the "leapfrog.connect/p/..." placeholder
+  const profileUrl = `leapfrog.connect/p/${profileSlug}`;
 
   return (
     <div className="space-y-8 pb-12">
@@ -60,26 +135,35 @@ export default function StudentProfile() {
             <div className="relative group">
               <div className="w-40 h-40 rounded-[2.5rem] bg-[var(--color-bg-card)] p-2 shadow-2xl">
                 <div className="w-full h-full rounded-[2.25rem] bg-[var(--color-muted)] flex items-center justify-center text-[var(--color-primary)] font-black text-5xl border border-[var(--color-border)]">
-                   {getInitials(`${user?.first_name} ${user?.last_name}`)}
+                  {getInitials(`${user?.first_name} ${user?.last_name}`)}
                 </div>
               </div>
               <button className="absolute bottom-3 right-3 w-10 h-10 rounded-2xl bg-[var(--color-primary)] text-white flex items-center justify-center border-4 border-[var(--color-bg-card)] shadow-lg hover:scale-110 transition-transform">
                 <Camera size={18} />
               </button>
             </div>
-            
+
             <div className="flex-1 space-y-2 mb-2">
               <div className="flex flex-wrap items-center gap-4">
-                <h1 className="text-4xl font-black text-[var(--color-text-primary)] tracking-tight">{user?.first_name} {user?.last_name}</h1>
+                <h1 className="text-4xl font-black text-[var(--color-text-primary)] tracking-tight">
+                  {user?.first_name} {user?.last_name}
+                </h1>
                 <Badge variant="success" size="md" dot pulse>Verified Scholar</Badge>
               </div>
               <p className="text-lg text-[var(--color-text-secondary)] font-bold flex items-center gap-2">
-                Computer Engineering <span className="w-1 h-1 rounded-full bg-[var(--color-border)]" /> <span className="text-[var(--color-text-primary)]">Pulchowk Campus</span>
+                {program} <span className="w-1 h-1 rounded-full bg-[var(--color-border)]" />{' '}
+                <span className="text-[var(--color-text-primary)]">{campus}</span>
               </p>
               <div className="flex flex-wrap gap-5 pt-2 text-[10px] text-[var(--color-text-secondary)] font-black uppercase tracking-widest">
-                <span className="flex items-center gap-2 bg-[var(--color-muted)] px-3 py-1.5 rounded-lg border border-[var(--color-border)]"><MapPin size={12} className="text-[var(--color-primary)]" /> Kathmandu, NP</span>
-                <span className="flex items-center gap-2 bg-[var(--color-muted)] px-3 py-1.5 rounded-lg border border-[var(--color-border)]"><Mail size={12} className="text-[var(--color-primary)]" /> {user?.email}</span>
-                <span className="flex items-center gap-2 bg-[var(--color-muted)] px-3 py-1.5 rounded-lg border border-[var(--color-border)]"><LinkIcon size={12} className="text-[var(--color-primary)]" /> leapfrog.connect/p/sagar</span>
+                <span className="flex items-center gap-2 bg-[var(--color-muted)] px-3 py-1.5 rounded-lg border border-[var(--color-border)]">
+                  <MapPin size={12} className="text-[var(--color-primary)]" /> {location}
+                </span>
+                <span className="flex items-center gap-2 bg-[var(--color-muted)] px-3 py-1.5 rounded-lg border border-[var(--color-border)]">
+                  <Mail size={12} className="text-[var(--color-primary)]" /> {user?.email}
+                </span>
+                <span className="flex items-center gap-2 bg-[var(--color-muted)] px-3 py-1.5 rounded-lg border border-[var(--color-border)]">
+                  <LinkIcon size={12} className="text-[var(--color-primary)]" /> {profileUrl}
+                </span>
               </div>
             </div>
 
@@ -96,10 +180,8 @@ export default function StudentProfile() {
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
         {/* Left Column: Stats & Badges */}
         <div className="lg:col-span-2 space-y-8">
-          
           {/* Badge Showcase */}
           <Card className="p-10">
             <div className="flex items-center justify-between mb-10">
@@ -139,7 +221,7 @@ export default function StudentProfile() {
                 </motion.div>
               ))}
             </div>
-            
+
             <Button variant="ghost" fullWidth className="mt-10 border border-dashed border-[var(--color-border)] py-6 rounded-2xl group">
               <span className="group-hover:scale-110 transition-transform">View All 12 Achievements</span>
             </Button>
@@ -152,18 +234,16 @@ export default function StudentProfile() {
                 <GraduationCap size={22} className="text-[var(--color-primary)]" /> Academic History
               </h3>
               <div className="space-y-8">
-                <div className="border-l-4 border-[var(--color-primary)]/20 pl-6 relative">
-                  <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-[var(--color-primary)] shadow-lg shadow-[var(--color-primary)]/20" />
-                  <p className="text-base font-black text-[var(--color-text-primary)]">BE in Computer Engineering</p>
-                  <p className="text-sm font-bold text-[var(--color-text-secondary)] mt-0.5">Pulchowk Campus, IOE</p>
-                  <p className="text-[10px] text-[var(--color-primary)] mt-3 font-black tracking-widest uppercase bg-[var(--color-primary)]/5 inline-block px-2 py-1 rounded">2020 - PRESENT</p>
-                </div>
-                <div className="border-l-4 border-[var(--color-border)] pl-6 relative opacity-60">
-                  <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-[var(--color-border)]" />
-                  <p className="text-base font-black text-[var(--color-text-primary)]">+2 Science</p>
-                  <p className="text-sm font-bold text-[var(--color-text-secondary)] mt-0.5">St. Xavier&apos;s College</p>
-                  <p className="text-[10px] text-[var(--color-text-secondary)] mt-3 font-black tracking-widest uppercase bg-[var(--color-muted)] inline-block px-2 py-1 rounded">2018 - 2020</p>
-                </div>
+                {education.map((edu, index) => (
+                  <div key={index} className={`border-l-4 ${edu.current ? 'border-[var(--color-primary)]' : 'border-[var(--color-border)]'} pl-6 relative ${!edu.current ? 'opacity-60' : ''}`}>
+                    <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full ${edu.current ? 'bg-[var(--color-primary)] shadow-lg shadow-[var(--color-primary)]/20' : 'bg-[var(--color-border)]'}`} />
+                    <p className="text-base font-black text-[var(--color-text-primary)]">{edu.degree}</p>
+                    <p className="text-sm font-bold text-[var(--color-text-secondary)] mt-0.5">{edu.institution}</p>
+                    <p className={`text-[10px] mt-3 font-black tracking-widest uppercase inline-block px-2 py-1 rounded ${edu.current ? 'text-[var(--color-primary)] bg-[var(--color-primary)]/5' : 'text-[var(--color-text-secondary)] bg-[var(--color-muted)]'}`}>
+                      {formatYearRange(edu)}
+                    </p>
+                  </div>
+                ))}
               </div>
             </Card>
 
@@ -172,14 +252,17 @@ export default function StudentProfile() {
                 <Star size={22} className="text-[var(--color-secondary)]" /> Skill Proficiency
               </h3>
               <div className="space-y-6">
-                <ProgressBar label="Frontend Engineering" value={92} color="var(--color-primary)" />
-                <ProgressBar label="Backend Architecture" value={85} color="#1E88E5" />
-                <ProgressBar label="Product Design" value={78} color="#F5A623" />
-                <ProgressBar label="Distributed Systems" value={65} color="#7C3AED" />
+                {skills.map((skill, idx) => (
+                  <ProgressBar
+                    key={idx}
+                    label={skill.name}
+                    value={skill.percentage}
+                    color={skill.color || 'var(--color-primary)'}
+                  />
+                ))}
               </div>
             </Card>
           </div>
-
         </div>
 
         {/* Right Column: Socials & Bio */}
@@ -187,20 +270,24 @@ export default function StudentProfile() {
           <Card className="p-8">
             <h3 className="font-black text-xl text-[var(--color-text-primary)] mb-6 tracking-tight">Biography</h3>
             <p className="text-sm text-[var(--color-text-secondary)] leading-loose font-medium">
-              Passionate full-stack developer with a focus on building scalable web applications. 
-              Currently exploring AI integration in modern SaaS platforms. I love solving complex 
-              problems and mentoring junior developers.
+              {bio}
             </p>
             <div className="flex gap-3 mt-8">
-              <a href="#" className="w-12 h-12 rounded-2xl bg-[var(--color-muted)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-text-secondary)] hover:bg-[var(--color-primary)] hover:text-white transition-all shadow-sm">
-                <Github size={20} />
-              </a>
-              <a href="#" className="w-12 h-12 rounded-2xl bg-[var(--color-muted)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-text-secondary)] hover:bg-[#0077b5] hover:text-white transition-all shadow-sm">
-                <Linkedin size={20} />
-              </a>
-              <a href="#" className="w-12 h-12 rounded-2xl bg-[var(--color-muted)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-text-secondary)] hover:bg-[#1da1f2] hover:text-white transition-all shadow-sm">
-                <Twitter size={20} />
-              </a>
+              {socialLinks.github && (
+                <a href={socialLinks.github} target="_blank" rel="noopener noreferrer" className="w-12 h-12 rounded-2xl bg-[var(--color-muted)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-text-secondary)] hover:bg-[var(--color-primary)] hover:text-white transition-all shadow-sm">
+                  <Github size={20} />
+                </a>
+              )}
+              {socialLinks.linkedin && (
+                <a href={socialLinks.linkedin} target="_blank" rel="noopener noreferrer" className="w-12 h-12 rounded-2xl bg-[var(--color-muted)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-text-secondary)] hover:bg-[#0077b5] hover:text-white transition-all shadow-sm">
+                  <Linkedin size={20} />
+                </a>
+              )}
+              {socialLinks.twitter && (
+                <a href={socialLinks.twitter} target="_blank" rel="noopener noreferrer" className="w-12 h-12 rounded-2xl bg-[var(--color-muted)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-text-secondary)] hover:bg-[#1da1f2] hover:text-white transition-all shadow-sm">
+                  <Twitter size={20} />
+                </a>
+              )}
             </div>
           </Card>
 
@@ -213,7 +300,7 @@ export default function StudentProfile() {
                 </div>
                 <div>
                   <p className="text-[10px] font-black text-[var(--color-text-secondary)] uppercase tracking-widest mb-0.5">Contact Line</p>
-                  <p className="text-sm font-bold text-[var(--color-text-primary)]">+977 9800000000</p>
+                  <p className="text-sm font-bold text-[var(--color-text-primary)]">{phone}</p>
                 </div>
               </div>
               <div className="flex items-center gap-4">
@@ -243,7 +330,6 @@ export default function StudentProfile() {
             </Button>
           </Card>
         </div>
-
       </div>
     </div>
   );
