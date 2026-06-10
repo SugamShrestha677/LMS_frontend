@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { Toaster } from 'sonner';
 import { useUIStore } from '@/lib/store/uiStore';
+import { RealtimeProvider } from '@/components/providers/RealtimeProvider';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const { theme } = useUIStore();
@@ -61,7 +62,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {children}
+      <RealtimeProvider>
+        {children}
+      </RealtimeProvider>
       <Toaster 
         position="top-right"
         richColors
