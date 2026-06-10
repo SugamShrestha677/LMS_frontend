@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useStudentProfile } from '@/lib/hooks/useStudentData';
 import { useAuthStore } from '@/lib/store/authStore';
 import { Card } from '@/components/ui/Card';
@@ -11,26 +12,25 @@ import { motion } from 'framer-motion';
 import {
   User, Mail, Phone, MapPin,
   Award, GraduationCap, Link as LinkIcon,
-  Share2, Edit, Camera, Github, Linkedin, Twitter, Star
+  Share2, Edit, Camera, Github, Linkedin, Twitter, Star, Lock
 } from 'lucide-react';
 import { getInitials } from '@/lib/utils';
+import axios from '@/lib/axios'; // adjust import to your axios instance
+import { toast } from 'sonner';
 
-// Extended profile type matching backend response
+// Extended profile type
 interface StudentProfileData {
-  // Personal
   program?: string;
   campus?: string;
   location?: string;
   bio?: string;
   phone?: string;
   profileSlug?: string;
-  // Social links
   socialLinks?: {
     github?: string;
     linkedin?: string;
     twitter?: string;
   };
-  // Education
   education?: Array<{
     degree: string;
     institution: string;
@@ -38,13 +38,11 @@ interface StudentProfileData {
     endYear?: number;
     current?: boolean;
   }>;
-  // Skills (each with label and percentage)
   skills?: Array<{
     name: string;
     percentage: number;
     color?: string;
   }>;
-  // Badges (optional – not yet implemented on backend)
   badges?: Array<{
     id: number;
     name: string;
@@ -54,21 +52,66 @@ interface StudentProfileData {
   }>;
 }
 
-// Fallback dummy badges (backend doesn't store these yet)
-const fallbackBadges = [
-  { id: 1, name: 'React Expert', date: '2024-03-12', icon: 'React', rarity: 'Gold' },
-  { id: 2, name: 'Django Master', date: '2024-02-28', icon: 'Python', rarity: 'Gold' },
-  { id: 3, name: 'TypeScript Pro', date: '2024-03-25', icon: 'TS', rarity: 'Silver' },
-  { id: 4, name: 'UI Patterns', date: '2024-04-10', icon: 'Figma', rarity: 'Silver' },
-  { id: 5, name: 'Git Master', date: '2024-01-15', icon: 'Git', rarity: 'Bronze' },
-  { id: 6, name: 'Agile Team', date: '2024-04-20', icon: 'Agile', rarity: 'Bronze' },
-];
-
 export default function StudentProfile() {
   const { user } = useAuthStore();
-  const { data: profile, isLoading } = useStudentProfile() as {
+  const { data: profile, isLoading, refetch } = useStudentProfile() as {
     data: StudentProfileData | undefined;
     isLoading: boolean;
+    refetch: () => void;
+  };
+
+  // State for change password modal
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Helper to safely extract arrays
+  const education = Array.isArray(profile?.education) ? profile!.education : [];
+  const skills = Array.isArray(profile?.skills) ? profile!.skills : [];
+  const badges = Array.isArray(profile?.badges) ? profile!.badges : [];
+
+  // Extract simple fields with fallbacks (show empty if not provided)
+  const program = profile?.program || 'Not specified';
+  const campus = profile?.campus || 'Not specified';
+  const location = profile?.location || 'Not specified';
+  const bio = profile?.bio || 'No bio added yet.';
+  const phone = profile?.phone || 'Not provided';
+  const profileSlug = profile?.profileSlug || user?.email?.split('@')[0] || 'student';
+  const socialLinks = profile?.socialLinks || {};
+
+  // Profile URL for display
+  const profileUrl = `leapfrog.connect/p/${profileSlug}`;
+
+  // Handle password change
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      toast.error('New passwords do not match');
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await axios.post('/api/accounts/change-password/', {
+        old_password: oldPassword,
+        new_password: newPassword,
+      });
+      toast.success('Password changed successfully');
+      setShowPasswordModal(false);
+      setOldPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'Failed to change password';
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (isLoading) {
@@ -78,47 +121,6 @@ export default function StudentProfile() {
       </div>
     );
   }
-
-  // Destructure profile fields with fallbacks
-  const {
-    program = 'Computer Engineering',
-    campus = 'Pulchowk Campus',
-    location = 'Kathmandu, NP',
-    bio = 'Passionate full-stack developer with a focus on building scalable web applications. Currently exploring AI integration in modern SaaS platforms. I love solving complex problems and mentoring junior developers.',
-    phone = '+977 9800000000',
-    profileSlug = user?.email?.split('@')[0] || 'student',
-    socialLinks = {},
-    education = [
-      {
-        degree: 'BE in Computer Engineering',
-        institution: 'Pulchowk Campus, IOE',
-        startYear: 2020,
-        current: true,
-      },
-      {
-        degree: '+2 Science',
-        institution: "St. Xavier's College",
-        startYear: 2018,
-        endYear: 2020,
-      },
-    ],
-    skills = [
-      { name: 'Frontend Engineering', percentage: 92, color: 'var(--color-primary)' },
-      { name: 'Backend Architecture', percentage: 85, color: '#1E88E5' },
-      { name: 'Product Design', percentage: 78, color: '#F5A623' },
-      { name: 'Distributed Systems', percentage: 65, color: '#7C3AED' },
-    ],
-    badges = fallbackBadges,
-  } = profile ?? {};
-
-  // Helper to format education year range
-  const formatYearRange = (edu: typeof education[0]) => {
-    if (edu.current) return `${edu.startYear} - PRESENT`;
-    return `${edu.startYear} - ${edu.endYear}`;
-  };
-
-  // Profile URL for the "leapfrog.connect/p/..." placeholder
-  const profileUrl = `leapfrog.connect/p/${profileSlug}`;
 
   return (
     <div className="space-y-8 pb-12">
@@ -197,33 +199,39 @@ export default function StudentProfile() {
               <Badge variant="primary" size="md">Top 5% Student</Badge>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-8">
-              {badges.map((badge, idx) => (
-                <motion.div
-                  key={badge.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: idx * 0.05, type: 'spring' }}
-                  whileHover={{ y: -8 }}
-                  className="flex flex-col items-center text-center p-6 rounded-[var(--radius-lg)] border border-[var(--color-border)] hover:bg-[var(--color-muted)] transition-all group relative overflow-hidden"
-                >
-                  <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 relative shadow-lg group-hover:rotate-12 transition-all duration-500 ${
-                    badge.rarity === 'Gold' ? 'bg-amber-500/10 text-amber-500 border-2 border-amber-500/20' :
-                    badge.rarity === 'Silver' ? 'bg-slate-500/10 text-slate-500 border-2 border-slate-500/20' :
-                    'bg-orange-500/10 text-orange-500 border-2 border-orange-500/20'
-                  }`}>
-                    <Award size={40} className="fill-current opacity-20" />
-                    <Star size={24} className="absolute inset-0 m-auto fill-current" />
-                  </div>
-                  <p className="text-base font-black text-[var(--color-text-primary)] mb-1">{badge.name}</p>
-                  <p className="text-[10px] text-[var(--color-text-secondary)] font-black uppercase tracking-widest">{badge.rarity} Recognition</p>
-                </motion.div>
-              ))}
-            </div>
+            {badges.length === 0 ? (
+              <div className="text-center py-12 text-[var(--color-text-secondary)]">
+                No badges earned yet. Complete courses to earn badges.
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-8">
+                {badges.map((badge, idx) => (
+                  <motion.div
+                    key={badge.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: idx * 0.05, type: 'spring' }}
+                    whileHover={{ y: -8 }}
+                    className="flex flex-col items-center text-center p-6 rounded-[var(--radius-lg)] border border-[var(--color-border)] hover:bg-[var(--color-muted)] transition-all group relative overflow-hidden"
+                  >
+                    <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 relative shadow-lg group-hover:rotate-12 transition-all duration-500 ${
+                      badge.rarity === 'Gold' ? 'bg-amber-500/10 text-amber-500 border-2 border-amber-500/20' :
+                      badge.rarity === 'Silver' ? 'bg-slate-500/10 text-slate-500 border-2 border-slate-500/20' :
+                      'bg-orange-500/10 text-orange-500 border-2 border-orange-500/20'
+                    }`}>
+                      <Award size={40} className="fill-current opacity-20" />
+                      <Star size={24} className="absolute inset-0 m-auto fill-current" />
+                    </div>
+                    <p className="text-base font-black text-[var(--color-text-primary)] mb-1">{badge.name}</p>
+                    <p className="text-[10px] text-[var(--color-text-secondary)] font-black uppercase tracking-widest">{badge.rarity} Recognition</p>
+                  </motion.div>
+                ))}
+              </div>
+            )}
 
             <Button variant="ghost" fullWidth className="mt-10 border border-dashed border-[var(--color-border)] py-6 rounded-2xl group">
-              <span className="group-hover:scale-110 transition-transform">View All 12 Achievements</span>
+              <span className="group-hover:scale-110 transition-transform">View All Achievements</span>
             </Button>
           </Card>
 
@@ -233,39 +241,51 @@ export default function StudentProfile() {
               <h3 className="font-black text-xl text-[var(--color-text-primary)] mb-8 flex items-center gap-3 tracking-tight">
                 <GraduationCap size={22} className="text-[var(--color-primary)]" /> Academic History
               </h3>
-              <div className="space-y-8">
-                {education.map((edu, index) => (
-                  <div key={index} className={`border-l-4 ${edu.current ? 'border-[var(--color-primary)]' : 'border-[var(--color-border)]'} pl-6 relative ${!edu.current ? 'opacity-60' : ''}`}>
-                    <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full ${edu.current ? 'bg-[var(--color-primary)] shadow-lg shadow-[var(--color-primary)]/20' : 'bg-[var(--color-border)]'}`} />
-                    <p className="text-base font-black text-[var(--color-text-primary)]">{edu.degree}</p>
-                    <p className="text-sm font-bold text-[var(--color-text-secondary)] mt-0.5">{edu.institution}</p>
-                    <p className={`text-[10px] mt-3 font-black tracking-widest uppercase inline-block px-2 py-1 rounded ${edu.current ? 'text-[var(--color-primary)] bg-[var(--color-primary)]/5' : 'text-[var(--color-text-secondary)] bg-[var(--color-muted)]'}`}>
-                      {formatYearRange(edu)}
-                    </p>
-                  </div>
-                ))}
-              </div>
+              {education.length === 0 ? (
+                <div className="text-center py-8 text-[var(--color-text-secondary)]">
+                  No education history added.
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  {education.map((edu, index) => (
+                    <div key={index} className={`border-l-4 ${edu.current ? 'border-[var(--color-primary)]' : 'border-[var(--color-border)]'} pl-6 relative ${!edu.current ? 'opacity-60' : ''}`}>
+                      <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full ${edu.current ? 'bg-[var(--color-primary)] shadow-lg shadow-[var(--color-primary)]/20' : 'bg-[var(--color-border)]'}`} />
+                      <p className="text-base font-black text-[var(--color-text-primary)]">{edu.degree}</p>
+                      <p className="text-sm font-bold text-[var(--color-text-secondary)] mt-0.5">{edu.institution}</p>
+                      <p className={`text-[10px] mt-3 font-black tracking-widest uppercase inline-block px-2 py-1 rounded ${edu.current ? 'text-[var(--color-primary)] bg-[var(--color-primary)]/5' : 'text-[var(--color-text-secondary)] bg-[var(--color-muted)]'}`}>
+                        {edu.current ? `${edu.startYear} - PRESENT` : `${edu.startYear} - ${edu.endYear}`}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </Card>
 
             <Card className="p-8">
               <h3 className="font-black text-xl text-[var(--color-text-primary)] mb-8 flex items-center gap-3 tracking-tight">
                 <Star size={22} className="text-[var(--color-secondary)]" /> Skill Proficiency
               </h3>
-              <div className="space-y-6">
-                {skills.map((skill, idx) => (
-                  <ProgressBar
-                    key={idx}
-                    label={skill.name}
-                    value={skill.percentage}
-                    color={skill.color || 'var(--color-primary)'}
-                  />
-                ))}
-              </div>
+              {skills.length === 0 ? (
+                <div className="text-center py-8 text-[var(--color-text-secondary)]">
+                  No skills added yet.
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {skills.map((skill, idx) => (
+                    <ProgressBar
+                      key={idx}
+                      label={skill.name}
+                      value={skill.percentage}
+                      color={skill.color || 'var(--color-primary)'}
+                    />
+                  ))}
+                </div>
+              )}
             </Card>
           </div>
         </div>
 
-        {/* Right Column: Socials & Bio */}
+        {/* Right Column: Socials, Bio & Change Password */}
         <div className="space-y-8">
           <Card className="p-8">
             <h3 className="font-black text-xl text-[var(--color-text-primary)] mb-6 tracking-tight">Biography</h3>
@@ -289,6 +309,22 @@ export default function StudentProfile() {
                 </a>
               )}
             </div>
+          </Card>
+
+          {/* Change Password Card */}
+          <Card className="p-8">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-black text-xl text-[var(--color-text-primary)] tracking-tight">Security</h3>
+              <Lock size={20} className="text-[var(--color-primary)]" />
+            </div>
+            <Button
+              variant="outline"
+              fullWidth
+              onClick={() => setShowPasswordModal(true)}
+              className="border-dashed border-2 py-6 rounded-2xl"
+            >
+              Change Password
+            </Button>
           </Card>
 
           <Card className="p-8 bg-[var(--color-muted)] border-dashed border-2 border-[var(--color-border)]">
@@ -331,6 +367,66 @@ export default function StudentProfile() {
           </Card>
         </div>
       </div>
+
+      {/* Change Password Modal */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-[var(--color-bg-card)] rounded-2xl p-8 max-w-md w-full shadow-2xl border border-[var(--color-border)]">
+            <h2 className="text-2xl font-black mb-6 text-[var(--color-text-primary)]">Change Password</h2>
+            <form onSubmit={handleChangePassword} className="space-y-5">
+              <div>
+                <label className="block text-sm font-bold mb-2 text-[var(--color-text-secondary)]">Current Password</label>
+                <input
+                  type="password"
+                  value={oldPassword}
+                  onChange={(e) => setOldPassword(e.target.value)}
+                  className="w-full p-3 rounded-xl bg-[var(--color-muted)] border border-[var(--color-border)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-2 text-[var(--color-text-secondary)]">New Password</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full p-3 rounded-xl bg-[var(--color-muted)] border border-[var(--color-border)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  required
+                  minLength={6}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-2 text-[var(--color-text-secondary)]">Confirm New Password</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full p-3 rounded-xl bg-[var(--color-muted)] border border-[var(--color-border)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  required
+                />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  fullWidth
+                  onClick={() => setShowPasswordModal(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  fullWidth
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Updating...' : 'Update Password'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
