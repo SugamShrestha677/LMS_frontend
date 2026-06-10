@@ -2,26 +2,10 @@ import type {
   EnrollmentProgressEnvelope,
   EnrollmentProgressMessage,
 } from './types';
-import { resolveApiBaseUrl } from '@/lib/config/runtime-urls';
-
-const DEFAULT_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || resolveApiBaseUrl();
+import { resolveWebSocketBaseUrl } from '@/lib/config/runtime-urls';
 
 export function resolveWebSocketOrigin(baseUrl?: string): string {
-  const candidate = (baseUrl || DEFAULT_BASE_URL).trim();
-
-  if (candidate) {
-    const parsed = new URL(
-      candidate,
-      typeof window !== 'undefined' ? window.location.origin : 'http://127.0.0.1:8000',
-    );
-    return parsed.origin;
-  }
-
-  if (typeof window !== 'undefined') {
-    return window.location.origin;
-  }
-
-  return 'http://127.0.0.1:8000';
+  return baseUrl || resolveWebSocketBaseUrl();
 }
 
 export function buildEnrollmentProgressSocketUrl(
