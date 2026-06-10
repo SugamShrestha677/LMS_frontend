@@ -1,12 +1,12 @@
 'use client';
 
 import {
-  buildEnrollmentProgressSocketUrl,
-  normalizeEnrollmentProgressEvent,
-} from './enrollmentProgress';
-import { resolveApiBaseUrl } from '@/lib/config/runtime-urls';
+  buildNotificationSocketUrl,
+  normalizeNotificationEvent,
+} from './notifications';
+import { resolveWebSocketBaseUrl } from '@/lib/config/runtime-urls';
 import type {
-  CreateCourseProgressClientOptions,
+  CreateNotificationClientOptions,
   RealtimeConnectionState,
 } from './types';
 
@@ -34,14 +34,11 @@ function getWebSocketText(data: unknown): Promise<string | null> {
   return Promise.resolve(null);
 }
 
-export function createCourseProgressClient(
-  options: CreateCourseProgressClientOptions,
-) {
+export function createNotificationClient(options: CreateNotificationClientOptions) {
   let socket: WebSocket | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let reconnectAttempt = 0;
   let shouldReconnect = true;
-  let lastFingerprint: string | null = null;
   let hasOpenedOnce = false;
 
   const policy = {
@@ -49,7 +46,7 @@ export function createCourseProgressClient(
     initialDelayMs: options.reconnect?.initialDelayMs ?? 500,
     maxDelayMs: options.reconnect?.maxDelayMs ?? 30000,
     backoffFactor: options.reconnect?.backoffFactor ?? 1.8,
-    maxAttempts: options.reconnect?.maxAttempts ?? 8,
+    maxAttempts: options.reconnect?.maxAttempts ?? 12,
   };
 
   const emitState = (state: RealtimeConnectionState) => {
@@ -71,7 +68,7 @@ export function createCourseProgressClient(
 
     if (reconnectAttempt >= policy.maxAttempts) {
       emitState('error');
-      options.onError?.(new Error('WebSocket reconnect attempts exhausted'));
+      options.onError?.(new Error('Notification WebSocket reconnect attempts exhausted'));
       return;
     }
 
@@ -89,41 +86,20 @@ export function createCourseProgressClient(
 
   const handleMessage = async (data: unknown) => {
     const text = await getWebSocketText(data);
-
     if (!text) {
       return;
     }
 
     try {
       const parsed = JSON.parse(text) as Record<string, unknown>;
-
-      if (
-        typeof parsed.progress !== 'number' ||
-        typeof parsed.status !== 'string'
-      ) {
+      const event = normalizeNotificationEvent(parsed);
+      if (!event) {
         return;
       }
-
-      const event = normalizeEnrollmentProgressEvent(options.enrollmentId, {
-        progress: parsed.progress,
-        status: parsed.status,
-        score:
-          parsed.score === null || parsed.score === undefined
-            ? null
-            : typeof parsed.score === 'number'
-              ? parsed.score
-              : null,
-      });
-
-      if (event.fingerprint === lastFingerprint) {
-        return;
-      }
-
-      lastFingerprint = event.fingerprint;
       options.onEvent?.(event);
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Failed to parse websocket payload';
+        error instanceof Error ? error.message : 'Failed to parse notification payload';
       options.onError?.(new Error(message));
     }
   };
@@ -133,10 +109,13 @@ export function createCourseProgressClient(
       throw new Error('WebSocket is not available in this environment');
     }
 
-    const url = buildEnrollmentProgressSocketUrl(
-      options.enrollmentId,
-      options.baseUrl || resolveApiBaseUrl(),
+    if (!options.accessToken) {
+      throw new Error('Access token is required for notification WebSocket');
+    }
+
+    const url = buildNotificationSocketUrl(
       options.accessToken,
+      options.baseUrl || resolveWebSocketBaseUrl(),
     );
 
     clearReconnectTimer();
@@ -153,7 +132,7 @@ export function createCourseProgressClient(
     });
     socket.addEventListener('error', () => {
       emitState('error');
-      options.onError?.(new Error('WebSocket error'));
+      options.onError?.(new Error('Notification WebSocket error'));
     });
     socket.addEventListener('close', (event) => {
       socket = null;
@@ -161,7 +140,9 @@ export function createCourseProgressClient(
       if (!hasOpenedOnce) {
         shouldReconnect = false;
         emitState('error');
-        options.onError?.(new Error('WebSocket closed before the connection was established'));
+        options.onError?.(
+          new Error('Notification WebSocket closed before the connection was established'),
+        );
         return;
       }
 
@@ -169,7 +150,7 @@ export function createCourseProgressClient(
         shouldReconnect = false;
         emitState('error');
         options.onError?.(
-          new Error(`WebSocket closed with code ${event.code}; authentication is required.`),
+          new Error(`Notification WebSocket closed with code ${event.code}`),
         );
         return;
       }
@@ -187,20 +168,21 @@ export function createCourseProgressClient(
       socket = null;
     }
 
+    hasOpenedOnce = false;
     emitState('closed');
   }
 
-  function getSnapshot() {
-    return {
-      socket,
-      reconnectAttempt,
-      lastFingerprint,
-    };
+  function updateToken(accessToken: string) {
+    options.accessToken = accessToken;
+    close();
+    shouldReconnect = true;
+    reconnectAttempt = 0;
+    void connect();
   }
 
   return {
     connect,
     close,
-    getSnapshot,
+    updateToken,
   };
 }

@@ -6,6 +6,7 @@ import {
   createCourseProgressClient,
   useCourseProgressStore,
 } from '@/lib/realtime';
+import { useAuthStore } from '@/lib/store/auth-store';
 
 type UseEnrollmentProgressResult = {
   progress: number | null;
@@ -16,6 +17,7 @@ type UseEnrollmentProgressResult = {
 };
 
 export function useEnrollmentProgress(enrollmentId: string, enabled = true): UseEnrollmentProgressResult {
+  const accessToken = useAuthStore((state) => state.accessToken);
   const progress = useCourseProgressStore((state) => state.progress);
   const status = useCourseProgressStore((state) => state.status);
   const score = useCourseProgressStore((state) => state.score);
@@ -41,8 +43,11 @@ export function useEnrollmentProgress(enrollmentId: string, enabled = true): Use
   const previousConnectionRef = useRef<typeof connectionState>('idle');
 
   const channelUrl = useMemo(
-    () => (enrollmentId ? buildEnrollmentProgressSocketUrl(enrollmentId) : ''),
-    [enrollmentId],
+    () =>
+      enrollmentId
+        ? buildEnrollmentProgressSocketUrl(enrollmentId, undefined, accessToken)
+        : '',
+    [enrollmentId, accessToken],
   );
 
   useEffect(() => {
@@ -57,6 +62,7 @@ export function useEnrollmentProgress(enrollmentId: string, enabled = true): Use
 
     const client = createCourseProgressClient({
       enrollmentId,
+      accessToken,
       onStateChange: (state) => {
         setConnectionState(state);
 
@@ -120,6 +126,7 @@ export function useEnrollmentProgress(enrollmentId: string, enabled = true): Use
   }, [
     enabled,
     enrollmentId,
+    accessToken,
     setEnrollmentId,
     setConnectionState,
     setError,

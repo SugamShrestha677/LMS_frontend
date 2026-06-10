@@ -27,13 +27,20 @@ export function resolveWebSocketOrigin(baseUrl?: string): string {
 export function buildEnrollmentProgressSocketUrl(
   enrollmentId: string | number,
   baseUrl?: string,
+  accessToken?: string | null,
 ): string {
   const origin = resolveWebSocketOrigin(baseUrl);
   const websocketOrigin = origin.replace(/^http/i, 'ws');
-
-  return `${websocketOrigin}/ws/enrollment/${encodeURIComponent(
+  const path = `${websocketOrigin}/ws/enrollment/${encodeURIComponent(
     String(enrollmentId),
   )}/progress/`;
+
+  if (accessToken) {
+    const params = new URLSearchParams({ token: accessToken });
+    return `${path}?${params.toString()}`;
+  }
+
+  return path;
 }
 
 export function clampProgress(progress: number): number {

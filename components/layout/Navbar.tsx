@@ -6,7 +6,6 @@ import { motion, AnimatePresence, useScroll, useSpring } from "framer-motion";
 import { useEffect, useState } from "react";
 import {
   Menu,
-  Bell,
   ChevronDown,
   GraduationCap,
   LogOut,
@@ -22,6 +21,7 @@ import { getInitials, getDashboardPath } from "@/lib/utils";
 import { ThemeToggle } from "../shared/ThemeToggle";
 import { getDashboardRoute } from "@/lib/utils/role-routes";
 import { cn } from "@/lib/utils";
+import { NotificationBell } from "@/components/notifications/NotificationDropdown";
 
 const publicLinks = [
   { href: "/", label: "Home" },
@@ -75,15 +75,6 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  type Notification = {
-    id?: string;
-    title: string;
-    message: string;
-  };
-
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [notifOpen, setNotifOpen] = useState(false);
   const pathname = usePathname();
 
   // Scroll progress bar
@@ -98,31 +89,6 @@ export function Navbar() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-  const token = useAuthStore((state) => state.token);
-
-  useEffect(() => {
-  if (!token) return;
-
-  let ws: WebSocket | null = null;
-
-  ws = new WebSocket(
-    `wss://lms-backend-eff3.onrender.com/ws/notifications/?token=${token}`,
-  );
-
-  ws.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-
-    setNotifications((prev) => [data, ...prev]);
-    setUnreadCount((prev) => prev + 1);
-  };
-
-  ws.onerror = (err) => console.error("WS ERROR:", err);
-
-  return () => {
-    ws?.close();
-  };
-}, [token]);
-
   const dashboardPrefixes = [
     "/student",
     "/company",
@@ -252,71 +218,7 @@ export function Navbar() {
               <div className="w-10 h-10 rounded-xl bg-[var(--color-muted)] animate-pulse" />
             ) : isAuthenticated && user ? (
               <>
-                {/* Bell */}
-                <button
-                  onClick={() => {
-                    setNotifOpen((v) => !v);
-                    setUnreadCount(0); // optional mark-as-read on open
-                  }}
-                  className="relative w-10 h-10 rounded-xl flex items-center justify-center
-                      text-[var(--color-text-secondary)]
-                      hover:bg-[var(--color-muted)]
-                      hover:text-[var(--color-text-primary)]
-                      transition-all border border-[var(--color-border)]"
-                >
-                  <Bell size={18} />
-
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center animate-pulse">
-                      {unreadCount > 9 ? "9+" : unreadCount}
-                    </span>
-                  )}
-                </button>
-
-                <AnimatePresence>
-                  {notifOpen && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-10"
-                        onClick={() => setNotifOpen(false)}
-                      />
-
-                      <motion.div
-                        initial={{ opacity: 0, y: 10, scale: 0.96 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 10, scale: 0.96 }}
-                        className="absolute right-0 top-full mt-3 w-80 bg-[var(--color-bg-card)]
-        rounded-2xl shadow-2xl border border-[var(--color-border)]
-        z-20 overflow-hidden"
-                      >
-                        <div className="px-4 py-3 border-b border-[var(--color-border)]">
-                          <p className="text-sm font-black">Notifications</p>
-                        </div>
-
-                        <div className="max-h-80 overflow-y-auto">
-                          {notifications.length === 0 ? (
-                            <p className="p-4 text-sm text-[var(--color-text-secondary)] animate-pulse">
-                              No notifications yet
-                            </p>
-                          ) : (
-                            notifications.map((n, i) => (
-                              <div
-                                key={n.id ?? n.title + i}
-                                className="px-4 py-3 border-b border-[var(--color-border)]
-                hover:bg-[var(--color-muted)] transition"
-                              >
-                                <p className="text-sm font-bold">{n.title}</p>
-                                <p className="text-xs text-[var(--color-text-secondary)]">
-                                  {n.message}
-                                </p>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </motion.div>
-                    </>
-                  )}
-                </AnimatePresence>
+                <NotificationBell />
 
                 {/* Profile */}
                 <div className="relative">
