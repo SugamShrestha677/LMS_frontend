@@ -15,7 +15,7 @@ import {
   Share2, Edit, Camera, Github, Linkedin, Twitter, Star, Lock
 } from 'lucide-react';
 import { getInitials } from '@/lib/utils';
-import axios from '@/lib/axios'; // adjust import to your axios instance
+import axios from '@/lib/api/axios'; // adjust import to your axios instance
 import { toast } from 'sonner';
 
 // Extended profile type
