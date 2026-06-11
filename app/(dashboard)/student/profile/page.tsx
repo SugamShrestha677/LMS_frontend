@@ -6,19 +6,20 @@ import { useAuthStore } from '@/lib/store/authStore';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { ProgressBar } from '@/components/ui/Badge';
+import { ProgressBar } from '@/components/ui/Badge'; // adjust if path is different
 import { Skeleton } from '@/components/ui/Skeleton';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import {
-  User, Mail, Phone, MapPin,
   Award, GraduationCap, Link as LinkIcon,
-  Share2, Edit, Camera, Github, Linkedin, Twitter, Star, Lock
+  Share2, Edit, Camera, Github, Linkedin, Twitter, Star, Lock, X,
+  Mail, MapPin, Phone 
 } from 'lucide-react';
 import { getInitials } from '@/lib/utils';
-import axios from '@/lib/api/axios'; // adjust import to your axios instance
+import axios from '@/lib/api/axios';
 import { toast } from 'sonner';
 
-// Extended profile type
+// Extended profile type (matching backend)
 interface StudentProfileData {
   program?: string;
   campus?: string;
@@ -26,6 +27,7 @@ interface StudentProfileData {
   bio?: string;
   phone?: string;
   profileSlug?: string;
+  avatar?: string;
   socialLinks?: {
     github?: string;
     linkedin?: string;
@@ -46,8 +48,6 @@ interface StudentProfileData {
   badges?: Array<{
     id: number;
     name: string;
-    date: string;
-    icon: string;
     rarity: 'Gold' | 'Silver' | 'Bronze';
   }>;
 }
@@ -60,31 +60,83 @@ export default function StudentProfile() {
     refetch: () => void;
   };
 
-  // State for change password modal
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  // Modal states
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Edit profile form state
+  const [formData, setFormData] = useState<Partial<StudentProfileData>>({});
+
+  // Password change state
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Helper to safely extract arrays
-  const education = Array.isArray(profile?.education) ? profile!.education : [];
-  const skills = Array.isArray(profile?.skills) ? profile!.skills : [];
-  const badges = Array.isArray(profile?.badges) ? profile!.badges : [];
+  // Initialize form when opening modal
+  const openEditModal = () => {
+    setFormData({
+      program: profile?.program || '',
+      campus: profile?.campus || '',
+      location: profile?.location || '',
+      bio: profile?.bio || '',
+      phone: profile?.phone || '',
+      profileSlug: profile?.profileSlug || '',
+      socialLinks: profile?.socialLinks || {},
+      education: profile?.education || [],
+      skills: profile?.skills || [],
+    });
+    setEditModalOpen(true);
+  };
 
-  // Extract simple fields with fallbacks (show empty if not provided)
-  const program = profile?.program || 'Not specified';
-  const campus = profile?.campus || 'Not specified';
-  const location = profile?.location || 'Not specified';
-  const bio = profile?.bio || 'No bio added yet.';
-  const phone = profile?.phone || 'Not provided';
-  const profileSlug = profile?.profileSlug || user?.email?.split('@')[0] || 'student';
-  const socialLinks = profile?.socialLinks || {};
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
 
-  // Profile URL for display
-  const profileUrl = `leapfrog.connect/p/${profileSlug}`;
+  const handleSocialChange = (platform: 'github' | 'linkedin' | 'twitter', value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      socialLinks: { ...prev.socialLinks, [platform]: value }
+    }));
+  };
 
-  // Handle password change
+  const saveProfile = async () => {
+    setIsSaving(true);
+    try {
+      await axios.patch('/api/student/profile/', formData);
+      toast.success('Profile updated successfully');
+      refetch();
+      setEditModalOpen(false);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Update failed');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Avatar upload
+  const uploadAvatar = async (file: File) => {
+    const fd = new FormData();
+    fd.append('avatar', file);
+    try {
+      await axios.post('/api/student/profile/avatar/', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      toast.success('Avatar updated');
+      refetch();
+    } catch (error) {
+      toast.error('Avatar upload failed');
+    }
+  };
+
+  const onAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      uploadAvatar(e.target.files[0]);
+    }
+  };
+
+  // Password change
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
@@ -95,24 +147,28 @@ export default function StudentProfile() {
       toast.error('Password must be at least 6 characters');
       return;
     }
-    setIsSubmitting(true);
+    setIsSaving(true);
     try {
       await axios.post('/api/accounts/change-password/', {
         old_password: oldPassword,
         new_password: newPassword,
       });
       toast.success('Password changed successfully');
-      setShowPasswordModal(false);
+      setPasswordModalOpen(false);
       setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (error: any) {
-      const message = error.response?.data?.message || 'Failed to change password';
-      toast.error(message);
+      toast.error(error.response?.data?.message || 'Failed to change password');
     } finally {
-      setIsSubmitting(false);
+      setIsSaving(false);
     }
   };
+
+  // Safe array fallbacks
+  const education = Array.isArray(profile?.education) ? profile!.education : [];
+  const skills = Array.isArray(profile?.skills) ? profile!.skills : [];
+  const badges = Array.isArray(profile?.badges) ? profile!.badges : [];
 
   if (isLoading) {
     return (
@@ -122,27 +178,49 @@ export default function StudentProfile() {
     );
   }
 
+  const profileSlug = profile?.profileSlug || user?.email?.split('@')[0] || 'student';
+  const profileUrl = `leapfrog.connect/p/${profileSlug}`;
+
   return (
     <div className="space-y-8 pb-12">
       {/* Profile Header Card */}
       <Card className="p-0 overflow-hidden border-[var(--color-border)] shadow-[var(--shadow-lg)]">
         <div className="h-40 bg-[var(--color-primary)] relative">
           <div className="absolute inset-0 bg-gradient-to-br from-black/20 to-transparent" />
-          <button className="absolute top-6 right-6 p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-all backdrop-blur-md border border-white/10">
+          <button
+            onClick={openEditModal}
+            className="absolute top-6 right-6 p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-all backdrop-blur-md border border-white/10"
+          >
             <Edit size={18} />
           </button>
         </div>
         <div className="px-10 pb-10">
           <div className="relative flex flex-col md:flex-row md:items-end gap-8 -mt-16">
+            {/* Avatar */}
             <div className="relative group">
-              <div className="w-40 h-40 rounded-[2.5rem] bg-[var(--color-bg-card)] p-2 shadow-2xl">
-                <div className="w-full h-full rounded-[2.25rem] bg-[var(--color-muted)] flex items-center justify-center text-[var(--color-primary)] font-black text-5xl border border-[var(--color-border)]">
-                  {getInitials(`${user?.first_name} ${user?.last_name}`)}
-                </div>
+              <div className="w-40 h-40 rounded-[2.5rem] bg-[var(--color-bg-card)] p-2 shadow-2xl relative overflow-hidden">
+                {profile?.avatar ? (
+                  <Image
+                    src={profile.avatar}
+                    alt="Avatar"
+                    fill
+                    className="rounded-[2.25rem] object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full rounded-[2.25rem] bg-[var(--color-muted)] flex items-center justify-center text-[var(--color-primary)] font-black text-5xl border border-[var(--color-border)]">
+                    {getInitials(`${user?.first_name} ${user?.last_name}`)}
+                  </div>
+                )}
               </div>
-              <button className="absolute bottom-3 right-3 w-10 h-10 rounded-2xl bg-[var(--color-primary)] text-white flex items-center justify-center border-4 border-[var(--color-bg-card)] shadow-lg hover:scale-110 transition-transform">
+              <label className="absolute bottom-3 right-3 w-10 h-10 rounded-2xl bg-[var(--color-primary)] text-white flex items-center justify-center border-4 border-[var(--color-bg-card)] shadow-lg hover:scale-110 transition-transform cursor-pointer">
                 <Camera size={18} />
-              </button>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={onAvatarSelect}
+                />
+              </label>
             </div>
 
             <div className="flex-1 space-y-2 mb-2">
@@ -153,18 +231,19 @@ export default function StudentProfile() {
                 <Badge variant="success" size="md" dot pulse>Verified Scholar</Badge>
               </div>
               <p className="text-lg text-[var(--color-text-secondary)] font-bold flex items-center gap-2">
-                {program} <span className="w-1 h-1 rounded-full bg-[var(--color-border)]" />{' '}
-                <span className="text-[var(--color-text-primary)]">{campus}</span>
+                {profile?.program || 'Not specified'} 
+                <span className="w-1 h-1 rounded-full bg-[var(--color-border)]" />
+                <span className="text-[var(--color-text-primary)]">{profile?.campus || 'Not specified'}</span>
               </p>
               <div className="flex flex-wrap gap-5 pt-2 text-[10px] text-[var(--color-text-secondary)] font-black uppercase tracking-widest">
                 <span className="flex items-center gap-2 bg-[var(--color-muted)] px-3 py-1.5 rounded-lg border border-[var(--color-border)]">
-                  <MapPin size={12} className="text-[var(--color-primary)]" /> {location}
+                  <LinkIcon size={12} className="text-[var(--color-primary)]" /> {profileUrl}
                 </span>
                 <span className="flex items-center gap-2 bg-[var(--color-muted)] px-3 py-1.5 rounded-lg border border-[var(--color-border)]">
                   <Mail size={12} className="text-[var(--color-primary)]" /> {user?.email}
                 </span>
                 <span className="flex items-center gap-2 bg-[var(--color-muted)] px-3 py-1.5 rounded-lg border border-[var(--color-border)]">
-                  <LinkIcon size={12} className="text-[var(--color-primary)]" /> {profileUrl}
+                  <MapPin size={12} className="text-[var(--color-primary)]" /> {profile?.location || 'Not specified'}
                 </span>
               </div>
             </div>
@@ -182,9 +261,9 @@ export default function StudentProfile() {
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column: Stats & Badges */}
+        {/* Left column: badges, education, skills */}
         <div className="lg:col-span-2 space-y-8">
-          {/* Badge Showcase */}
+          {/* Badges */}
           <Card className="p-10">
             <div className="flex items-center justify-between mb-10">
               <div className="flex items-center gap-4">
@@ -229,13 +308,12 @@ export default function StudentProfile() {
                 ))}
               </div>
             )}
-
             <Button variant="ghost" fullWidth className="mt-10 border border-dashed border-[var(--color-border)] py-6 rounded-2xl group">
               <span className="group-hover:scale-110 transition-transform">View All Achievements</span>
             </Button>
           </Card>
 
-          {/* Education & Experience */}
+          {/* Education & Skills grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <Card className="p-8">
               <h3 className="font-black text-xl text-[var(--color-text-primary)] mb-8 flex items-center gap-3 tracking-tight">
@@ -285,33 +363,32 @@ export default function StudentProfile() {
           </div>
         </div>
 
-        {/* Right Column: Socials, Bio & Change Password */}
+        {/* Right column: Bio, Change Password, Registry, Score */}
         <div className="space-y-8">
           <Card className="p-8">
             <h3 className="font-black text-xl text-[var(--color-text-primary)] mb-6 tracking-tight">Biography</h3>
             <p className="text-sm text-[var(--color-text-secondary)] leading-loose font-medium">
-              {bio}
+              {profile?.bio || 'No bio added yet. Click edit to tell something about yourself.'}
             </p>
             <div className="flex gap-3 mt-8">
-              {socialLinks.github && (
-                <a href={socialLinks.github} target="_blank" rel="noopener noreferrer" className="w-12 h-12 rounded-2xl bg-[var(--color-muted)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-text-secondary)] hover:bg-[var(--color-primary)] hover:text-white transition-all shadow-sm">
+              {profile?.socialLinks?.github && (
+                <a href={profile.socialLinks.github} target="_blank" rel="noopener noreferrer" className="w-12 h-12 rounded-2xl bg-[var(--color-muted)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-text-secondary)] hover:bg-[var(--color-primary)] hover:text-white transition-all shadow-sm">
                   <Github size={20} />
                 </a>
               )}
-              {socialLinks.linkedin && (
-                <a href={socialLinks.linkedin} target="_blank" rel="noopener noreferrer" className="w-12 h-12 rounded-2xl bg-[var(--color-muted)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-text-secondary)] hover:bg-[#0077b5] hover:text-white transition-all shadow-sm">
+              {profile?.socialLinks?.linkedin && (
+                <a href={profile.socialLinks.linkedin} target="_blank" rel="noopener noreferrer" className="w-12 h-12 rounded-2xl bg-[var(--color-muted)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-text-secondary)] hover:bg-[#0077b5] hover:text-white transition-all shadow-sm">
                   <Linkedin size={20} />
                 </a>
               )}
-              {socialLinks.twitter && (
-                <a href={socialLinks.twitter} target="_blank" rel="noopener noreferrer" className="w-12 h-12 rounded-2xl bg-[var(--color-muted)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-text-secondary)] hover:bg-[#1da1f2] hover:text-white transition-all shadow-sm">
+              {profile?.socialLinks?.twitter && (
+                <a href={profile.socialLinks.twitter} target="_blank" rel="noopener noreferrer" className="w-12 h-12 rounded-2xl bg-[var(--color-muted)] border border-[var(--color-border)] flex items-center justify-center text-[var(--color-text-secondary)] hover:bg-[#1da1f2] hover:text-white transition-all shadow-sm">
                   <Twitter size={20} />
                 </a>
               )}
             </div>
           </Card>
 
-          {/* Change Password Card */}
           <Card className="p-8">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-black text-xl text-[var(--color-text-primary)] tracking-tight">Security</h3>
@@ -320,7 +397,7 @@ export default function StudentProfile() {
             <Button
               variant="outline"
               fullWidth
-              onClick={() => setShowPasswordModal(true)}
+              onClick={() => setPasswordModalOpen(true)}
               className="border-dashed border-2 py-6 rounded-2xl"
             >
               Change Password
@@ -336,7 +413,7 @@ export default function StudentProfile() {
                 </div>
                 <div>
                   <p className="text-[10px] font-black text-[var(--color-text-secondary)] uppercase tracking-widest mb-0.5">Contact Line</p>
-                  <p className="text-sm font-bold text-[var(--color-text-primary)]">{phone}</p>
+                  <p className="text-sm font-bold text-[var(--color-text-primary)]">{profile?.phone || 'Not provided'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-4">
@@ -359,7 +436,7 @@ export default function StudentProfile() {
               <span className="text-white/40 font-bold mb-2 text-lg">/ 100</span>
             </div>
             <p className="text-white/60 text-xs mb-8 leading-relaxed relative z-10">
-              Your profile algorithm score is stronger than <span className="text-white font-black">92%</span> of competing students in your engineering cohort.
+              Your profile algorithm score is stronger than <span className="text-white font-black">92%</span> of competing students.
             </p>
             <Button variant="primary" fullWidth size="lg" className="bg-white text-[var(--color-text-primary)] hover:bg-gray-100 border-none">
               Optimization Guide
@@ -368,11 +445,122 @@ export default function StudentProfile() {
         </div>
       </div>
 
+      {/* Edit Profile Modal */}
+      {editModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-[var(--color-bg-card)] rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-[var(--color-border)]">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-black text-[var(--color-text-primary)]">Edit Profile</h2>
+              <button onClick={() => setEditModalOpen(false)} className="p-2 hover:bg-[var(--color-muted)] rounded-lg">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-bold mb-2">Program</label>
+                <input
+                  name="program"
+                  value={formData.program || ''}
+                  onChange={handleChange}
+                  className="w-full p-3 rounded-xl bg-[var(--color-muted)] border border-[var(--color-border)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  placeholder="e.g., Computer Engineering"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-2">Campus</label>
+                <input
+                  name="campus"
+                  value={formData.campus || ''}
+                  onChange={handleChange}
+                  className="w-full p-3 rounded-xl bg-[var(--color-muted)] border border-[var(--color-border)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  placeholder="e.g., Pulchowk Campus"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-2">Location</label>
+                <input
+                  name="location"
+                  value={formData.location || ''}
+                  onChange={handleChange}
+                  className="w-full p-3 rounded-xl bg-[var(--color-muted)] border border-[var(--color-border)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  placeholder="e.g., Kathmandu, NP"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-2">Bio</label>
+                <textarea
+                  name="bio"
+                  value={formData.bio || ''}
+                  onChange={handleChange}
+                  rows={4}
+                  className="w-full p-3 rounded-xl bg-[var(--color-muted)] border border-[var(--color-border)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  placeholder="Tell us about yourself"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-2">Phone</label>
+                <input
+                  name="phone"
+                  value={formData.phone || ''}
+                  onChange={handleChange}
+                  className="w-full p-3 rounded-xl bg-[var(--color-muted)] border border-[var(--color-border)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  placeholder="+977 9800000000"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-2">Profile Slug</label>
+                <input
+                  name="profileSlug"
+                  value={formData.profileSlug || ''}
+                  onChange={handleChange}
+                  className="w-full p-3 rounded-xl bg-[var(--color-muted)] border border-[var(--color-border)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  placeholder="your-unique-slug"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold mb-2">Social Links</label>
+                <div className="space-y-3">
+                  <input
+                    placeholder="GitHub URL"
+                    value={formData.socialLinks?.github || ''}
+                    onChange={(e) => handleSocialChange('github', e.target.value)}
+                    className="w-full p-3 rounded-xl bg-[var(--color-muted)] border border-[var(--color-border)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                  <input
+                    placeholder="LinkedIn URL"
+                    value={formData.socialLinks?.linkedin || ''}
+                    onChange={(e) => handleSocialChange('linkedin', e.target.value)}
+                    className="w-full p-3 rounded-xl bg-[var(--color-muted)] border border-[var(--color-border)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                  <input
+                    placeholder="Twitter URL"
+                    value={formData.socialLinks?.twitter || ''}
+                    onChange={(e) => handleSocialChange('twitter', e.target.value)}
+                    className="w-full p-3 rounded-xl bg-[var(--color-muted)] border border-[var(--color-border)] text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <Button variant="outline" fullWidth onClick={() => setEditModalOpen(false)}>Cancel</Button>
+                <Button variant="primary" fullWidth onClick={saveProfile} disabled={isSaving}>
+                  {isSaving ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Change Password Modal */}
-      {showPasswordModal && (
+      {passwordModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-[var(--color-bg-card)] rounded-2xl p-8 max-w-md w-full shadow-2xl border border-[var(--color-border)]">
-            <h2 className="text-2xl font-black mb-6 text-[var(--color-text-primary)]">Change Password</h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-black text-[var(--color-text-primary)]">Change Password</h2>
+              <button onClick={() => setPasswordModalOpen(false)} className="p-2 hover:bg-[var(--color-muted)] rounded-lg">
+                <X size={20} />
+              </button>
+            </div>
             <form onSubmit={handleChangePassword} className="space-y-5">
               <div>
                 <label className="block text-sm font-bold mb-2 text-[var(--color-text-secondary)]">Current Password</label>
@@ -406,21 +594,11 @@ export default function StudentProfile() {
                 />
               </div>
               <div className="flex gap-3 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  fullWidth
-                  onClick={() => setShowPasswordModal(false)}
-                >
+                <Button type="button" variant="outline" fullWidth onClick={() => setPasswordModalOpen(false)}>
                   Cancel
                 </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  fullWidth
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? 'Updating...' : 'Update Password'}
+                <Button type="submit" variant="primary" fullWidth disabled={isSaving}>
+                  {isSaving ? 'Updating...' : 'Update Password'}
                 </Button>
               </div>
             </form>
