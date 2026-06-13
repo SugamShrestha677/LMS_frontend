@@ -7,31 +7,53 @@ import { Button } from '@/components/ui/Button';
 import { Badge, ProgressBar } from '@/components/ui/Badge';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, 
-  Tooltip, ResponsiveContainer, BarChart, Bar, Cell 
+  Tooltip, ResponsiveContainer
 } from 'recharts';
-
-const activityData = [
-  { name: 'Jan', hours: 12, courses: 2 },
-  { name: 'Feb', hours: 18, courses: 3 },
-  { name: 'Mar', hours: 15, courses: 2 },
-  { name: 'Apr', hours: 24, courses: 4 },
-];
-
-const skillData = [
-  { subject: 'Frontend', score: 85, color: 'var(--color-primary)' },
-  { subject: 'Backend', score: 72, color: '#1E88E5' },
-  { subject: 'UI/UX', score: 90, color: '#F5A623' },
-  { subject: 'DevOps', score: 45, color: '#7C3AED' },
-  { subject: 'Soft Skills', score: 80, color: '#10B981' },
-];
-
-const learningPath = [
-  { id: 1, title: 'Web Development Bootcamp', progress: 100, status: 'Completed', date: '2024-02-15' },
-  { id: 2, title: 'React Advanced Mastery', progress: 65, status: 'In Progress', date: 'Ongoing' },
-  { id: 3, title: 'System Design Patterns', progress: 0, status: 'Locked', date: 'Next Up' },
-];
+import { useQuery } from '@tanstack/react-query';
+import { studentApi } from '@/lib/api/student';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 
 export default function ProgressPage() {
+  const { data: progressData, isLoading, error } = useQuery({
+    queryKey: ['student', 'progress'],
+    queryFn: () => studentApi.getProgress(),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-10 pb-12">
+        <Skeleton className="h-20 w-1/3" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+          <div className="lg:col-span-2 space-y-10">
+            <Skeleton className="h-[400px]" />
+            <Skeleton className="h-[300px]" />
+          </div>
+          <div className="space-y-8">
+            <Skeleton className="h-[300px]" />
+            <Skeleton className="h-[250px]" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center py-20 text-red-500">
+        Error loading progress data. Please try again later.
+      </div>
+    );
+  }
+
+  const { stats, activity_data, skill_data, learning_path, velocity } = progressData;
+
   return (
     <div className="space-y-10 pb-12">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -50,7 +72,7 @@ export default function ProgressPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Total Engagement"
-          value="69h"
+          value={stats?.total_engagement || '0h'}
           icon={<Clock size={22} />}
           change="+12% from last month"
           changePositive={true}
@@ -58,7 +80,7 @@ export default function ProgressPage() {
         />
         <StatCard
           title="Accreditations"
-          value="4"
+          value={stats?.accreditations || '0'}
           icon={<BookOpen size={22} />}
           change="+1 this month"
           changePositive={true}
@@ -66,7 +88,7 @@ export default function ProgressPage() {
         />
         <StatCard
           title="Skill Points"
-          value="2,450"
+          value={stats?.skill_points || '0'}
           icon={<Target size={22} />}
           change="+450 XP earned"
           changePositive={true}
@@ -74,9 +96,9 @@ export default function ProgressPage() {
         />
         <StatCard
           title="Global Standing"
-          value="#124"
+          value={stats?.rank || 'N/A'}
           icon={<Award size={22} />}
-          change="Top 5% in Network"
+          change={stats?.global_standing || 'Unranked'}
           changePositive={true}
           color="#7C3AED"
         />
@@ -97,7 +119,7 @@ export default function ProgressPage() {
             </div>
             <div className="h-[340px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={activityData}>
+                <AreaChart data={activity_data || []}>
                   <defs>
                     <linearGradient id="colorHours" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.2}/>
@@ -130,41 +152,45 @@ export default function ProgressPage() {
               <Activity size={22} className="text-[var(--color-primary)]" /> Curriculum Roadmap
             </h3>
             <div className="space-y-8">
-              {learningPath.map((item, idx) => (
-                <div key={item.id} className="relative">
-                  {idx !== learningPath.length - 1 && (
-                    <div className="absolute left-[21px] top-12 bottom-[-32px] w-1 bg-[var(--color-border)] rounded-full" />
-                  )}
-                  <div className="flex gap-8">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 z-10 border-4 border-[var(--color-bg-card)] ${
-                      item.progress === 100 
-                        ? 'bg-green-500 text-white shadow-lg shadow-green-500/20' 
-                        : item.progress > 0 
-                        ? 'bg-[var(--color-primary)] text-white shadow-lg shadow-[var(--color-primary)]/20' 
-                        : 'bg-[var(--color-muted)] text-[var(--color-text-secondary)]'
-                    }`}>
-                      {item.progress === 100 ? <Award size={24} /> : <BookOpen size={24} />}
-                    </div>
-                    <div className="flex-1 pb-10">
-                      <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4 mb-4">
-                        <div>
-                          <h4 className="font-black text-xl text-[var(--color-text-primary)] tracking-tight">{item.title}</h4>
-                          <p className="text-[10px] font-black text-[var(--color-text-secondary)] flex items-center gap-2 mt-1 uppercase tracking-widest">
-                            <Calendar size={12} className="text-[var(--color-primary)]" /> {item.date}
-                          </p>
-                        </div>
-                        <Badge variant={item.progress === 100 ? 'success' : item.progress > 0 ? 'primary' : 'secondary'} size="sm">
-                          {item.status}
-                        </Badge>
+              {!learning_path || learning_path.length === 0 ? (
+                <div className="text-center py-10 text-[var(--color-text-secondary)]">No enrolled courses yet.</div>
+              ) : (
+                learning_path.map((item: any, idx: number) => (
+                  <div key={item.id} className="relative">
+                    {idx !== learning_path.length - 1 && (
+                      <div className="absolute left-[21px] top-12 bottom-[-32px] w-1 bg-[var(--color-border)] rounded-full" />
+                    )}
+                    <div className="flex gap-8">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 z-10 border-4 border-[var(--color-bg-card)] ${
+                        item.progress === 100 
+                          ? 'bg-green-500 text-white shadow-lg shadow-green-500/20' 
+                          : item.progress > 0 
+                          ? 'bg-[var(--color-primary)] text-white shadow-lg shadow-[var(--color-primary)]/20' 
+                          : 'bg-[var(--color-muted)] text-[var(--color-text-secondary)]'
+                      }`}>
+                        {item.progress === 100 ? <Award size={24} /> : <BookOpen size={24} />}
                       </div>
-                      <div className="flex items-center gap-4">
-                        <ProgressBar value={item.progress} className="flex-1 h-3" color={item.progress === 100 ? 'var(--color-success)' : 'var(--color-primary)'} />
-                        <span className="text-xs font-mono font-black text-[var(--color-text-primary)] min-w-[40px]">{item.progress}%</span>
+                      <div className="flex-1 pb-10">
+                        <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4 mb-4">
+                          <div>
+                            <h4 className="font-black text-xl text-[var(--color-text-primary)] tracking-tight">{item.title}</h4>
+                            <p className="text-[10px] font-black text-[var(--color-text-secondary)] flex items-center gap-2 mt-1 uppercase tracking-widest">
+                              <Calendar size={12} className="text-[var(--color-primary)]" /> {item.date}
+                            </p>
+                          </div>
+                          <Badge variant={item.progress === 100 ? 'success' : item.progress > 0 ? 'primary' : 'secondary'} size="sm">
+                            {item.status}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <ProgressBar value={item.progress} className="flex-1 h-3" color={item.progress === 100 ? 'var(--color-success)' : 'var(--color-primary)'} />
+                          <span className="text-xs font-mono font-black text-[var(--color-text-primary)] min-w-[40px]">{Math.round(item.progress)}%</span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </Card>
         </div>
@@ -173,15 +199,19 @@ export default function ProgressPage() {
           <Card className="p-8">
             <h3 className="font-black text-xl text-[var(--color-text-primary)] mb-8 tracking-tight">Competency Matrix</h3>
             <div className="space-y-8">
-              {skillData.map((skill) => (
-                <div key={skill.subject}>
-                  <div className="flex justify-between text-[10px] font-black mb-2 uppercase tracking-widest">
-                    <span className="text-[var(--color-text-secondary)]">{skill.subject}</span>
-                    <span style={{ color: skill.color }}>{skill.score}%</span>
+              {!skill_data || skill_data.length === 0 ? (
+                 <div className="text-[var(--color-text-secondary)] text-sm">No skill data available. Enroll in courses to build competencies.</div>
+              ) : (
+                skill_data.map((skill: any) => (
+                  <div key={skill.subject}>
+                    <div className="flex justify-between text-[10px] font-black mb-2 uppercase tracking-widest">
+                      <span className="text-[var(--color-text-secondary)]">{skill.subject}</span>
+                      <span style={{ color: skill.color }}>{skill.score}%</span>
+                    </div>
+                    <ProgressBar value={skill.score} color={skill.color} className="h-2.5" />
                   </div>
-                  <ProgressBar value={skill.score} color={skill.color} className="h-2.5" />
-                </div>
-              ))}
+                ))
+              )}
             </div>
             <Button variant="outline" fullWidth size="lg" className="mt-10 rounded-xl font-black uppercase text-[10px] tracking-widest gap-2">
               Generate PDF Report <ChevronRight size={16} />
@@ -199,14 +229,14 @@ export default function ProgressPage() {
               </div>
             </div>
             <p className="text-sm font-medium text-[var(--color-text-secondary)] mb-8 leading-relaxed">
-              You&apos;ve logged <span className="font-black text-amber-600">12 technical hours</span> this week. Complete <span className="text-[var(--color-text-primary)] font-black">3 more</span> to achieve your milestone.
+              You&apos;ve logged <span className="font-black text-amber-600">{velocity?.logged_hours || 0} technical hours</span> this week. Complete <span className="text-[var(--color-text-primary)] font-black">{Math.max(0, (velocity?.target_hours || 15) - (velocity?.logged_hours || 0))} more</span> to achieve your milestone.
             </p>
             <div className="mb-10">
               <div className="flex justify-between text-[10px] font-black mb-2 text-amber-600 uppercase tracking-widest">
                 <span>Threshold Progress</span>
-                <span>80%</span>
+                <span>{velocity?.progress_percentage || 0}%</span>
               </div>
-              <ProgressBar value={80} color="#F5A623" className="h-3" />
+              <ProgressBar value={velocity?.progress_percentage || 0} color="#F5A623" className="h-3" />
             </div>
             <Button variant="primary" fullWidth size="lg" className="bg-amber-500 hover:bg-amber-600 border-none shadow-lg shadow-amber-500/20">
               Optimize Schedule
