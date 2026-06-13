@@ -6,6 +6,6 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: '*',
       allow: '/',
     },
-    sitemap: 'https://skillbridge-eight-iota.vercel.app/sitemap.xml',
+    sitemap: 'https://buildandhire.me',
   };
 }
