@@ -17,7 +17,7 @@ import { getInitials } from '@/lib/utils';
 import { studentApi } from '@/lib/api/student';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-
+import { StudentBadges } from '@/components/badges/StudentBadges';
 // ─── Types matching backend StudentProfileSerializer ─────────
 interface ProfileResponse {
   id: number;
@@ -343,6 +343,8 @@ export default function StudentProfile() {
               ))}
             </div>
           </Card>
+
+          <StudentBadges />
         </div>
 
         {/* ─── Right Column ────────────────────────────── */}
