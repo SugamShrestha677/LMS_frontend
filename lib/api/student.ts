@@ -55,15 +55,34 @@ export const studentApi = {
     return unwrapResponse(res.data);
   },
 
+  // ─── Profile (uses /accounts/users/me/) ─────────────────────
   getProfile: async () => {
-    const res = await api.get('/student/profile/');
+    const res = await api.get('/accounts/users/me/');
     return unwrapResponse(res.data);
   },
 
-  updateProfile: async (data: FormData) => {
-    const res = await api.patch('/student/profile/', data, {
+  updateProfile: async (data: Record<string, unknown>) => {
+    const res = await api.patch('/accounts/users/me/', data);
+    return unwrapResponse(res.data);
+  },
+
+  // ─── Avatar upload (Cloudinary) ─────────────────────────────
+  uploadAvatar: async (file: File) => {
+    const fd = new FormData();
+    fd.append('image', file);
+    const res = await api.post('/accounts/upload-profile-picture/', fd, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
+    return unwrapResponse(res.data);
+  },
+
+  // ─── Password change ───────────────────────────────────────
+  changePassword: async (data: {
+    old_password: string;
+    new_password: string;
+    confirm_password: string;
+  }) => {
+    const res = await api.post('/accounts/auth/change-password', data);
     return unwrapResponse(res.data);
   },
 
@@ -109,3 +128,4 @@ export const studentApi = {
     return unwrapResponse(res.data);
   },
 };
+
