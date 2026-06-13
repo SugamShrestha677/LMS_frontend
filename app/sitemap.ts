@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://skillbridge-eight-iota.vercel.app';
+  const baseUrl = 'https://buildandhire.me';
 
   return [
     {
