@@ -31,6 +31,7 @@ import { useLiveSessions } from '@/lib/hooks/useLiveSessions';
 import { CoursePaymentModal } from '@/components/student/CoursePaymentModal';
 import { format, formatDistanceToNow, isPast, isFuture } from 'date-fns';
 import { useEnrollmentProgress } from '@/hooks/useEnrollmentProgress';
+import { CourseAvailableBadges } from '@/components/badges/CourseAvailableBadges';
 
 export default function CoursePlayer() {
   const params = useParams();
@@ -1285,12 +1286,13 @@ export default function CoursePlayer() {
             </div>
           )}
 
+          <CourseAvailableBadges courseId={courseId} />
+
           <CoursePaymentModal
             course={course}
             isOpen={showPaymentModal}
             onClose={() => setShowPaymentModal(false)}
           />
-
 
           {canAccessContent && (
             <>
