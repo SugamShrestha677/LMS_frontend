@@ -1,7 +1,7 @@
 const LOCAL_API_URL = 'http://127.0.0.1:8000/api';
 const PRODUCTION_API_URL = 'https://lms-backend-eff3.onrender.com/api';
 const LOCAL_APP_URL = 'http://localhost:3000';
-const PRODUCTION_APP_URL = 'https://skillbridge-eight-iota.vercel.app';
+const PRODUCTION_APP_URL = 'https://buildandhire.me';
 
 function isLocalHost(hostname: string): boolean {
   return hostname === 'localhost' || hostname === '127.0.0.1';
