@@ -8,36 +8,74 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   metadataBase: new URL(resolveAppBaseUrl()),
-  title: 'Leapfrog Connect | Learning Management System',
+  applicationName: 'Leapfrog Connect',
+  title: 'Leapfrog Connect | Learn Skills & Build Careers',
   description:
-  'Learn job-ready skills, track progress, and connect education with career opportunities.',
+    'Leapfrog Connect is an online learning platform that helps students develop job-ready skills, track progress, and connect education with career opportunities.',
+  keywords: [
+    'Leapfrog Connect',
+    'online learning platform',
+    'learning management system',
+    'LMS Nepal',
+    'student career platform',
+    'job ready skills',
+    'online courses',
+    'skill development platform',
+    'career development',
+    'education platform Nepal',
+  ],
 
+  referrer: 'origin-when-cross-origin',
+
+  authors: [
+    {
+      name: 'Leapfrog Connect',
+      url: 'https://buildandhire.me',
+    },
+  ],
+
+  creator: 'Leapfrog Connect',
+  publisher: 'Leapfrog Connect',
+
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+      'max-video-preview': -1,
+    },
+  },
+
+  category: 'education',
   verification: {
     google: '6nAkUvyJNiUYmFWrdAFlU7JQDaNiu6EBSBf9XbB0LTM',
   },
 
   openGraph: {
-    title: 'Leapfrog Connect | Learning Management System',
+    title: 'Leapfrog Connect | Learn Skills & Build Careers',
     description:
-      'Learn job-ready skills, track progress, and connect education with career opportunities.',
-    url: 'https://skillbridge-eight-iota.vercel.app',
+      'Leapfrog Connect is an online learning platform that helps students develop job-ready skills, track progress, and connect education with career opportunities.',
+    url: 'https://buildandhire.me',
     siteName: 'Leapfrog Connect',
     type: 'website',
     images: [
-    {
-      url: '/icon001.png',
-      width: 512,
-      height: 512,
-      alt: 'Leapfrog Connect',
-    },
-  ],
+      {
+        url: '/icon001.png',
+        width: 512,
+        height: 512,
+        alt: 'Leapfrog Connect',
+      },
+    ],
   },
 
   twitter: {
     card: 'summary_large_image',
-    title: 'Leapfrog Connect | Learning Management System',
+    title: 'Leapfrog Connect | Learn Skills & Build Careers',
     description:
-      'Learn job-ready skills, track progress, and connect education with career opportunities.',
+      'Leapfrog Connect is an online learning platform that helps students develop job-ready skills, track progress, and connect education with career opportunities.',
     images: ['/icon001.png'],
   },
 
@@ -78,8 +116,18 @@ export default function RootLayout({
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: 'Leapfrog Connect',
-    url: 'https://skillbridge-eight-iota.vercel.app',
-    logo: 'https://skillbridge-eight-iota.vercel.app/icon001.png',
+    url: 'https://buildandhire.me',
+    logo: 'https://buildandhire.me/icon001.png',
+    description:
+      'Learning management platform that connects education with career opportunities.',
+  };
+
+
+  const websiteSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'Leapfrog Connect',
+    url: 'https://buildandhire.me',
   };
   return (
     <html lang="en">
@@ -88,6 +136,13 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify(organizationSchema),
+          }}
+        />
+
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(websiteSchema),
           }}
         />
         <Providers>
