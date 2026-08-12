@@ -1,5 +1,3 @@
-'use client';
-
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';

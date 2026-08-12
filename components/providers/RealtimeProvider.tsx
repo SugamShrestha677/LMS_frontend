@@ -77,7 +77,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         onError: (error) => setError(error.message),
       });
       lastTokenRef.current = accessToken;
-      void globalClient.connect();
+      // void globalClient.connect();
     } else if (lastTokenRef.current !== accessToken) {
       lastTokenRef.current = accessToken;
       globalClient.updateToken(accessToken);

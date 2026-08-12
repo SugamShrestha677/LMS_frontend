@@ -62,9 +62,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <RealtimeProvider>
+      {/* <RealtimeProvider> */}
         {children}
-      </RealtimeProvider>
+      {/* </RealtimeProvider> */}
       <Toaster 
         position="top-right"
         richColors
